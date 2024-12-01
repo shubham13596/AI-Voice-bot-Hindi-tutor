@@ -8,7 +8,6 @@ import wave
 import os
 import json
 from dotenv import load_dotenv
-from nltk.tokenize import sent_tokenize
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
 import json
