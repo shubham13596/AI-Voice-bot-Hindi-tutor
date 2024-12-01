@@ -9,7 +9,6 @@ import os
 import json
 from dotenv import load_dotenv
 from nltk.tokenize import sent_tokenize
-import nltk
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
 import json
@@ -18,16 +17,6 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Download necessary NLTK data
-# With this safer approach:
-import os
-import nltk
-nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
-os.makedirs(nltk_data_dir, exist_ok=True)
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', download_dir=nltk_data_dir)
 
 # Load environment variables
 load_dotenv()
@@ -98,13 +87,32 @@ def get_initial_conversation():
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
 def count_hindi_sentences(text):
-    """Count the number of Hindi sentences in the text"""
+    """Count the number of Hindi sentences using GPT-4"""
     try:
-        sentences = sent_tokenize(text, language='hindi')
-        return len(sentences)
-    except:
+        client = openai.OpenAI()
+        
+        prompt = f"""
+        Count the number of complete sentences in this Hindi text and return ONLY the number:
+        {text}
+        
+        Return response in JSON format:
+        {{"sentence_count": number}}
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": prompt}],
+            response_format={ "type": "json_object" },
+            temperature=0
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return result.get('sentence_count', 0)
+        
+    except Exception as e:
+        print(f"Error counting sentences: {str(e)}")
         # Fallback: basic period-based counting
-        return len([s for s in text.split('.') if s.strip()])
+        return len([s for s in text.split('।') if s.strip()])
 
 def calculate_rewards(sentence_count):
     """Calculate reward points based on sentence count"""
