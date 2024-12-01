@@ -19,7 +19,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Download necessary NLTK data
-nltk.download('punkt')
+# With this safer approach:
+import os
+import nltk
+nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
+os.makedirs(nltk_data_dir, exist_ok=True)
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', download_dir=nltk_data_dir)
 
 # Load environment variables
 load_dotenv()
