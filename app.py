@@ -85,7 +85,7 @@ def get_initial_conversation():
         print(f"Error in initial conversation: {str(e)}")
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
-def count_hindi_sentences(text):
+#def count_hindi_sentences(text):
     """Count the number of Hindi sentences using GPT-4"""
     try:
         client = openai.OpenAI()
@@ -396,6 +396,9 @@ def process_audio():
             return jsonify({'error': 'Invalid session'}), 400
             
         session_data = user_sessions[session_id]
+
+        # Simply increment sentence count by 1 for each user interaction
+        session_data['sentence_count'] += 1
         
         audio_file = request.files['audio']
         
@@ -411,8 +414,8 @@ def process_audio():
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
         # Count sentences and update rewards
-        sentence_count = count_hindi_sentences(transcript)
-        session_data['sentence_count'] += sentence_count
+        #sentence_count = count_hindi_sentences(transcript)
+        #session_data['sentence_count'] += sentence_count
         new_rewards = calculate_rewards(session_data['sentence_count'])
         
         if new_rewards > 0:
