@@ -1,5 +1,87 @@
 let audioEffects = null;
 
+// First, let's add the necessary styles to the document
+const recordingStyles = document.createElement('style');
+recordingStyles.textContent = `
+    /* Recording button animations */
+    .recording-pulse {
+        position: relative;
+    }
+
+    .recording-pulse::before {
+        content: '';
+        position: absolute;
+        inset: -4px;  /* Creates space around the button */
+        border-radius: 9999px;  /* Fully rounded */
+        border: 2px solid #ef4444;  /* Red border */
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Recording indicator animations */
+    .recording-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background-color: rgba(239, 68, 68, 0.1);
+        border-radius: 9999px;
+        white-space: nowrap;
+    }
+
+    .recording-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        animation: blink 1s ease-in-out infinite;
+    }
+
+    /* Button press animation */
+    .button-press {
+        animation: pressDown 0.1s ease-out;
+    }
+
+    /* Keyframe animations */
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.5;
+            transform: scale(1.05);
+        }
+    }
+
+    @keyframes blink {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.3;
+        }
+    }
+
+    @keyframes pressDown {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(0.95);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+`;
+
+document.head.appendChild(recordingStyles);
+
 function initializeAudioEffects() {
     const audioEffects = {
         firstMessage: new Audio('/static/sounds/first-message.mp3'),
@@ -61,45 +143,6 @@ function animateWaveform() {
 }
     */
 
-// Show celebration overlay
-/*function showCelebration(type, message) {
-    const overlay = document.createElement('div');
-    overlay.className = 'celebration-overlay';
-    
-    const content = document.createElement('div');
-    content.className = 'celebration-content';
-    
-    // Add Captain America shield for milestones
-    if (type === 'milestone') {
-        const captain = document.createElement('div');
-        captain.className = 'captain-container';
-        const shield = document.createElement('div');
-        shield.className = 'captain-shield';
-        captain.appendChild(shield);
-        content.appendChild(captain);
-    }
-    
-    const messageEl = document.createElement('div');
-    messageEl.className = 'celebration-message';
-    messageEl.textContent = message;
-    content.appendChild(messageEl);
-    
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
-    
-    // Play celebration sound
-    const audio = audioEffects[type];
-    if (audio) {
-        audio.play().catch(e => console.log('Audio playback failed:', e));
-    }
-    
-    // Remove after delay
-    setTimeout(() => {
-        overlay.style.animation = 'fadeOut 0.5s ease-out';
-        setTimeout(() => overlay.remove(), 500);
-    }, 5000);
-}
-*/
 
 // Show celebration overlay with improved styling
 function showCelebration(type, message) {
@@ -329,28 +372,49 @@ function toggleRecording() {
         return;
     }
 
+    // Add button press animation
+    elements.recordButton.classList.add('button-press');
+    setTimeout(() => elements.recordButton.classList.remove('button-press'), 100);
+
     if (!isRecording) {
         mediaRecorder.start();
         isRecording = true;
         elements.recordText.textContent = 'Stop Speaking';
         elements.recordIcon.textContent = '⏹️';
-        //elements.status.textContent = 'Listening...';
-        elements.recordButton.classList.add('bg-red-500');
-        //waveform.classList.remove('hidden');
-        //animateWaveform();
+        elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
+        
+        // Add recording indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'recording-indicator';
+        indicator.innerHTML = `
+            <div class="recording-dot"></div>
+            <span class="text-red-500 text-sm font-medium">Recording...</span>
+        `;
+        elements.recordButton.appendChild(indicator);
+
+        // Optional: Add a subtle background animation to the conversation area
+        elements.conversation.style.boxShadow = 'inset 0 0 10px rgba(239, 68, 68, 0.1)';
+
     } else {
+
         mediaRecorder.stop();
         isRecording = false;
-        //recordText.textContent = 'Start Speaking';
-        //recordIcon.textContent = '🎤';
-        //recordButton.classList.remove('bg-red-500');
 
         // Update UI to show processing state
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
-        elements.recordButton.classList.remove('bg-red-500');
+        elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
         elements.recordText.textContent = 'Processing...';
         elements.recordIcon.textContent = '⏳';
+
+        // Remove recording indicator
+        const indicator = elements.recordButton.querySelector('.recording-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+        
+        // Remove conversation area animation
+        elements.conversation.style.boxShadow = '';
 
         // Create a processing message in the conversation
         const processingDiv = document.createElement('div');
@@ -359,8 +423,6 @@ function toggleRecording() {
         processingDiv.textContent = 'Your Hindi Friend is thinking ...';
         elements.conversation.appendChild(processingDiv);
         elements.conversation.scrollTop = elements.conversation.scrollHeight;
-        //waveform.classList.add('hidden');
-        //cancelAnimationFrame(waveformAnimationFrame);
     }
 }
 
