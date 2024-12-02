@@ -124,7 +124,7 @@ def get_initial_conversation():
 
 def calculate_rewards(sentence_count):
     """Calculate reward points based on sentence count"""
-    if sentence_count >= 3:
+    if sentence_count % 2 == 0:
         return 10
     return 0
 
@@ -453,6 +453,7 @@ def process_audio():
         # Simply increment sentence count by 1 for each user interaction
         session_data['sentence_count'] += 1
         logger.info(f"Updated sentence count: {session_data['sentence_count']}")
+        session_store.save_session(session_id, session_data)
         
         audio_file = request.files['audio']
         
@@ -497,6 +498,9 @@ def process_audio():
             {"role": "user", "content": transcript},
             {"role": "assistant", "content": response_text['response']}
         ])
+
+        # Add this line to save all updates
+        session_store.save_session(session_id, session_data)
         
         # Clean up temporary files
         if os.path.exists(temp_input):
