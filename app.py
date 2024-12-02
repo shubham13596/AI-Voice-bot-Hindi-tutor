@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 import openai
 import logging
+import logging.config
 import requests
 import base64
 import wave
@@ -13,6 +14,30 @@ import io
 import redis
 from datetime import datetime, timedelta
 import json
+import tempfile
+import time
+
+
+# Configure logging first so it's available throughout the application
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        }
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    }
+})
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -243,35 +268,40 @@ def start_conversation():
 def text_to_speech_hindi(text, output_filename="response.wav"):
     """Convert text to speech using ElevenLabs"""
     try:
-        # Convert text to audio stream using ElevenLabs
-        # You can adjust the voice_id and settings as needed
-        audio_stream = eleven_labs.text_to_speech.convert_as_stream(
-            text=text,
-            model_id="eleven_turbo_v2_5",
-            language_code="hi",
-            voice_id="cgSgspJ2msm6clMCkdW9",  # Replace with your preferred Hindi voice ID
-            optimize_streaming_latency="3",  # Maximum latency optimization
-            output_format="mp3_44100_128",
-            voice_settings=VoiceSettings(
-                stability=0.3,
-                similarity_boost=0.5,
-                style=0.0,
-            )
-        )
-        
-        # Read the entire stream into a buffer
-        audio_data = io.BytesIO()
-        for chunk in audio_stream:
-            audio_data.write(chunk)
-        
-        # Convert to base64 for sending to frontend
-        audio_base64 = base64.b64encode(audio_data.getvalue()).decode('utf-8')
-        
-        # Optionally save the audio file if needed
-        with open(output_filename, 'wb') as f:
-            f.write(audio_data.getvalue())
-            
-        return audio_base64
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                audio_stream = eleven_labs.text_to_speech.convert_as_stream(
+                    text=text,
+                    model_id="eleven_turbo_v2_5",
+                    language_code="hi",
+                    voice_id="cgSgspJ2msm6clMCkdW9",
+                    optimize_streaming_latency="3",
+                    output_format="mp3_44100_128",
+                    voice_settings=VoiceSettings(
+                        stability=0.3,
+                        similarity_boost=0.5,
+                        style=0.0,
+                    )
+                )
+                
+                audio_data = io.BytesIO()
+                for chunk in audio_stream:
+                    audio_data.write(chunk)
+                
+                audio_base64 = base64.b64encode(audio_data.getvalue()).decode('utf-8')
+                
+                if output_filename:
+                    with open(output_filename, 'wb') as f:
+                        f.write(audio_data.getvalue())
+                        
+                return audio_base64
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                logger.warning(f"TTS attempt {attempt + 1} failed: {e}")
+                time.sleep(0.1 * (attempt + 1))
         
     except Exception as e:
         print(f"TTS Error: {str(e)}")
@@ -296,19 +326,19 @@ def speech_to_text_hindi(audio_data):
         }
     
     try:
-        response = requests.post(SARVAM_STT_URL, headers=headers, files = files, data=data)
-        
-        # Log response details
-        logger.debug(f"Response status: {response.status_code}")
-        logger.debug(f"Response content: {response.text[:200]}...")
-
-        response.raise_for_status()
-        
-        result = response.json()
-        logger.debug(f"Parsed response: {result}")
-        
-        # Return transcript from response
-        return result.get("transcript")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
+                response.raise_for_status()
+                result = response.json()
+                return result.get("transcript")
+                
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                logger.warning(f"STT attempt {attempt + 1} failed: {e}")
+                time.sleep(0.1 * (attempt + 1))
 
     except Exception as e:
         print(f"STT Error: {str(e)}")
@@ -422,6 +452,7 @@ def translate_text():
 
 @app.route('/api/process_audio', methods=['POST'])
 def process_audio():
+    temp_file = None
     try:
         # Log incoming request data
         logger.info("Received process_audio request")
@@ -436,6 +467,9 @@ def process_audio():
         logger.info(f"Received session_id: {session_id}")
         if not session_id:
             return jsonify({'error': 'No session ID provided'}), 400
+        
+        # Create a safe filename by removing problematic characters
+        #safe_session_id = session_id.replace('/', '_').replace('\\', '_')
         
         session_data = session_store.load_session(session_id)
         if not session_data:
@@ -455,15 +489,22 @@ def process_audio():
         logger.info(f"Updated sentence count: {session_data['sentence_count']}")
         session_store.save_session(session_id, session_data)
         
-        audio_file = request.files['audio']
+        # Use tempfile for secure file handling
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            audio_file = request.files['audio']
+            audio_file.save(temp_file.name)
+
+            with open(temp_file.name, 'rb') as f:
+                transcript = speech_to_text_hindi(f.read())
+        
+        #audio_file = request.files['audio']
         
         # Save incoming audio temporarily
-        temp_input = f"temp_input_{session_id}.wav"
-        audio_file.save(temp_input)
+        #temp_input = f"temp_input_{session_id}.wav"
 
         # Convert speech to text
-        with open(temp_input, 'rb') as f:
-            transcript = speech_to_text_hindi(f.read())
+        #with open(temp_input, 'rb') as f:
+        #   transcript = speech_to_text_hindi(f.read())
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
@@ -503,8 +544,13 @@ def process_audio():
         session_store.save_session(session_id, session_data)
         
         # Clean up temporary files
-        if os.path.exists(temp_input):
-            os.remove(temp_input)
+        #if os.path.exists(temp_input):
+        #   os.remove(temp_input)
+
+        try:
+            os.unlink(temp_file.name)
+        except Exception as e:
+                logger.error(f"Failed to delete temporary file: {e}")
         
         return jsonify({
             'text': response_text['response'],
@@ -517,8 +563,9 @@ def process_audio():
         })
         
     except Exception as e:
-        print(f"Process Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Process Error: {str(e)}")
+        logger.exception("Full traceback:")  # Add full traceback logging
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 #def save_sessions():
@@ -552,7 +599,21 @@ def process_audio():
     except Exception as e:
         logger.error(f"Failed to load sessions: {e}")
         return {}
-    
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    try:
+        # Check Redis connection
+        session_store.redis.ping()
+        
+        # Check ElevenLabs API
+        eleven_labs.voices.list()
+        
+        return jsonify({'status': 'healthy'}), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 # Session storage interface
 class SessionStore:
