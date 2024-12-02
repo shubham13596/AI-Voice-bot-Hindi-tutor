@@ -62,7 +62,7 @@ function animateWaveform() {
     */
 
 // Show celebration overlay
-function showCelebration(type, message) {
+/*function showCelebration(type, message) {
     const overlay = document.createElement('div');
     overlay.className = 'celebration-overlay';
     
@@ -97,6 +97,160 @@ function showCelebration(type, message) {
     setTimeout(() => {
         overlay.style.animation = 'fadeOut 0.5s ease-out';
         setTimeout(() => overlay.remove(), 500);
+    }, 5000);
+}
+*/
+
+// Show celebration overlay with improved styling
+function showCelebration(type, message) {
+    // Create main overlay container
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in';
+    
+    // Create content container
+    const content = document.createElement('div');
+    content.className = 'bg-white rounded-lg p-6 mx-4 max-w-md w-full transform scale-in';
+    
+    // Add appropriate icon based on celebration type
+    const icon = document.createElement('div');
+    icon.className = 'text-center mb-4';
+    
+    if (type === 'milestone') {
+        // Create Captain America shield animation
+        icon.innerHTML = `
+            <div class="shield-container mx-auto w-24 h-24 mb-4">
+                <div class="shield animate-spin-slow">
+                    <div class="shield-inner">
+                        <div class="star"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (type === 'firstMessage') {
+        // Add star burst animation
+        icon.innerHTML = `
+            <div class="star-burst mx-auto w-24 h-24 mb-4">
+                ⭐
+            </div>
+        `;
+    }
+    
+    // Add message
+    const messageEl = document.createElement('div');
+    messageEl.className = 'text-center text-lg font-medium text-gray-800 mb-6';
+    messageEl.textContent = message;
+    
+    // Add continue button
+    const button = document.createElement('button');
+    button.className = 'w-full bg-purple-600 text-white rounded-lg py-2 px-4 hover:bg-purple-700 transition-colors';
+    button.textContent = 'Continue';
+    button.onclick = () => {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 500);
+    };
+    
+    // Assemble the components
+    content.appendChild(icon);
+    content.appendChild(messageEl);
+    content.appendChild(button);
+    overlay.appendChild(content);
+    
+    // Add to document
+    document.body.appendChild(overlay);
+    
+    // Play celebration sound
+    const audio = audioEffects[type];
+    if (audio) {
+        audio.play().catch(e => console.log('Audio playback failed:', e));
+    }
+    
+    // Add necessary styles
+    const styles = document.createElement('style');
+    styles.textContent = `
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .fade-out {
+            animation: fadeOut 0.3s ease-in forwards;
+        }
+        
+        .scale-in {
+            animation: scaleIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+        }
+        
+        .shield-container {
+            perspective: 800px;
+        }
+        
+        .shield {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            border-radius: 50%;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+        
+        .shield-inner {
+            position: absolute;
+            inset: 10%;
+            background: radial-gradient(circle, #0000cc, #000099);
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .star {
+            position: absolute;
+            inset: 25%;
+            background: white;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+        
+        .star-burst {
+            font-size: 48px;
+            animation: starBurst 2s infinite;
+        }
+        
+        @keyframes starBurst {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+    `;
+    
+    document.head.appendChild(styles);
+    
+    // Auto-remove after 5 seconds if user hasn't clicked continue
+    setTimeout(() => {
+        if (document.body.contains(overlay)) {
+            overlay.classList.add('fade-out');
+            setTimeout(() => overlay.remove(), 500);
+        }
     }, 5000);
 }
 
