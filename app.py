@@ -322,7 +322,9 @@ def home():
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
-                             'favicon.ico', mimetype='image/vnd.microsoft.icon')
+                             'favicon.ico', 
+                             mimetype='image/vnd.microsoft.icon',
+                             as_attachment=False)
 
 #Make sure process_audio.js is served correctly
 # Optional: Add a specific route for process_audio.js if needed
@@ -331,7 +333,8 @@ def serve_js():
     return send_from_directory(
         os.path.join(app.root_path, 'static', 'js'),
         'process_audio.js',
-        mimetype='application/javascript'
+        mimetype='application/javascript',
+        as_attachment=False
     )
 
 @app.route('/api/speak', methods=['POST'])
