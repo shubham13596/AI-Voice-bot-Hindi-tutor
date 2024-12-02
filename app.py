@@ -10,12 +10,16 @@ import json
 from dotenv import load_dotenv
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
+import redis
 from datetime import datetime, timedelta
 import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize Redis with Heroku Redis URL
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+redis_client = redis.from_url(redis_url)
 
 # Load environment variables
 load_dotenv()
@@ -193,16 +197,22 @@ def start_conversation():
         
         session_id = base64.b64encode(os.urandom(16)).decode('utf-8')
 
-        # Initialize session with timestamp
-        user_sessions[session_id] = {
+        # Initialize session data
+        session_data = {
             'conversation_history': [],
             'sentence_count': 0,
             'reward_points': 0,
             'created_at': datetime.now()
         }
+        
+        # Save session
+        session_store.save_session(session_id, session_data)
 
-        # Save sessions after creating new one
-        save_sessions()
+        # Add initial message
+        session_data['conversation_history'].append({
+            'role': 'assistant',
+            'content': initial_message
+        })
 
         logger.info("Conversation started successfully")
         
@@ -218,10 +228,7 @@ def start_conversation():
         logger.exception("Full traceback:")
         return jsonify({'error': str(e)}), 500
     
-# Add session cleanup to before_request
-@app.before_request
-def before_request():
-    cleanup_old_sessions()
+
 
 
 def text_to_speech_hindi(text, output_filename="response.wav"):
@@ -415,14 +422,19 @@ def process_audio():
         
         session_id = request.form.get('session_id')
         logger.info(f"Received session_id: {session_id}")
+        if not session_id:
+            return jsonify({'error': 'No session ID provided'}), 400
+        
+        session_data = session_store.load_session(session_id)
+        if not session_data:
+            logger.error(f"Invalid session ID: {session_id}")
+            return jsonify({'error': 'Invalid or expired session'}), 400
 
-        if not session_id or session_id not in user_sessions:
+        #if not session_id or session_id not in user_sessions:
             logger.error(f"Session ID {session_id} not found in user_sessions")
             logger.info(f"Available sessions: {list(user_sessions.keys())}")
             return jsonify({'error': 'Invalid session'}), 400
-            
-        session_data = user_sessions[session_id]
-
+        
          # Log current session state
         logger.info(f"Current sentence count: {session_data['sentence_count']}")
 
@@ -493,7 +505,7 @@ def process_audio():
         return jsonify({'error': str(e)}), 500
 
 
-def save_sessions():
+#def save_sessions():
     """Save sessions to a file"""
     try:
         session_data = {
@@ -510,7 +522,7 @@ def save_sessions():
     except Exception as e:
         logger.error(f"Failed to save sessions: {e}")
 
-def load_sessions():
+#def load_sessions():
     """Load sessions from file"""
     try:
         with open('sessions.json', 'r') as f:
@@ -524,30 +536,149 @@ def load_sessions():
     except Exception as e:
         logger.error(f"Failed to load sessions: {e}")
         return {}
+    
+
+# Session storage interface
+class SessionStore:
+    def save_session(self, session_id, data):
+        pass
+    
+    def load_session(self, session_id):
+        pass
+    
+    def cleanup_old_sessions(self):
+        pass
+
+# File-based session storage for development
+class FileSessionStore(SessionStore):
+    def __init__(self):
+        self.filename = 'sessions.json'
+    
+    def save_session(self, session_id, data):
+        try:
+            sessions = self.load_all_sessions()
+            sessions[session_id] = {
+                **data,
+                'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
+            }
+            with open(self.filename, 'w') as f:
+                json.dump(sessions, f)
+        except Exception as e:
+            logging.error(f"Failed to save session to file: {e}")
+
+    def load_session(self, session_id):
+        try:
+            sessions = self.load_all_sessions()
+            data = sessions.get(session_id)
+            if data and 'created_at' in data:
+                data['created_at'] = datetime.fromisoformat(data['created_at'])
+            return data
+        except Exception as e:
+            logging.error(f"Failed to load session from file: {e}")
+            return None
+
+    def load_all_sessions(self):
+        try:
+            if os.path.exists(self.filename):
+                with open(self.filename, 'r') as f:
+                    return json.load(f)
+            return {}
+        except Exception as e:
+            logging.error(f"Failed to load sessions from file: {e}")
+            return {}
+
+    def cleanup_old_sessions(self):
+        try:
+            sessions = self.load_all_sessions()
+            current_time = datetime.now()
+            sessions = {
+                sid: data for sid, data in sessions.items()
+                if current_time - datetime.fromisoformat(data['created_at']) < timedelta(hours=24)
+            }
+            with open(self.filename, 'w') as f:
+                json.dump(sessions, f)
+        except Exception as e:
+            logging.error(f"Failed to cleanup sessions: {e}")
+
+# Redis session storage for production
+class RedisSessionStore(SessionStore):
+    def __init__(self, redis_url):
+        import redis
+        self.redis = redis.from_url(redis_url)
+    
+    def save_session(self, session_id, data):
+        try:
+            data_copy = {
+                **data,
+                'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
+            }
+            self.redis.setex(
+                f"session:{session_id}",
+                timedelta(hours=24),
+                json.dumps(data_copy)
+            )
+        except Exception as e:
+            logging.error(f"Failed to save session to Redis: {e}")
+
+    def load_session(self, session_id):
+        try:
+            data = self.redis.get(f"session:{session_id}")
+            if data:
+                session_data = json.loads(data)
+                if 'created_at' in session_data:
+                    session_data['created_at'] = datetime.fromisoformat(session_data['created_at'])
+                return session_data
+            return None
+        except Exception as e:
+            logging.error(f"Failed to load session from Redis: {e}")
+            return None
+
+    def cleanup_old_sessions(self):
+        # Redis automatically handles expiration
+        pass
+
+# Initialize session store based on environment
+def get_session_store():
+    redis_url = os.getenv('REDIS_URL')
+    if redis_url:
+        try:
+            import redis
+            return RedisSessionStore(redis_url)
+        except ImportError:
+            logging.warning("Redis package not installed, falling back to file storage")
+            return FileSessionStore()
+    return FileSessionStore()
+
+# Initialize the appropriate session store
+session_store = get_session_store()
+
+
 
 # Load sessions when app starts
-user_sessions.update(load_sessions())
+#user_sessions.update(load_sessions())
 
-def cleanup_old_sessions():
-    """Remove sessions older than 24 hours"""
-    current_time = datetime.now()
+#def cleanup_old_sessions():
+ #   """Remove sessions older than 24 hours"""
+  #  current_time = datetime.now()
     
     # Add timestamp to new sessions
-    for session_id, session_data in user_sessions.items():
-        if 'created_at' not in session_data:
-            session_data['created_at'] = current_time
+   # for session_id, session_data in user_sessions.items():
+    #    if 'created_at' not in session_data:
+     #       session_data['created_at'] = current_time
     
     # Remove old sessions
-    expired_sessions = [
-        session_id for session_id, session_data in user_sessions.items()
-        if current_time - datetime.fromisoformat(str(session_data['created_at'])) > timedelta(hours=24)
-    ]
+    #expired_sessions = [
+     #   session_id for session_id, session_data in user_sessions.items()
+      #  if current_time - datetime.fromisoformat(str(session_data['created_at'])) > timedelta(hours=24)
+    #]
     
-    for session_id in expired_sessions:
-        del user_sessions[session_id]
+    #for session_id in expired_sessions:
+     #   del user_sessions[session_id]
     
     # Save sessions after cleanup
-    save_sessions()
+    #save_sessions()*/
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)
