@@ -10,8 +10,8 @@ import json
 from dotenv import load_dotenv
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
+from datetime import datetime, timedelta
 import json
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -193,6 +193,17 @@ def start_conversation():
         
         session_id = base64.b64encode(os.urandom(16)).decode('utf-8')
 
+        # Initialize session with timestamp
+        user_sessions[session_id] = {
+            'conversation_history': [],
+            'sentence_count': 0,
+            'reward_points': 0,
+            'created_at': datetime.now()
+        }
+
+        # Save sessions after creating new one
+        save_sessions()
+
         logger.info("Conversation started successfully")
         
         return jsonify({
@@ -206,6 +217,11 @@ def start_conversation():
         logger.error(f"Error in start_conversation: {str(e)}")
         logger.exception("Full traceback:")
         return jsonify({'error': str(e)}), 500
+    
+# Add session cleanup to before_request
+@app.before_request
+def before_request():
+    cleanup_old_sessions()
 
 
 def text_to_speech_hindi(text, output_filename="response.wav"):
@@ -388,17 +404,31 @@ def translate_text():
 @app.route('/api/process_audio', methods=['POST'])
 def process_audio():
     try:
+        # Log incoming request data
+        logger.info("Received process_audio request")
+        logger.info(f"Files in request: {list(request.files.keys())}")
+        logger.info(f"Form data in request: {list(request.form.keys())}")
+
         if 'audio' not in request.files:
+            logger.error("No audio file in request")
             return jsonify({'error': 'No audio file'}), 400
         
         session_id = request.form.get('session_id')
+        logger.info(f"Received session_id: {session_id}")
+
         if not session_id or session_id not in user_sessions:
+            logger.error(f"Session ID {session_id} not found in user_sessions")
+            logger.info(f"Available sessions: {list(user_sessions.keys())}")
             return jsonify({'error': 'Invalid session'}), 400
             
         session_data = user_sessions[session_id]
 
+         # Log current session state
+        logger.info(f"Current sentence count: {session_data['sentence_count']}")
+
         # Simply increment sentence count by 1 for each user interaction
         session_data['sentence_count'] += 1
+        logger.info(f"Updated sentence count: {session_data['sentence_count']}")
         
         audio_file = request.files['audio']
         
@@ -461,6 +491,63 @@ def process_audio():
     except Exception as e:
         print(f"Process Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+def save_sessions():
+    """Save sessions to a file"""
+    try:
+        session_data = {
+            sid: {
+                'conversation_history': data['conversation_history'],
+                'sentence_count': data['sentence_count'],
+                'reward_points': data['reward_points'],
+                'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
+            }
+            for sid, data in user_sessions.items()
+        }
+        with open('sessions.json', 'w') as f:
+            json.dump(session_data, f)
+    except Exception as e:
+        logger.error(f"Failed to save sessions: {e}")
+
+def load_sessions():
+    """Load sessions from file"""
+    try:
+        with open('sessions.json', 'r') as f:
+            data = json.load(f)
+            for sid, session in data.items():
+                if 'created_at' in session and isinstance(session['created_at'], str):
+                    session['created_at'] = datetime.fromisoformat(session['created_at'])
+            return data
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        logger.error(f"Failed to load sessions: {e}")
+        return {}
+
+# Load sessions when app starts
+user_sessions.update(load_sessions())
+
+def cleanup_old_sessions():
+    """Remove sessions older than 24 hours"""
+    current_time = datetime.now()
+    
+    # Add timestamp to new sessions
+    for session_id, session_data in user_sessions.items():
+        if 'created_at' not in session_data:
+            session_data['created_at'] = current_time
+    
+    # Remove old sessions
+    expired_sessions = [
+        session_id for session_id, session_data in user_sessions.items()
+        if current_time - datetime.fromisoformat(str(session_data['created_at'])) > timedelta(hours=24)
+    ]
+    
+    for session_id in expired_sessions:
+        del user_sessions[session_id]
+    
+    # Save sessions after cleanup
+    save_sessions()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)

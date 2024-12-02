@@ -571,6 +571,20 @@ async function sendAudioToServer(audioBlob) {
             body: formData
         });
 
+        if (response.status === 400) {
+            const errorData = await response.json();
+            if (errorData.error.includes('Invalid session') || errorData.error.includes('session')) {
+                // Session expired, restart conversation
+                console.log('Session expired, restarting conversation...');
+                const newSession = await startConversation();
+                if (newSession) {
+                    // Retry the audio send with new session
+                    return sendAudioToServer(audioBlob);
+                }
+            }
+            throw new Error(errorData.error);
+        }
+
         const data = await response.json();
 
         // Remove processing message if it exists
@@ -580,12 +594,12 @@ async function sendAudioToServer(audioBlob) {
         }
         
         // First message celebration
-        if (conversationHistory.length === 0) {
+        if (conversationHistory.length === 1) {
             showCelebration('firstMessage', 'Amazing start Abir! Keep going! 🌟');
         }
         
         // Milestone celebrations
-        if (data.sentence_count % 5 === 0 && data.sentence_count > 0) {
+        if (data.sentence_count % 2 === 0 && data.sentence_count > 0) {
             showCelebration('milestone', 
                 `Fantastic! You've spoken ${data.sentence_count} sentences in Hindi! Captain America is proud of you! 🎉`
             );
