@@ -34,7 +34,7 @@ app = Flask(__name__,
 CORS(app)
 
 # Configure API keys from environment variables
-openai.api_key = os.getenv('OPENAI_API_KEY')
+#openai.api_key = os.getenv('OPENAI_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
@@ -55,7 +55,11 @@ user_sessions = {}
 def get_initial_conversation():
     """Generate initial conversation starter"""
     try:
-        client = openai.OpenAI()
+        client = openai.OpenAI(
+            api_key=os.getenv('OPENAI_API_KEY'),
+            base_url="https://api.openai.com/v1",  # Explicitly set base URL
+            http_client=None  # Prevent automatic proxy detection
+        )
         
         system_prompt = """
         You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named Abir.
@@ -127,7 +131,11 @@ def calculate_rewards(sentence_count):
 def get_hindi_response(conversation_history, audio_transcript, sentence_count):
     """Get response from GPT-4 with Hindi conversation context and gamification"""
     try:
-        client = openai.OpenAI()
+        client = openai.OpenAI(
+            api_key=os.getenv('OPENAI_API_KEY'),
+            base_url="https://api.openai.com/v1",
+            http_client=None
+        )
         
         # Enhanced system prompt with gamification awareness
         system_prompt = f"""
