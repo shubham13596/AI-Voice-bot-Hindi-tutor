@@ -143,7 +143,7 @@ def get_hindi_response(conversation_history, audio_transcript, sentence_count):
         1. First, analyze their input and read each word. See if there is any English words or phrases used instead of Hindi words.
         2. For each English word/phrase found, provide the correct Hindi translation. 
         3. Also provide the entire corrected proper Hindi sentence against what is spoken.
-        4. Then generate your normal response in Hindi. Make sure to add ellipsis (...) after each word in your response. For each new sentence, send it to new line. 
+        4. Then generate your normal response in Hindi. 
         5. Be curious as a mom would to know more about the user's activities.
         6. Keep responses short (max 20 words).
         7. Keep the conversation flowing naturally by asking questions and showing curiosity.
