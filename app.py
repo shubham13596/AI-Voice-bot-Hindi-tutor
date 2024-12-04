@@ -5,7 +5,6 @@ import logging
 import logging.config
 import requests
 import base64
-import wave
 import os
 import json
 from dotenv import load_dotenv
@@ -104,7 +103,7 @@ def get_initial_conversation():
         logger.info("Making OpenAI API call for initial conversation")
         
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.7,
@@ -119,33 +118,6 @@ def get_initial_conversation():
         print(f"Error in initial conversation: {str(e)}")
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
-#def count_hindi_sentences(text):
-    """Count the number of Hindi sentences using GPT-4"""
-    try:
-        client = openai.OpenAI()
-        
-        prompt = f"""
-        Count the number of complete sentences in this Hindi text and return ONLY the number:
-        {text}
-        
-        Return response in JSON format:
-        {{"sentence_count": number}}
-        """
-        
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": prompt}],
-            response_format={ "type": "json_object" },
-            temperature=0
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        return result.get('sentence_count', 0)
-        
-    except Exception as e:
-        print(f"Error counting sentences: {str(e)}")
-        # Fallback: basic period-based counting
-        return len([s for s in text.split('।') if s.strip()])
 
 def calculate_rewards(sentence_count):
     """Calculate reward points based on sentence count"""
@@ -171,7 +143,7 @@ def get_hindi_response(conversation_history, audio_transcript, sentence_count):
         1. First, analyze their input and read each word. See if there is any English words or phrases used instead of Hindi words.
         2. For each English word/phrase found, provide the correct Hindi translation. 
         3. Also provide the entire corrected proper Hindi sentence against what is spoken.
-        4. Then generate your normal response in Hindi
+        4. Then generate your normal response in Hindi. Make sure to add ellipsis (...) after each word in your response. For each new sentence, send it to new line. 
         5. Be curious as a mom would to know more about the user's activities.
         6. Keep responses short (max 20 words).
         7. Keep the conversation flowing naturally by asking questions and showing curiosity.
@@ -198,7 +170,7 @@ def get_hindi_response(conversation_history, audio_transcript, sentence_count):
         
         # Use streaming for faster initial response
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=messages,
             response_format={ "type": "json_object" },
             temperature=0.6,
@@ -468,18 +440,11 @@ def process_audio():
         if not session_id:
             return jsonify({'error': 'No session ID provided'}), 400
         
-        # Create a safe filename by removing problematic characters
-        #safe_session_id = session_id.replace('/', '_').replace('\\', '_')
         
         session_data = session_store.load_session(session_id)
         if not session_data:
             logger.error(f"Invalid session ID: {session_id}")
             return jsonify({'error': 'Invalid or expired session'}), 400
-
-        #if not session_id or session_id not in user_sessions:
-            logger.error(f"Session ID {session_id} not found in user_sessions")
-            logger.info(f"Available sessions: {list(user_sessions.keys())}")
-            return jsonify({'error': 'Invalid session'}), 400
         
          # Log current session state
         logger.info(f"Current sentence count: {session_data['sentence_count']}")
@@ -497,21 +462,10 @@ def process_audio():
             with open(temp_file.name, 'rb') as f:
                 transcript = speech_to_text_hindi(f.read())
         
-        #audio_file = request.files['audio']
-        
-        # Save incoming audio temporarily
-        #temp_input = f"temp_input_{session_id}.wav"
-
-        # Convert speech to text
-        #with open(temp_input, 'rb') as f:
-        #   transcript = speech_to_text_hindi(f.read())
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
-        # Count sentences and update rewards
-        #sentence_count = count_hindi_sentences(transcript)
-        #session_data['sentence_count'] += sentence_count
         new_rewards = calculate_rewards(session_data['sentence_count'])
         
         if new_rewards > 0:
@@ -542,10 +496,6 @@ def process_audio():
 
         # Add this line to save all updates
         session_store.save_session(session_id, session_data)
-        
-        # Clean up temporary files
-        #if os.path.exists(temp_input):
-        #   os.remove(temp_input)
 
         try:
             os.unlink(temp_file.name)
@@ -567,38 +517,6 @@ def process_audio():
         logger.exception("Full traceback:")  # Add full traceback logging
         return jsonify({'error': 'Internal server error'}), 500
 
-
-#def save_sessions():
-    """Save sessions to a file"""
-    try:
-        session_data = {
-            sid: {
-                'conversation_history': data['conversation_history'],
-                'sentence_count': data['sentence_count'],
-                'reward_points': data['reward_points'],
-                'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
-            }
-            for sid, data in user_sessions.items()
-        }
-        with open('sessions.json', 'w') as f:
-            json.dump(session_data, f)
-    except Exception as e:
-        logger.error(f"Failed to save sessions: {e}")
-
-#def load_sessions():
-    """Load sessions from file"""
-    try:
-        with open('sessions.json', 'r') as f:
-            data = json.load(f)
-            for sid, session in data.items():
-                if 'created_at' in session and isinstance(session['created_at'], str):
-                    session['created_at'] = datetime.fromisoformat(session['created_at'])
-            return data
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        logger.error(f"Failed to load sessions: {e}")
-        return {}
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -728,32 +646,6 @@ def get_session_store():
 
 # Initialize the appropriate session store
 session_store = get_session_store()
-
-
-
-# Load sessions when app starts
-#user_sessions.update(load_sessions())
-
-#def cleanup_old_sessions():
- #   """Remove sessions older than 24 hours"""
-  #  current_time = datetime.now()
-    
-    # Add timestamp to new sessions
-   # for session_id, session_data in user_sessions.items():
-    #    if 'created_at' not in session_data:
-     #       session_data['created_at'] = current_time
-    
-    # Remove old sessions
-    #expired_sessions = [
-     #   session_id for session_id, session_data in user_sessions.items()
-      #  if current_time - datetime.fromisoformat(str(session_data['created_at'])) > timedelta(hours=24)
-    #]
-    
-    #for session_id in expired_sessions:
-     #   del user_sessions[session_id]
-    
-    # Save sessions after cleanup
-    #save_sessions()*/
 
 
 
