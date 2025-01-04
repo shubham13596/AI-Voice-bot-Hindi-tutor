@@ -1,75 +1,56 @@
-# Hindi Buddy - AI Voice Tutor
+# AI Hindi Tutor - Your Hindi Friend
 
-A personalized AI-powered Hindi language tutor designed specifically for young English speakers learning Hindi. Originally created to help my 6-year-old nephew bridge the gap between English and Hindi through interactive voice conversations.
+An AI-powered Hindi language tutor designed to be a 24/7 conversation partner for young children (ages 4-8) learning Hindi. Born from a family dinner conversation about maintaining heritage language skills while growing up abroad.
 
 ## 💡 Project Overview
 
-Hindi Buddy is a voice-based AI tutor that makes learning Hindi fun and engaging for young children. It uses natural conversation, games, and stories to teach Hindi vocabulary, pronunciation, and basic sentences to English-speaking kids.
+Created for my nephew in Singapore who was struggling to maintain his Hindi skills in a predominantly Chinese-speaking environment. Unlike traditional language learning apps that focus on structured lessons, this application creates natural, conversation-based learning experiences - like chatting with a friend.
+
+## Link 
+You can try the tutor here: https://hindi-voice-tutor-6c064a70eaa6.herokuapp.com/
 
 ## 🌟 Key Features
 
-- **Interactive Voice Conversations**: Natural back-and-forth Hindi conversations with voice recognition
-- **Age-Appropriate Content**: Vocabulary and lessons designed specifically for 5-8 year olds
-- **Gamified Learning**: Fun activities like word matching, simple story comprehension, and pronunciation games
-- **Progress Tracking**: Simple visual progress indicators to keep young learners motivated
-- **Pronunciation Feedback**: Gentle, encouraging feedback on Hindi pronunciation
-- **Bilingual Support**: Seamlessly switches between Hindi and English to maintain engagement
-
-## 🎯 Learning Focus
-
-- Basic Hindi vocabulary (colors, numbers, animals, family members)
-- Simple conversational phrases
-- Hindi alphabet introduction
-- Basic sentence structure
-- Common Hindi nursery rhymes
-- Cultural elements through stories
+- **Natural Conversations**: Acts like a motherly figure who's curious about the child's day
+- **Child-Led Learning**: No rigid curriculum - conversations flow naturally based on child's interests (school, dinosaurs, cartoons)
+- **Smart Error Correction**: Gentle correction of English-Hindi code-switching (e.g., "मैं school जा रहा हूं" → "मैं विद्यालय जा रहा हूं")
+- **Engaging Rewards**: Point system with visual rewards, including Captain America's shield animations
+- **Mobile-First Design**: Optimized for smartphone access with an intuitive interface
+- **Visual Recording Cues**: Animated microphone for clear recording indicators
 
 ## 🛠️ Technical Stack
 
-- Python for core functionality
-- OpenAI's GPT-4 for conversation generation
-- Azure Speech Services for voice recognition and synthesis
-- Firebase for progress tracking
-- Custom child-friendly UI using PyQt
+- **Speech-to-Text**: Sarvam API (chosen specifically for handling children's speech patterns and pauses)
+- **Text-to-Speech**: ElevenLabs (selected for superior voice quality and emotional range)
+- **Conversation Logic**: GPT-4 with specialized prompting
+- **Hosting**: Heroku
+- **Interface**: Mobile-first web application
+- **Recording**: Manual recording button with visual cues
 
-## 💝 Personal Touch
+## 💡 Technical Decisions
 
-This project was born from a personal need - helping my nephew maintain his connection with Hindi while growing up in an English-speaking environment. It focuses on making Hindi learning a natural, enjoyable part of a child's day rather than a formal study session.
+- Chose Sarvam API over Chromium STT for better handling of long pauses in children's speech
+- Selected ElevenLabs over Sarvam TTS for enhanced emotional expression and engagement
+- Implemented manual recording over voice activity detection for improved accuracy
+- GPT-4 prompt engineered to "be like a mother who is curious about their child"
 
-## 🎮 How It Works
+## 🔜 Future Development Plans
 
-1. Child starts a conversation with Hindi Buddy
-2. AI tutor engages through voice in simple Hindi conversations
-3. Provides immediate, gentle feedback on pronunciation
-4. Adapts difficulty based on the child's responses
-5. Keeps sessions short (5-10 minutes) to maintain attention
+1. Age-specific response modeling using different GPT prompts
+2. Dedicated module for challenging Hindi phonemes
+3. Integration of Indian cultural elements and festivals
+4. Parent mode for sharing conversation transcripts
+5. Analytics for tracking engagement patterns
+6. Expansion to support various accents
+7. Potential adaptation for other Indian languages
 
-## 📈 Impact
+## 🎯 Impact
 
-- Successfully helped my nephew learn 100+ Hindi words in 3 months
-- Improved his confidence in speaking basic Hindi sentences
-- Created a positive association with Hindi learning
-- Strengthened family connections through shared language
-
-## 🎨 Screenshots
-
-[Coming Soon]
-- Voice interaction interface
-- Progress tracking dashboard
-- Game examples
-- Reward system
-
-## 🔜 Future Plans
-
-- Adding more interactive games
-- Expanding vocabulary categories
-- Including more cultural stories
-- Building a parent dashboard for progress monitoring
-- Adding support for more Indic languages
+Helping the Indian diaspora maintain their connection with Hindi, creating a safe and engaging space for children to practice their heritage language through natural conversation.
 
 ## 📝 Note
 
-This is a personal project created for educational purposes. While it's not currently available for public use, I'm happy to share insights about the development process and learning outcomes.
+This is a personal project aimed at bridging the language gap for children growing up in non-Hindi speaking environments. While currently focused on Hindi, the architecture could be adapted for other heritage language learning needs.
 
 ## 📫 Contact
 
@@ -77,4 +58,4 @@ For questions about the project or development process, feel free to reach out!
 
 ---
 
-*Built with love for the next generation of bilingual speakers* ❤️
+*Built with love for preserving heritage languages across generations* ❤️
