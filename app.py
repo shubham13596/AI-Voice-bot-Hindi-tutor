@@ -595,11 +595,26 @@ class FileSessionStore(SessionStore):
         except Exception as e:
             logging.error(f"Failed to cleanup sessions: {e}")
 
-# Redis session storage for production
+
+# Update your Redis connection in app.py
+# Replace the existing RedisSessionStore class with this SSL-enabled version:
 class RedisSessionStore(SessionStore):
     def __init__(self, redis_url):
         import redis
-        self.redis = redis.from_url(redis_url)
+        import ssl
+        
+        # Parse Redis URL to check if it's a Heroku Redis URL
+        if 'amazonaws.com' in redis_url or 'heroku' in redis_url:
+            # Heroku Redis requires SSL
+            self.redis = redis.from_url(
+                redis_url,
+                ssl_cert_reqs=ssl.CERT_NONE,  # Disable SSL verification for Heroku
+                ssl_check_hostname=False,
+                ssl=True
+            )
+        else:
+            # Local Redis without SSL
+            self.redis = redis.from_url(redis_url)
     
     def save_session(self, session_id, data):
         try:
