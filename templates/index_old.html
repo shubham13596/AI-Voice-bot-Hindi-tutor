@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Hindi Friend - आपका हिंदी मित्र</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/js/process_audio.js" defer></script>
+</head>
+
+<body class="bg-purple-50">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold text-center text-purple-800 mb-8">
+                आपका हिंदी मित्र
+                <span class="block text-xl text-purple-600">(Your Hindi Friend)</span>
+            </h1>
+
+            <!-- Main interaction area -->
+            <div class="space-y-6">
+                <!-- Status indicator -->
+                <div id="status" class="text-center text-lg font-medium text-gray-600">
+                    Initializing...
+                </div>
+
+                <!-- Voice recording button -->
+                <div class="flex justify-center">
+                    <button id="recordButton" 
+                            disabled
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full flex items-center space-x-2 transition-colors duration-200">
+                        <span id="recordIcon">🎤</span>
+                        <span id="recordText">Start Speaking</span>
+                    </button>
+                </div>
+
+                <!-- Conversation display -->
+                <div id="conversation" class="space-y-4 mt-6 max-h-96 overflow-y-auto">
+                    <!-- Chat messages will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

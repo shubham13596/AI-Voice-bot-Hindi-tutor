@@ -1,0 +1,251 @@
+/* Header Styles */
+.rewards-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to right, #7c3aed, #6d28d9);
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+  }
+  
+  .header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .app-title {
+    font-size: 1.25rem;
+    font-weight: bold;
+  }
+  
+  .rewards-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .reward-box {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    min-width: 70px;
+    text-align: center;
+  }
+  
+  .reward-label {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  
+  .reward-value {
+    font-size: 1.25rem;
+    font-weight: bold;
+  }
+  
+  .points-count {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .star-icon, .trophy-icon {
+    font-size: 1.5rem;
+    animation: float 2s infinite ease-in-out;
+  }
+  
+  /* Animation for icons */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 480px) {
+    .header-container {
+      padding: 0.5rem;
+    }
+    
+    .app-title {
+      font-size: 1rem;
+    }
+    
+    .reward-box {
+      min-width: 60px;
+      padding: 0.4rem 0.5rem;
+    }
+    
+    .reward-value {
+      font-size: 1rem;
+    }
+    
+    .star-icon, .trophy-icon {
+      font-size: 1.25rem;
+    }
+  }
+  
+  /* Add space below header for content */
+  #conversation {
+    margin-top: 4rem;
+  }
+  /* Animation styles for celebrations */
+.celebration-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(88, 28, 135, 0.85); /* Purple background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  .celebration-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    text-align: center;
+    max-width: 90%;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .celebration-message {
+    font-size: 1.5rem;
+    color: #6b21a8;
+    margin-bottom: 1rem;
+    font-weight: bold;
+  }
+
+  /* Add this to your existing styles */
+  .recording-icon {
+    width: 24px;        /* Adjust size as needed */
+    height: 24px;       /* Adjust size as needed */
+    object-fit: contain; /* Maintains aspect ratio */
+    vertical-align: middle;
+    /* Optional: add a subtle transition */
+    transition: transform 0.2s ease;
+}
+
+/* Optional: add a hover effect */
+.recording-icon:hover {
+    transform: scale(1.1);
+}
+  
+  .captain-celebration {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 1rem;
+    position: relative;
+  }
+  
+  .captain-shield {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      #0046be 30%,
+      #e51c23 30% 60%,
+      white 60% 70%,
+      #e51c23 70%
+    );
+    animation: shieldSpin 2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .captain-star {
+    color: white;
+    font-size: 3rem;
+    animation: starPulse 1s infinite;
+  }
+  
+  /* Confetti styles */
+  .confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    animation: confettiFall 3s ease-in infinite;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes shieldSpin {
+    0% { transform: scale(0.8) rotate(-180deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  
+  @keyframes starPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+  
+  @keyframes confettiFall {
+    0% { transform: translateY(-100vh) rotate(0deg); }
+    100% { transform: translateY(100vh) rotate(360deg); }
+  }
+
+  /* Add to your existing CSS */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes celebration {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes wave {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  .animate-celebration {
+    animation: celebration 0.5s ease-out;
+  }
+  
+  .animate-wave {
+    animation: wave 2s infinite ease-in-out;
+  }
+  
+  /* Mobile-friendly adjustments */
+  @media (max-width: 640px) {
+    .container {
+      padding-top: 4rem; /* Space for fixed header */
+    }
+    
+    .message-bubble {
+      max-width: 85%;
+      margin: 0.5rem;
+    }
+    
+    .record-button {
+      bottom: 1rem;
+      padding: 1rem;
+      font-size: 1.25rem;
+    }
+  }
