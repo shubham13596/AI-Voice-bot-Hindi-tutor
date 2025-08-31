@@ -598,23 +598,26 @@ class FileSessionStore(SessionStore):
 
 # Update your Redis connection in app.py
 # Replace the existing RedisSessionStore class with this SSL-enabled version:
+# Replace your existing RedisSessionStore class with this fixed version:
+
 class RedisSessionStore(SessionStore):
     def __init__(self, redis_url):
         import redis
-        import ssl
         
-        # Parse Redis URL to check if it's a Heroku Redis URL
-        if 'amazonaws.com' in redis_url or 'heroku' in redis_url:
-            # Heroku Redis requires SSL
-            self.redis = redis.from_url(
-                redis_url,
-                ssl_cert_reqs=ssl.CERT_NONE,  # Disable SSL verification for Heroku
-                ssl_check_hostname=False,
-                ssl=True
-            )
+        # Parse the URL to determine if SSL is needed
+        if redis_url.startswith('rediss://'):
+            # Heroku Redis uses rediss:// for SSL connections
+            # Use redis.from_url which handles SSL automatically
+            self.redis = redis.from_url(redis_url, decode_responses=False)
+        elif 'amazonaws.com' in redis_url or 'heroku' in redis_url:
+            # For redis:// URLs that require SSL (older Heroku format)
+            # Convert redis:// to rediss:// for SSL
+            if redis_url.startswith('redis://'):
+                redis_url = redis_url.replace('redis://', 'rediss://', 1)
+            self.redis = redis.from_url(redis_url, decode_responses=False)
         else:
             # Local Redis without SSL
-            self.redis = redis.from_url(redis_url)
+            self.redis = redis.from_url(redis_url, decode_responses=False)
     
     def save_session(self, session_id, data):
         try:
@@ -627,8 +630,12 @@ class RedisSessionStore(SessionStore):
                 timedelta(hours=24),
                 json.dumps(data_copy)
             )
+            logger.info(f"Session saved successfully: {session_id}")
         except Exception as e:
-            logging.error(f"Failed to save session to Redis: {e}")
+            logger.error(f"Failed to save session to Redis: {e}")
+            # Fallback to file storage if Redis fails
+            fallback_store = FileSessionStore()
+            fallback_store.save_session(session_id, data)
 
     def load_session(self, session_id):
         try:
@@ -637,27 +644,38 @@ class RedisSessionStore(SessionStore):
                 session_data = json.loads(data)
                 if 'created_at' in session_data:
                     session_data['created_at'] = datetime.fromisoformat(session_data['created_at'])
+                logger.info(f"Session loaded successfully: {session_id}")
                 return session_data
+            logger.warning(f"No session found for ID: {session_id}")
             return None
         except Exception as e:
-            logging.error(f"Failed to load session from Redis: {e}")
-            return None
+            logger.error(f"Failed to load session from Redis: {e}")
+            # Try fallback to file storage
+            fallback_store = FileSessionStore()
+            return fallback_store.load_session(session_id)
 
     def cleanup_old_sessions(self):
         # Redis automatically handles expiration
         pass
 
-# Initialize session store based on environment
+# Also update your get_session_store function:
 def get_session_store():
     redis_url = os.getenv('REDIS_URL')
     if redis_url:
         try:
             import redis
-            return RedisSessionStore(redis_url)
-        except ImportError:
-            logging.warning("Redis package not installed, falling back to file storage")
+            logger.info(f"Attempting to connect to Redis...")
+            store = RedisSessionStore(redis_url)
+            # Test the connection
+            store.redis.ping()
+            logger.info("Redis connection successful")
+            return store
+        except Exception as e:
+            logger.error(f"Redis connection failed: {e}")
+            logger.warning("Falling back to file storage")
             return FileSessionStore()
     return FileSessionStore()
+
 
 # Initialize the appropriate session store
 session_store = get_session_store()
