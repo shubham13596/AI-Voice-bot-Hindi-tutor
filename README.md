@@ -7,7 +7,7 @@ An AI-powered Hindi language tutor designed to be a 24/7 conversation partner fo
 Created for my nephew in Singapore who was struggling to maintain his Hindi skills in a predominantly Chinese-speaking environment. Unlike traditional language learning apps that focus on structured lessons, this application creates natural, conversation-based learning experiences - like chatting with a friend.
 
 ## Link 
-You can try the tutor here: https://hindi-voice-tutor-6c064a70eaa6.herokuapp.com/
+You can try the tutor here: https://hindi-voice-tutor-f63a2d6e31a7.herokuapp.com/
 
 ## Key Features
 
