@@ -498,9 +498,16 @@ async function startConversation() {
         recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         status.textContent = 'Starting conversation...';
         
+        // Get child name from sessionStorage
+        const childName = sessionStorage.getItem('childName') || 'दोस्त';
+        
         console.log('Making API call to start conversation');
         const response = await fetch('/api/start_conversation', {
-            method: 'GET'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ child_name: childName })
         });
 
         console.log('API response status:', response.status);
@@ -811,7 +818,8 @@ async function sendAudioToServer(audioBlob) {
         
         // First message celebration
         if (conversationHistory.length === 1) {
-            showCelebration('firstMessage', 'Amazing start Abir! Keep going! 🌟');
+            const childName = sessionStorage.getItem('childName') || 'दोस्त';
+            showCelebration('firstMessage', `Amazing start ${childName}! Keep going! 🌟`);
         }
         
         // Milestone celebrations
@@ -879,8 +887,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Event listeners
-recordButton.addEventListener('click', toggleRecording);
+// Event listeners - will be added after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.addEventListener('click', toggleRecording);
+    }
+});
 
 // Error handling for audio playback
 window.addEventListener('unhandledrejection', function(event) {

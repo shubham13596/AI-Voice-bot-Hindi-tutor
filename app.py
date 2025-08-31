@@ -76,7 +76,7 @@ port = int(os.getenv('PORT', 5001))
 user_sessions = {}
 
 
-def get_initial_conversation():
+def get_initial_conversation(child_name="दोस्त"):
     """Generate initial conversation starter"""
     try:
         client = openai.OpenAI(
@@ -85,8 +85,8 @@ def get_initial_conversation():
             http_client=None  # Prevent automatic proxy detection
         )
         
-        system_prompt = """
-        You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named Abir.
+        system_prompt = f"""
+        You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
         Create a warm, engaging greeting and ask if they went to school today or not in Hindi.
         Guidelines:
         1. Keep it very short (max 10 words)
@@ -94,9 +94,9 @@ def get_initial_conversation():
         3. Make it cheerful and inviting
 
         Return response in JSON format:
-        {
+        {{
             "response": "Your Hindi greeting here"
-        }
+        }}
         """
 
         # Add logging
@@ -188,12 +188,17 @@ def get_hindi_response(conversation_history, audio_transcript, sentence_count):
             "response": "मैं समझ नहीं पाया। कृपया दोबारा बोलें।"  # "I didn't understand. Please speak again."
         }
     
-@app.route('/api/start_conversation', methods=['GET'])
+@app.route('/api/start_conversation', methods=['POST'])
 def start_conversation():
     """Endpoint to start the initial conversation"""
     try:
         logger.info("Starting new conversation")
-        initial_message = get_initial_conversation()
+        
+        # Get child name from request
+        data = request.json or {}
+        child_name = data.get('child_name', 'दोस्त')
+        
+        initial_message = get_initial_conversation(child_name)
         
         logger.info("Converting text to speech")
         audio_response = text_to_speech_hindi(initial_message)
@@ -319,6 +324,10 @@ def speech_to_text_hindi(audio_data):
 @app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/conversation')
+def conversation():
+    return render_template('conversation.html')
 
 # Configure static files handling
 @app.route('/favicon.ico')
