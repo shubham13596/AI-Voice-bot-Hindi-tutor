@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Profile Setup - Your Hindi Tutor</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 2rem;
+            padding: 3rem 2rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #166534;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #6b7280;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-section {
+            background: #f0fdf4;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #22c55e;
+        }
+
+        .welcome-text {
+            color: #166534;
+            font-weight: 500;
+        }
+
+        .name-section {
+            margin-bottom: 2rem;
+        }
+
+        .name-label {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+        .name-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 1rem;
+            font-size: 1.1rem;
+            transition: border-color 0.3s;
+            outline: none;
+        }
+
+        .name-input:focus {
+            border-color: #22c55e;
+        }
+
+        .continue-button {
+            width: 100%;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .continue-button.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .continue-button.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .logout-link {
+            color: #6b7280;
+            font-size: 0.9rem;
+            text-decoration: none;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        .logout-link:hover {
+            color: #374151;
+        }
+
+        @media (max-width: 480px) {
+            .setup-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            .title {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <h1 class="title">Almost Ready!</h1>
+        <p class="subtitle">Let's set up your child's Hindi learning profile</p>
+        
+        <div class="welcome-section">
+            <p class="welcome-text">
+                Welcome! 🎉 We're excited to help your child learn Hindi through fun conversations.
+            </p>
+        </div>
+        
+        <div class="name-section">
+            <label for="childName" class="name-label">What's your child's name?</label>
+            <input type="text" 
+                   id="childName" 
+                   class="name-input" 
+                   placeholder="Enter your child's name"
+                   autocomplete="given-name">
+            <div id="errorMessage" class="error-message">
+                Please enter your child's name
+            </div>
+        </div>
+        
+        <button id="continueButton" class="continue-button">
+            Start Learning Hindi
+        </button>
+
+        <a href="/logout" class="logout-link">Sign out</a>
+    </div>
+
+    <script>
+        const childNameInput = document.getElementById('childName');
+        const continueButton = document.getElementById('continueButton');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Enable button when name is entered
+        childNameInput.addEventListener('input', function() {
+            const name = this.value.trim();
+            if (name) {
+                continueButton.classList.add('active');
+                errorMessage.style.display = 'none';
+            } else {
+                continueButton.classList.remove('active');
+            }
+        });
+
+        // Handle form submission
+        continueButton.addEventListener('click', async function() {
+            const childName = childNameInput.value.trim();
+            
+            if (!childName) {
+                errorMessage.textContent = 'Please enter your child\'s name';
+                errorMessage.style.display = 'block';
+                childNameInput.focus();
+                return;
+            }
+
+            // Disable button during submission
+            continueButton.disabled = true;
+            continueButton.textContent = 'Setting up...';
+
+            try {
+                const response = await fetch('/api/user/child-name', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ child_name: childName })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Success! Redirect to conversation
+                    window.location.href = '/conversation';
+                } else {
+                    // Show error
+                    errorMessage.textContent = data.error || 'Failed to save child name';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.textContent = 'Something went wrong. Please try again.';
+                errorMessage.style.display = 'block';
+            } finally {
+                // Re-enable button
+                continueButton.disabled = false;
+                continueButton.textContent = 'Start Learning Hindi';
+            }
+        });
+
+        // Handle Enter key
+        childNameInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && this.value.trim()) {
+                continueButton.click();
+            }
+        });
+
+        // Auto-focus on input
+        childNameInput.focus();
+    </script>
+</body>
+</html>
