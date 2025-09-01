@@ -905,11 +905,12 @@ def get_dashboard_comparison():
 def health_check():
     """Health check endpoint"""
     try:
-        # Check Redis connection
-        session_store.redis.ping()
+        # Check Redis connection if using Redis
+        if hasattr(session_store, 'redis'):
+            session_store.redis.ping()
         
-        # Check ElevenLabs API
-        eleven_labs.voices.list()
+        # Check database connection
+        db.session.execute('SELECT 1')
         
         return jsonify({'status': 'healthy'}), 200
     except Exception as e:
