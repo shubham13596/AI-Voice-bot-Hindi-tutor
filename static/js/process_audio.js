@@ -532,16 +532,12 @@ async function startConversation() {
         recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         status.textContent = 'Starting conversation...';
         
-        // Get child name from sessionStorage
-        const childName = sessionStorage.getItem('childName') || 'दोस्त';
-        
         console.log('Making API call to start conversation');
         const response = await fetch('/api/start_conversation', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ child_name: childName })
+            }
         });
 
         console.log('API response status:', response.status);

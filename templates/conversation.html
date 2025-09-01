@@ -9,16 +9,32 @@
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
-        // Check if child name exists in sessionStorage, redirect to landing if not
-        document.addEventListener('DOMContentLoaded', function() {
-            const childName = sessionStorage.getItem('childName');
-            if (!childName) {
-                // Redirect to landing page if no name is set
+        // Check if user is authenticated and has child name set
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Check if user is authenticated and get user info
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    // User not authenticated, redirect to home
+                    window.location.href = '/';
+                    return;
+                }
+                
+                const user = await response.json();
+                if (!user.child_name) {
+                    // User authenticated but no child name, redirect to profile setup
+                    window.location.href = '/profile-setup';
+                    return;
+                }
+                
+                // Update page title with child's name
+                document.title = `Your Hindi Tutor - ${user.child_name}`;
+                
+            } catch (error) {
+                console.error('Error checking user authentication:', error);
+                // On error, redirect to home
                 window.location.href = '/';
-                return;
             }
-            // Update page title with child's name
-            document.title = `Your Hindi Tutor - ${childName}`;
         });
     </script>
     
