@@ -1,0 +1,145 @@
+import os
+import json
+from flask import Blueprint, request, redirect, url_for, session, flash, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
+from authlib.integrations.flask_client import OAuth
+from models import User, db
+import secrets
+
+auth_bp = Blueprint('auth', __name__)
+
+def init_oauth(app):
+    """Initialize OAuth with the Flask app"""
+    oauth = OAuth(app)
+    
+    google = oauth.register(
+        name='google',
+        client_id=os.getenv('GOOGLE_CLIENT_ID'),
+        client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+        server_metadata_url='https://accounts.google.com/.well-known/openid_configuration',
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
+    
+    return oauth, google
+
+# These will be set by the main app
+oauth = None
+google = None
+
+@auth_bp.route('/login')
+def login():
+    """Initiate Google OAuth login"""
+    if not google:
+        return jsonify({'error': 'OAuth not configured'}), 500
+    
+    # Generate a random nonce for security
+    nonce = secrets.token_urlsafe()
+    session['oauth_nonce'] = nonce
+    
+    redirect_uri = url_for('auth.callback', _external=True)
+    return google.authorize_redirect(redirect_uri, nonce=nonce)
+
+@auth_bp.route('/callback')
+def callback():
+    """Handle OAuth callback"""
+    if not google:
+        return jsonify({'error': 'OAuth not configured'}), 500
+    
+    try:
+        # Get the access token
+        token = google.authorize_access_token()
+        
+        # Verify nonce for security
+        if 'oauth_nonce' in session:
+            nonce = session.pop('oauth_nonce')
+            user_info = token.get('userinfo')
+            if user_info and user_info.get('nonce') != nonce:
+                flash('Authentication failed. Please try again.', 'error')
+                return redirect(url_for('home'))
+        
+        # Get user information
+        user_info = token.get('userinfo')
+        if not user_info:
+            flash('Failed to get user information from Google.', 'error')
+            return redirect(url_for('home'))
+        
+        # Find or create user
+        user = User.query.filter_by(email=user_info['email']).first()
+        
+        if not user:
+            # Create new user
+            user = User(
+                email=user_info['email'],
+                name=user_info.get('name', ''),
+                profile_picture=user_info.get('picture', '')
+            )
+            db.session.add(user)
+            db.session.commit()
+            
+            # New user - redirect to profile setup
+            login_user(user, remember=True)
+            return redirect(url_for('profile_setup'))
+        else:
+            # Existing user - update profile picture if changed
+            if user_info.get('picture') and user.profile_picture != user_info.get('picture'):
+                user.profile_picture = user_info.get('picture')
+                db.session.commit()
+            
+            # Login existing user
+            login_user(user, remember=True)
+            
+            # Check if they need to set child name
+            if not user.child_name:
+                return redirect(url_for('profile_setup'))
+            else:
+                return redirect(url_for('conversation'))
+    
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        flash('Authentication failed. Please try again.', 'error')
+        return redirect(url_for('home'))
+
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    """Logout the current user"""
+    logout_user()
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('home'))
+
+@auth_bp.route('/api/user')
+@login_required
+def get_user_info():
+    """API endpoint to get current user information"""
+    return jsonify(current_user.to_dict())
+
+@auth_bp.route('/api/user/child-name', methods=['POST'])
+@login_required
+def update_child_name():
+    """API endpoint to update child name"""
+    try:
+        data = request.get_json()
+        child_name = data.get('child_name', '').strip()
+        
+        if not child_name:
+            return jsonify({'error': 'Child name is required'}), 400
+        
+        if len(child_name) > 100:
+            return jsonify({'error': 'Child name is too long'}), 400
+        
+        # Convert to sentence case
+        formatted_name = child_name.capitalize()
+        
+        current_user.child_name = formatted_name
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'child_name': formatted_name
+        })
+        
+    except Exception as e:
+        print(f"Error updating child name: {e}")
+        return jsonify({'error': 'Failed to update child name'}), 500

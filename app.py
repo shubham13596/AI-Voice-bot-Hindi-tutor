@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for
 from flask_cors import CORS
+from flask_login import LoginManager, login_required, current_user
 import openai
 import logging
 import logging.config
@@ -15,6 +16,10 @@ from datetime import datetime, timedelta
 import json
 import tempfile
 import time
+
+# Import our models and auth
+from models import db, User, Conversation, AnalyticsHelper
+from auth import auth_bp, init_oauth
 
 
 # Configure logging first so it's available throughout the application
@@ -55,7 +60,36 @@ app = Flask(__name__,
     static_folder='static'      # Physical folder name
 )
 
+# Configure Flask app
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///hindi_tutor.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 CORS(app)
+
+# Initialize database
+db.init_app(app)
+
+# Initialize login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'home'
+login_manager.login_message = 'Please log in to access this page.'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Initialize OAuth
+oauth, google = init_oauth(app)
+
+# Set the OAuth instances in auth module
+import auth
+auth.oauth = oauth
+auth.google = google
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp)
 
 # Configure API keys from environment variables
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -376,14 +410,14 @@ def get_hindi_response(conversation_history, audio_transcript, sentence_count):
         }
     
 @app.route('/api/start_conversation', methods=['POST'])
+@login_required
 def start_conversation():
     """Endpoint to start the initial conversation"""
     try:
         logger.info("Starting new conversation")
         
-        # Get child name from request
-        data = request.json or {}
-        child_name = data.get('child_name', 'दोस्त')
+        # Use the authenticated user's child name
+        child_name = current_user.child_name or 'दोस्त'
         
         initial_message = get_initial_conversation(child_name)
         
@@ -395,8 +429,24 @@ def start_conversation():
         
         session_id = base64.b64encode(os.urandom(16)).decode('utf-8')
 
-        # Initialize session data
+        # Create conversation record in database
+        conversation = Conversation(
+            user_id=current_user.id,
+            session_id=session_id,
+            sentences_count=0,
+            good_response_count=0,
+            reward_points=0
+        )
+        conversation.conversation_data = []
+        conversation.amber_data = []
+        
+        db.session.add(conversation)
+        db.session.commit()
+
+        # Initialize session data for Redis/file storage (backward compatibility)
         session_data = {
+            'conversation_id': conversation.id,
+            'user_id': current_user.id,
             'conversation_history': [],
             'sentence_count': 0,
             'good_response_count': 0,
@@ -439,10 +489,10 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
             try:
                 audio_stream = eleven_labs.text_to_speech.convert_as_stream(
                     text=text,
-                    model_id="eleven_turbo_v2_5",
+                    model_id="eleven_flash_v2_5",
                     language_code="hi",
-                    voice_id="MF4J4IDTRo0AxOO4dpFR",
-                    optimize_streaming_latency="3",
+                    voice_id="MF4J4IDTRo0AxOO4dpFR", #
+                    optimize_streaming_latency="4",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
                         stability=0.5,
@@ -514,11 +564,32 @@ def speech_to_text_hindi(audio_data):
 
 @app.route('/')
 def home():
+    """Landing page - shows login or redirects if authenticated"""
+    if current_user.is_authenticated:
+        if not current_user.child_name:
+            return redirect(url_for('profile_setup'))
+        return redirect(url_for('conversation'))
     return render_template('index.html')
 
+@app.route('/profile-setup')
+@login_required
+def profile_setup():
+    """Profile setup page for setting child name"""
+    return render_template('profile_setup.html')
+
 @app.route('/conversation')
+@login_required
 def conversation():
+    """Main conversation page - requires authentication"""
+    if not current_user.child_name:
+        return redirect(url_for('profile_setup'))
     return render_template('conversation.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """User dashboard with analytics"""
+    return render_template('dashboard.html')
 
 # Configure static files handling
 @app.route('/favicon.ico')
@@ -623,6 +694,7 @@ def translate_text():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/process_audio', methods=['POST'])
+@login_required
 def process_audio():
     temp_file = None
     try:
@@ -662,7 +734,6 @@ def process_audio():
             with open(temp_file.name, 'rb') as f:
                 transcript = speech_to_text_hindi(f.read())
         
-        
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
@@ -694,6 +765,21 @@ def process_audio():
             {"role": "user", "content": transcript},
             {"role": "assistant", "content": controller_result['response']}
         ])
+
+        # Update database conversation record
+        if 'conversation_id' in session_data:
+            try:
+                conversation = Conversation.query.get(session_data['conversation_id'])
+                if conversation:
+                    conversation.sentences_count = session_data['sentence_count']
+                    conversation.good_response_count = controller_result['good_response_count']
+                    conversation.reward_points = session_data['reward_points']
+                    conversation.conversation_data = session_data['conversation_history']
+                    conversation.amber_data = session_data.get('amber_responses', [])
+                    conversation.updated_at = datetime.utcnow()
+                    db.session.commit()
+            except Exception as e:
+                logger.error(f"Failed to update conversation in database: {e}")
 
         # Add this line to save all updates
         session_store.save_session(session_id, session_data)
@@ -778,6 +864,42 @@ def correction_speech_to_text():
                 os.unlink(temp_file.name)
             except Exception as e:
                 logger.error(f"Failed to delete temporary file: {e}")
+
+@app.route('/api/dashboard', methods=['GET'])
+@login_required
+def get_dashboard_data():
+    """API endpoint for dashboard analytics"""
+    try:
+        # Get week parameter (0 = this week, 1 = last week)
+        week = request.args.get('week', '0')
+        weeks_ago = int(week)
+        
+        # Get analytics for the specified week
+        stats = AnalyticsHelper.get_weekly_stats(current_user.id, weeks_ago)
+        
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Dashboard API error: {e}")
+        return jsonify({'error': 'Failed to fetch dashboard data'}), 500
+
+@app.route('/api/dashboard/comparison', methods=['GET'])
+@login_required
+def get_dashboard_comparison():
+    """API endpoint for week-to-week comparison"""
+    try:
+        comparison = AnalyticsHelper.get_comparison_stats(current_user.id)
+        return jsonify({
+            'success': True,
+            'data': comparison
+        })
+        
+    except Exception as e:
+        logger.error(f"Dashboard comparison API error: {e}")
+        return jsonify({'error': 'Failed to fetch comparison data'}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -942,6 +1064,17 @@ def get_session_store():
 session_store = get_session_store()
 
 
+def init_database():
+    """Initialize database tables"""
+    with app.app_context():
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create database tables: {e}")
+
 
 if __name__ == '__main__':
+    # Initialize database on startup
+    init_database()
     app.run(host='0.0.0.0', port=port)

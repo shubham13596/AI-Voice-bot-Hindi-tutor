@@ -7,4 +7,8 @@ elevenlabs==1.13.0
 requests==2.26.0
 Flask-Cors==3.0.10
 redis>=5.0.0
+Flask-Login==0.6.1
+Flask-SQLAlchemy==2.5.1
+Authlib==1.2.0
+SQLAlchemy==1.4.22
 

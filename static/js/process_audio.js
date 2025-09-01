@@ -185,7 +185,7 @@ function showCelebration(type, message, playSound = true) {
     
     // Add continue button
     const button = document.createElement('button');
-    button.className = 'w-full bg-purple-600 text-white rounded-lg py-2 px-4 hover:bg-purple-700 transition-colors';
+    button.className = 'w-full bg-green-500 text-white rounded-lg py-2 px-4 hover:bg-green-600 transition-colors';
     button.textContent = 'Continue';
     button.onclick = () => {
         overlay.classList.add('fade-out');
@@ -603,7 +603,7 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     
     messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
         role === 'user' 
-            ? 'bg-purple-100 ml-auto max-w-[80%]' // Right-aligned for user messages
+            ? 'bg-green-100 ml-auto max-w-[80%]' // Right-aligned for user messages
             : 'bg-gray-100 mr-auto max-w-[80%]'   // Left-aligned for assistant messages
     }`;
 
@@ -759,7 +759,7 @@ function showCorrectionDialog(correctedText) {
                 <h3 class="text-lg font-medium text-center mb-4">सही वाक्य बोलें | Say the correct sentence</h3>
                 <p class="text-center text-gray-700 mb-6">${correctedText}</p>
                 <div class="flex justify-center gap-4">
-                    <button class="start-recording px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700">
+                    <button class="start-recording px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600">
                         🎤 Record
                     </button>
                     <button class="cancel-correction px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
@@ -787,12 +787,12 @@ function showCorrectionDialog(correctedText) {
 
 function createCorrectionSuggestion(message, corrections, onCorrect, onDismiss) {
     const container = document.createElement('div');
-    container.className = 'mt-2 bg-purple-50 rounded-lg p-3 border border-purple-100 text-sm';
+    container.className = 'mt-2 bg-green-50 rounded-lg p-3 border border-green-100 text-sm';
     
     container.innerHTML = `
         <div class="flex justify-between items-start">
             <div>
-                <div class="font-medium text-purple-900"> Suggestions </div>
+                <div class="font-medium text-green-900"> Suggestions </div>
                 <div class="mt-2 space-y-1 corrections-list"></div>
             </div>
             <button class="dismiss-btn text-gray-400 hover:text-gray-500">✕</button>
@@ -956,7 +956,7 @@ function showCorrectionPopup(amberResponses) {
         const item = amberResponses[index];
         popup.innerHTML = `
             <div class="text-center mb-4">
-                <h3 class="text-lg font-bold text-purple-600">Let's improve your Hindi!</h3>
+                <h3 class="text-lg font-bold text-green-600">Let's improve your Hindi!</h3>
                 <p class="text-sm text-gray-600">Complete all corrections to earn badges 🏆</p>
             </div>
             
@@ -973,7 +973,7 @@ function showCorrectionPopup(amberResponses) {
             </div>
             
             <div class="text-center mb-4">
-                <button id="recordCorrectionBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto">
+                <button id="recordCorrectionBtn" class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto">
                     <span>🎤</span>
                     <span>Record Correct Response</span>
                 </button>
@@ -1079,14 +1079,14 @@ async function recordCorrection(targetText, onSuccess) {
                     recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
                     setTimeout(() => {
                         recordBtn.innerHTML = originalText;
-                        recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+                        recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
                     }, 2000);
                 }
                 
             } catch (error) {
                 console.error('Error processing correction:', error);
                 recordBtn.innerHTML = originalText;
-                recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+                recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
             } finally {
                 // Stop and cleanup correction recorder
                 stream.getTracks().forEach(track => track.stop());
@@ -1178,7 +1178,7 @@ function resetRecordingInterface() {
         // Reset button state
         recordButton.disabled = false;
         recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
-        recordButton.classList.add('bg-purple-600');
+        recordButton.classList.add('bg-green-500');
         recordText.textContent = 'Start Speaking';
         recordIcon.textContent = '🎤';
         status.textContent = 'Ready to listen!';
@@ -1201,7 +1201,7 @@ function resetRecordingInterface() {
 function addRefreshButton() {
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = 'Refresh Page';
-    refreshBtn.className = 'mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700';
+    refreshBtn.className = 'mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600';
     refreshBtn.onclick = () => window.location.reload();
     
     const status = document.getElementById('status');
