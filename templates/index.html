@@ -196,8 +196,10 @@
                 // Proceed to conversation page
                 const childName = childNameInput.value.trim();
                 if (childName) {
+                    // Convert to sentence case (first letter uppercase, rest lowercase)
+                    const formattedName = childName.charAt(0).toUpperCase() + childName.slice(1).toLowerCase();
                     // Store name and redirect to conversation page
-                    sessionStorage.setItem('childName', childName);
+                    sessionStorage.setItem('childName', formattedName);
                     window.location.href = '/conversation';
                 } else {
                     alert('Please enter your child\'s name');

@@ -145,7 +145,7 @@ function animateWaveform() {
 
 
 // Show celebration overlay with improved styling
-function showCelebration(type, message) {
+function showCelebration(type, message, playSound = true) {
     // Create main overlay container
     const overlay = document.createElement('div');
     overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in';
@@ -201,9 +201,10 @@ function showCelebration(type, message) {
     // Add to document
     document.body.appendChild(overlay);
     
-    // Play celebration sound
-    const audio = audioEffects[type];
-    if (audio) {
+    // Play celebration sound only if requested and available
+    if (playSound && audioEffects && audioEffects[type]) {
+        const audio = audioEffects[type];
+        audio.volume = 0.3; // Reduce volume
         audio.play().catch(e => console.log('Audio playback failed:', e));
     }
     
@@ -288,13 +289,13 @@ function showCelebration(type, message) {
     
     document.head.appendChild(styles);
     
-    // Auto-remove after 5 seconds if user hasn't clicked continue
+    // Auto-remove after 3 seconds if user hasn't clicked continue (less intrusive)
     setTimeout(() => {
         if (document.body.contains(overlay)) {
             overlay.classList.add('fade-out');
             setTimeout(() => overlay.remove(), 500);
         }
-    }, 5000);
+    }, 3000);
 }
 
 // Update rewards display with animation
@@ -333,21 +334,54 @@ function animateNumberChange(element, newValue) {
     }, 50);
 }
 
-// Show reward animation
-function showRewardAnimation(points) {
-    const animation = document.createElement('div');
-    animation.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-4xl';
-    animation.textContent = `+${points} Points! 🎉`;
+// Show subtle reward feedback for good responses
+function showSubtleReward(points) {
+    const pointsElement = document.getElementById('rewardPoints');
+    if (!pointsElement) return;
     
-    // Add animation styles
-    animation.style.animation = 'reward-popup 1.5s ease-out forwards';
-    document.body.appendChild(animation);
+    // Create a small floating points indicator
+    const floatingPoints = document.createElement('div');
+    floatingPoints.className = 'absolute text-green-500 text-sm font-bold pointer-events-none';
+    floatingPoints.textContent = `+${points}`;
+    floatingPoints.style.cssText = `
+        top: -20px;
+        right: 0;
+        animation: subtleReward 2s ease-out forwards;
+    `;
     
-    // Remove after animation
-    setTimeout(() => {
-        animation.remove();
-    }, 1500);
+    // Position relative to points element
+    const pointsContainer = pointsElement.parentElement;
+    pointsContainer.style.position = 'relative';
+    pointsContainer.appendChild(floatingPoints);
+    
+    // Add subtle glow to points element
+    pointsElement.classList.add('reward-glow');
+    setTimeout(() => pointsElement.classList.remove('reward-glow'), 1000);
+    
+    // Remove floating element
+    setTimeout(() => floatingPoints.remove(), 2000);
 }
+
+// Add CSS for subtle reward animations
+const subtleRewardStyles = document.createElement('style');
+subtleRewardStyles.textContent = `
+    @keyframes subtleReward {
+        0% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        100% {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
+    
+    .reward-glow {
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        transition: box-shadow 0.3s ease;
+    }
+`;
+document.head.appendChild(subtleRewardStyles);
 
 
 // Toggle recording state
@@ -420,7 +454,7 @@ function toggleRecording() {
         const processingDiv = document.createElement('div');
         processingDiv.id = 'processingMessage';
         processingDiv.className = 'p-4 text-center text-gray-600 animate-pulse';
-        processingDiv.textContent = 'Your Hindi Friend is thinking ...';
+        processingDiv.textContent = 'Your Hindi Tutor is thinking ...';
         elements.conversation.appendChild(processingDiv);
         elements.conversation.scrollTop = elements.conversation.scrollHeight;
     }
@@ -558,9 +592,16 @@ async function startConversation() {
 }
 
 // Display message in conversation
-function displayMessage(role, text, corrections = null) {
+function displayMessage(role, text, corrections = null, feedbackType = 'green') {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${
+    
+    // Determine border color based on feedback type for user messages
+    let borderClass = '';
+    if (role === 'user') {
+        borderClass = feedbackType === 'amber' ? 'border-l-4 border-amber-500' : 'border-l-4 border-green-500';
+    }
+    
+    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
         role === 'user' 
             ? 'bg-purple-100 ml-auto max-w-[80%]' // Right-aligned for user messages
             : 'bg-gray-100 mr-auto max-w-[80%]'   // Left-aligned for assistant messages
@@ -816,17 +857,18 @@ async function sendAudioToServer(audioBlob) {
             processingMessage.remove();
         }
         
-        // First message celebration
-        if (conversationHistory.length === 1) {
+        // Quality-based celebrations only
+        if (data.is_milestone && data.new_rewards > 10) {
             const childName = sessionStorage.getItem('childName') || 'दोस्त';
-            showCelebration('firstMessage', `Amazing start ${childName}! Keep going! 🌟`);
+            showCelebration('milestone', 
+                `Excellent ${childName}! You've given ${data.good_response_count} great Hindi responses! 🌟`, 
+                false // No sound
+            );
         }
         
-        // Milestone celebrations
-        if (data.sentence_count % 2 === 0 && data.sentence_count > 0) {
-            showCelebration('milestone', 
-                `Fantastic! You've spoken ${data.sentence_count} sentences in Hindi! Captain America is proud of you! 🎉`
-            );
+        // Subtle reward feedback for good responses
+        if (data.new_rewards > 0 && !data.is_milestone) {
+            showSubtleReward(data.new_rewards);
         }
         
         // Update conversation
@@ -835,8 +877,13 @@ async function sendAudioToServer(audioBlob) {
             { role: 'assistant', content: data.text }
         );
 
-        displayMessage('user', data.transcript, data.corrections);
+        displayMessage('user', data.transcript, data.corrections, data.evaluation?.feedback_type);
         displayMessage('assistant', data.text, []);
+        
+        // Check if correction popup should be shown
+        if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
+            showCorrectionPopup(data.amber_responses);
+        }
         
         updateRewardsDisplay(data.sentence_count, data.reward_points);
         playAudioResponse(data.audio);
@@ -895,8 +942,279 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Show correction popup for amber responses
+function showCorrectionPopup(amberResponses) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+    
+    const popup = document.createElement('div');
+    popup.className = 'bg-white rounded-lg p-6 mx-4 max-w-md w-full';
+    
+    let currentIndex = 0;
+    
+    function renderCorrectionItem(index) {
+        const item = amberResponses[index];
+        popup.innerHTML = `
+            <div class="text-center mb-4">
+                <h3 class="text-lg font-bold text-purple-600">Let's improve your Hindi!</h3>
+                <p class="text-sm text-gray-600">Complete all corrections to earn badges 🏆</p>
+            </div>
+            
+            <div class="mb-6">
+                <div class="text-sm text-gray-500 mb-2">Your response:</div>
+                <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4">
+                    ${item.user_response}
+                </div>
+                
+                <div class="text-sm text-gray-500 mb-2">Correct response should be:</div>
+                <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium">
+                    ${item.corrected_response}
+                </div>
+            </div>
+            
+            <div class="text-center mb-4">
+                <button id="recordCorrectionBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto">
+                    <span>🎤</span>
+                    <span>Record Correct Response</span>
+                </button>
+            </div>
+            
+            <div class="flex justify-between text-sm text-gray-500">
+                <span>${index + 1} of ${amberResponses.length}</span>
+                <button id="skipCorrectionBtn" class="text-gray-400 hover:text-gray-600">Skip for now</button>
+            </div>
+        `;
+        
+        // Add event listeners
+        const recordBtn = popup.querySelector('#recordCorrectionBtn');
+        const skipBtn = popup.querySelector('#skipCorrectionBtn');
+        
+        recordBtn.addEventListener('click', () => {
+            recordCorrection(item.corrected_response, () => {
+                if (index + 1 < amberResponses.length) {
+                    renderCorrectionItem(index + 1);
+                } else {
+                    closeCorrectionPopup();
+                }
+            });
+        });
+        
+        skipBtn.addEventListener('click', () => {
+            if (index + 1 < amberResponses.length) {
+                renderCorrectionItem(index + 1);
+            } else {
+                closeCorrectionPopup();
+            }
+        });
+    }
+    
+    function closeCorrectionPopup() {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 300);
+        
+        // Award bonus points for completion
+        awardCorrectionBonus();
+        
+        // Show completion message with no sound (already enough feedback)
+        showCelebration('milestone', 'Great work on improving your Hindi! Keep practicing! 🌟', false);
+        
+        // Clear amber responses from session
+        clearAmberResponses();
+        
+        // Reset main recording interface to ready state
+        resetRecordingInterface();
+    }
+    
+    renderCorrectionItem(0);
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+}
+
+// Record correction attempt
+async function recordCorrection(targetText, onSuccess) {
+    const recordBtn = document.getElementById('recordCorrectionBtn');
+    const originalText = recordBtn.innerHTML;
+    
+    if (!mediaRecorder || mediaRecorder.state === 'recording') return;
+    
+    recordBtn.innerHTML = '<span>⏹️</span><span>Stop Recording</span>';
+    recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+    
+    // Create a separate media recorder for corrections to avoid conflicts
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const correctionRecorder = new MediaRecorder(stream);
+        const tempAudioChunks = [];
+        
+        correctionRecorder.ondataavailable = (event) => {
+            tempAudioChunks.push(event.data);
+        };
+        
+        correctionRecorder.onstop = async () => {
+            const audioBlob = new Blob(tempAudioChunks, { type: 'audio/wav' });
+            
+            try {
+                // Use STT-only endpoint for corrections
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'audio.wav');
+                
+                const response = await fetch('/api/correction_stt', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                const userText = data.transcript?.toLowerCase().trim();
+                const targetTextNormalized = targetText.toLowerCase().trim();
+                
+                // Simple text matching
+                const similarity = calculateSimilarity(userText, targetTextNormalized);
+                
+                if (similarity > 0.7) { // 70% similarity threshold
+                    recordBtn.innerHTML = '<span>✅</span><span>Correct! Moving to next...</span>';
+                    recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto';
+                    setTimeout(onSuccess, 1500);
+                } else {
+                    recordBtn.innerHTML = '<span>🔄</span><span>Try Again</span>';
+                    recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
+                    setTimeout(() => {
+                        recordBtn.innerHTML = originalText;
+                        recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+                    }, 2000);
+                }
+                
+            } catch (error) {
+                console.error('Error processing correction:', error);
+                recordBtn.innerHTML = originalText;
+                recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+            } finally {
+                // Stop and cleanup correction recorder
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+        
+        correctionRecorder.start();
+        
+        // Auto-stop after 10 seconds
+        setTimeout(() => {
+            if (correctionRecorder.state === 'recording') {
+                correctionRecorder.stop();
+            }
+        }, 10000);
+        
+    } catch (error) {
+        console.error('Error starting correction recording:', error);
+        recordBtn.innerHTML = originalText;
+        recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+    }
+}
+
+// Simple text similarity calculation
+function calculateSimilarity(text1, text2) {
+    const words1 = text1.split(' ').filter(w => w.length > 0);
+    const words2 = text2.split(' ').filter(w => w.length > 0);
+    
+    let matches = 0;
+    const maxWords = Math.max(words1.length, words2.length);
+    
+    words1.forEach(word => {
+        if (words2.includes(word)) {
+            matches++;
+        }
+    });
+    
+    return matches / maxWords;
+}
+
+// Award bonus points for completing correction popup
+async function awardCorrectionBonus() {
+    try {
+        const bonusPoints = 50; // Generous bonus for completing corrections
+        
+        // Update local display immediately
+        const pointsElement = document.getElementById('rewardPoints');
+        if (pointsElement) {
+            const currentPoints = parseInt(pointsElement.textContent) || 0;
+            animateNumberChange(pointsElement, currentPoints + bonusPoints);
+            
+            // Show bonus feedback
+            showSubtleReward(bonusPoints);
+        }
+        
+        // Optionally sync with server (you could add an endpoint for this)
+        // For now, the bonus is just visual feedback
+        
+    } catch (error) {
+        console.error('Error awarding correction bonus:', error);
+    }
+}
+
+// Clear amber responses from session
+async function clearAmberResponses() {
+    try {
+        await fetch('/api/clear_amber_responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ session_id: sessionId })
+        });
+    } catch (error) {
+        console.error('Error clearing amber responses:', error);
+    }
+}
+
+// Reset recording interface to ready state
+function resetRecordingInterface() {
+    const recordButton = document.getElementById('recordButton');
+    const recordText = document.getElementById('recordText');
+    const recordIcon = document.getElementById('recordIcon');
+    const status = document.getElementById('status');
+    
+    if (recordButton && recordText && recordIcon && status) {
+        // Ensure recording is not active
+        isRecording = false;
+        
+        // Reset button state
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
+        recordButton.classList.add('bg-purple-600');
+        recordText.textContent = 'Start Speaking';
+        recordIcon.textContent = '🎤';
+        status.textContent = 'Ready to listen!';
+        
+        // Remove any processing messages
+        const processingMessage = document.getElementById('processingMessage');
+        if (processingMessage) {
+            processingMessage.remove();
+        }
+        
+        // Remove any recording indicators
+        const indicator = recordButton.querySelector('.recording-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+}
+
+// Add refresh button for errors
+function addRefreshButton() {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh Page';
+    refreshBtn.className = 'mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700';
+    refreshBtn.onclick = () => window.location.reload();
+    
+    const status = document.getElementById('status');
+    if (status && status.parentNode) {
+        status.parentNode.appendChild(refreshBtn);
+    }
+}
+
 // Error handling for audio playback
 window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
-    status.textContent = 'Error: Something went wrong. Please try again.';
+    const status = document.getElementById('status');
+    if (status) {
+        status.textContent = 'Error: Something went wrong. Please try again.';
+    }
 });

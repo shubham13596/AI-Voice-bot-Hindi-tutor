@@ -58,7 +58,7 @@ app = Flask(__name__,
 CORS(app)
 
 # Configure API keys from environment variables
-#openai.api_key = os.getenv('OPENAI_API_KEY')
+openai.api_key = os.getenv('OPENAI_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
@@ -119,11 +119,198 @@ def get_initial_conversation(child_name="दोस्त"):
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
 
-def calculate_rewards(sentence_count):
-    """Calculate reward points based on sentence count"""
-    if sentence_count % 2 == 0:
-        return 10
-    return 0
+def calculate_rewards(evaluation_result, good_response_count):
+    """Calculate reward points based on response quality"""
+    points = 0
+    
+    # Award points only for good quality responses
+    if evaluation_result.get('feedback_type') == 'green':
+        points = 10  # Base points for good response
+        
+        # Bonus for milestones (every 5 good responses)
+        if good_response_count % 5 == 0 and good_response_count > 0:
+            points += 20  # Milestone bonus
+    
+    return points
+
+class ResponseEvaluator:
+    """Evaluates user responses for completeness and grammar"""
+    
+    @staticmethod
+    def evaluate_response(user_text):
+        """Evaluate user response and return score + analysis"""
+        try:
+            client = openai.OpenAI(
+                api_key=os.getenv('OPENAI_API_KEY'),
+                base_url="https://api.openai.com/v1",
+                http_client=None
+            )
+            
+            system_prompt = f"""
+            Evaluate this Hindi response from a 6-year-old child for:
+            1. Completeness (is it a full sentence or just 1-2 words?)
+            2. Grammar correctness in Hindi
+            
+            User response: "{user_text}"
+            
+            Return JSON format:
+            {{
+                "score": 1-10,
+                "is_complete": true/false,
+                "is_grammatically_correct": true/false,
+                "issues": ["incomplete", "grammar_error"],
+                "corrected_response": "grammatically correct version if needed",
+                "feedback_type": "green/amber"
+            }}
+            
+            Score guide:
+            - 8-10: Complete, grammatically correct = green
+            - 1-7: Incomplete or grammar issues = amber
+            """
+            
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": system_prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                max_tokens=150
+            )
+            
+            return json.loads(response.choices[0].message.content)
+            
+        except Exception as e:
+            logger.error(f"Error in response evaluation: {str(e)}")
+            return {
+                "score": 5,
+                "is_complete": True,
+                "is_grammatically_correct": True,
+                "issues": [],
+                "corrected_response": user_text,
+                "feedback_type": "green"
+            }
+
+class TalkerModule:
+    """Handles conversation responses based on evaluation context"""
+    
+    @staticmethod
+    def get_response(conversation_history, user_text, evaluation_result, sentence_count):
+        """Generate conversation response based on evaluation context"""
+        try:
+            client = openai.OpenAI(
+                api_key=os.getenv('OPENAI_API_KEY'),
+                base_url="https://api.openai.com/v1",
+                http_client=None
+            )
+            
+            # Determine conversation strategy based on evaluation
+            if not evaluation_result["is_complete"]:
+                strategy = "nudge_for_completeness"
+            else:
+                strategy = "continue_conversation"
+            
+            system_prompt = f"""
+            You are a friendly Hindi tutor speaking with a 6-year-old child.
+            The child has spoken {sentence_count} sentences so far.
+            
+            Strategy: {strategy}
+            
+            Guidelines:
+            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
+            2. If strategy is 'continue_conversation': Continue the natural conversation flow
+            3. Keep responses short (max 20 words)
+            4. Be curious and encouraging
+            5. Respond only in Hindi
+            
+            Return JSON format:
+            {{
+                "response": "Your Hindi response here"
+            }}
+            """
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                *conversation_history,
+                {"role": "user", "content": user_text}
+            ]
+            
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.6,
+                max_tokens=100
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return result["response"]
+            
+        except Exception as e:
+            logger.error(f"Error in talker response: {str(e)}")
+            return "मैं समझ नहीं पाया। कृपया दोबारा बोलें।"
+
+class ConversationController:
+    """Main orchestrator for conversation flow"""
+    
+    def __init__(self):
+        self.evaluator = ResponseEvaluator()
+        self.talker = TalkerModule()
+    
+    def process_user_response(self, session_data, user_text):
+        """Process user response through evaluation and conversation flow"""
+        try:
+            # Evaluate response in parallel with conversation
+            evaluation = self.evaluator.evaluate_response(user_text)
+            
+            # Generate conversation response
+            conversation_response = self.talker.get_response(
+                session_data['conversation_history'],
+                user_text,
+                evaluation,
+                session_data['sentence_count']
+            )
+            
+            # Track good responses and handle amber responses
+            if evaluation['feedback_type'] == 'green':
+                session_data['good_response_count'] = session_data.get('good_response_count', 0) + 1
+            elif evaluation['feedback_type'] == 'amber':
+                amber_entry = {
+                    'user_response': user_text,
+                    'corrected_response': evaluation['corrected_response'],
+                    'issues': evaluation['issues']
+                }
+                session_data.setdefault('amber_responses', []).append(amber_entry)
+            
+            # Check if correction popup should trigger (every 5 interactions, and we have amber responses)
+            should_show_popup = (
+                session_data['sentence_count'] % 5 == 0 and
+                session_data['sentence_count'] > 0 and
+                len(session_data.get('amber_responses', [])) > 0
+            )
+            
+            # Calculate milestone status for celebration
+            is_milestone = (
+                evaluation['feedback_type'] == 'green' and 
+                session_data['good_response_count'] % 5 == 0 and
+                session_data['good_response_count'] > 0
+            )
+            
+            return {
+                'response': conversation_response,
+                'evaluation': evaluation,
+                'should_show_popup': should_show_popup,
+                'amber_responses': session_data.get('amber_responses', []) if should_show_popup else [],
+                'is_milestone': is_milestone,
+                'good_response_count': session_data.get('good_response_count', 0)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in conversation controller: {str(e)}")
+            return {
+                'response': "मैं समझ नहीं पाया। कृपया दोबारा बोलें।",
+                'evaluation': {'feedback_type': 'green'},
+                'should_show_popup': False,
+                'amber_responses': []
+            }
 
 def get_hindi_response(conversation_history, audio_transcript, sentence_count):
     """Get response from GPT-4 with Hindi conversation context and gamification"""
@@ -212,7 +399,9 @@ def start_conversation():
         session_data = {
             'conversation_history': [],
             'sentence_count': 0,
+            'good_response_count': 0,
             'reward_points': 0,
+            'amber_responses': [],
             'created_at': datetime.now()
         }
         
@@ -252,13 +441,15 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
                     text=text,
                     model_id="eleven_turbo_v2_5",
                     language_code="hi",
-                    voice_id="cgSgspJ2msm6clMCkdW9",
+                    voice_id="MF4J4IDTRo0AxOO4dpFR",
                     optimize_streaming_latency="3",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
-                        stability=0.3,
-                        similarity_boost=0.5,
+                        stability=0.5,
+                        similarity_boost=0.6,
                         style=0.0,
+                        use_speaker_boost=True,
+                        speed=0.8
                     )
                 )
                 
@@ -475,24 +666,25 @@ def process_audio():
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
-        new_rewards = calculate_rewards(session_data['sentence_count'])
+        # Initialize conversation controller
+        controller = ConversationController()
+        
+        # Process user response through controller
+        controller_result = controller.process_user_response(session_data, transcript)
+        
+        new_rewards = calculate_rewards(
+            controller_result['evaluation'], 
+            controller_result['good_response_count']
+        )
         
         if new_rewards > 0:
             session_data['reward_points'] += new_rewards
         
-        # Get response from GPT-4
-        response_text = get_hindi_response(
-            session_data['conversation_history'], 
-            transcript,
-            session_data['sentence_count']
-        )
-
-        
-        if not response_text:
-            return jsonify({'error': 'Failed to get GPT response'}), 500
+        if not controller_result['response']:
+            return jsonify({'error': 'Failed to get conversation response'}), 500
         
         # Convert response to speech
-        audio_response = text_to_speech_hindi(response_text['response'])
+        audio_response = text_to_speech_hindi(controller_result['response'])
         
         if not audio_response:
             return jsonify({'error': 'Text-to-speech failed'}), 500
@@ -500,7 +692,7 @@ def process_audio():
         # Update conversation history
         session_data['conversation_history'].extend([
             {"role": "user", "content": transcript},
-            {"role": "assistant", "content": response_text['response']}
+            {"role": "assistant", "content": controller_result['response']}
         ])
 
         # Add this line to save all updates
@@ -512,13 +704,17 @@ def process_audio():
                 logger.error(f"Failed to delete temporary file: {e}")
         
         return jsonify({
-            'text': response_text['response'],
+            'text': controller_result['response'],
             'audio': audio_response,
             'transcript': transcript,
-            'corrections': response_text['corrections'],
+            'evaluation': controller_result['evaluation'],
             'sentence_count': session_data['sentence_count'],
+            'good_response_count': controller_result['good_response_count'],
             'reward_points': session_data['reward_points'],
-            'new_rewards': new_rewards
+            'new_rewards': new_rewards,
+            'is_milestone': controller_result['is_milestone'],
+            'should_show_popup': controller_result['should_show_popup'],
+            'amber_responses': controller_result['amber_responses']
         })
         
     except Exception as e:
@@ -526,6 +722,62 @@ def process_audio():
         logger.exception("Full traceback:")  # Add full traceback logging
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/clear_amber_responses', methods=['POST'])
+def clear_amber_responses():
+    """Clear amber responses from session after correction popup"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'No session ID provided'}), 400
+        
+        session_data = session_store.load_session(session_id)
+        if not session_data:
+            return jsonify({'error': 'Invalid session'}), 400
+        
+        # Clear amber responses
+        session_data['amber_responses'] = []
+        session_store.save_session(session_id, session_data)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error clearing amber responses: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/correction_stt', methods=['POST'])
+def correction_speech_to_text():
+    """STT-only endpoint for correction attempts (doesn't affect conversation)"""
+    temp_file = None
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file'}), 400
+        
+        # Use tempfile for secure file handling
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            audio_file = request.files['audio']
+            audio_file.save(temp_file.name)
+
+            with open(temp_file.name, 'rb') as f:
+                transcript = speech_to_text_hindi(f.read())
+        
+        if not transcript:
+            return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        return jsonify({
+            'transcript': transcript
+        })
+        
+    except Exception as e:
+        logger.error(f"Correction STT Error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+    finally:
+        if temp_file:
+            try:
+                os.unlink(temp_file.name)
+            except Exception as e:
+                logger.error(f"Failed to delete temporary file: {e}")
 
 @app.route('/health', methods=['GET'])
 def health_check():
