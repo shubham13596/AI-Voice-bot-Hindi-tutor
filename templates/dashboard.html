@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script>
-        // Check if user is authenticated
+        // Dashboard page initialization
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 const response = await fetch('/api/user');
@@ -24,11 +24,14 @@
                 }
                 
                 // Update page title and user info
-                document.title = `Dashboard - ${user.child_name}`;
-                document.getElementById('childName').textContent = user.child_name;
+                document.title = `Activity Dashboard - ${user.child_name}`;
+                const childNameEl = document.getElementById('childName');
+                if (childNameEl) {
+                    childNameEl.textContent = user.child_name;
+                }
                 
-                // Update profile dropdown
-                updateProfileDropdown(user);
+                // Initialize dashboard data
+                await loadDashboardData();
                 
             } catch (error) {
                 console.error('Error checking user authentication:', error);
@@ -182,11 +185,13 @@
             background-color: #fef2f2;
         }
 
-        /* Main content */
-        .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
+        /* Dashboard layout - works with mobile design system */
+        .dashboard-container {
+            background: var(--card-white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--space-lg);
         }
 
         .dashboard-header {
@@ -334,8 +339,8 @@
                 right: -0.5rem;
             }
 
-            .main-container {
-                padding: 1rem;
+            .mobile-main-content {
+                padding: var(--space-md);
             }
 
             .dashboard-title {
@@ -354,36 +359,16 @@
     </style>
 </head>
 <body>
-    <header class="header">
-        <div class="header-container">
-            <div class="app-title">Your Hindi Tutor</div>
-            <nav class="nav-section">
-                <a href="/conversation-select" class="nav-link">Start Conversation</a>
-                <a href="/dashboard" class="nav-link active">Dashboard</a>
-                
-                <div class="profile-dropdown">
-                    <button class="profile-button" id="profileButton">
-                        <span id="userInitials">U</span>
-                        <span>▼</span>
-                    </button>
-                    <div class="dropdown-menu" id="dropdownMenu">
-                        <div class="dropdown-header">
-                            <div class="dropdown-user-name" id="dropdownUserName">User</div>
-                            <div class="dropdown-user-email" id="dropdownUserEmail">user@example.com</div>
-                        </div>
-                        <a href="/profile-setup" class="dropdown-item">Edit Profile</a>
-                        <a href="/logout" class="dropdown-item danger">Sign Out</a>
-                    </div>
+    <div class="app-container">
+        <!-- No top bar for dashboard as per requirements -->
+        
+        <!-- Main Content -->
+        <main class="mobile-main-content dashboard-content">
+            <div class="dashboard-container">
+                <div class="dashboard-header">
+                    <h1 class="dashboard-title">Learning Progress</h1>
+                    <p class="dashboard-subtitle">Track <span id="childName">your child's</span> Hindi conversation journey</p>
                 </div>
-            </nav>
-        </div>
-    </header>
-
-    <main class="main-container">
-        <div class="dashboard-header">
-            <h1 class="dashboard-title">Learning Progress</h1>
-            <p class="dashboard-subtitle">Track <span id="childName">your child's</span> Hindi conversation journey</p>
-        </div>
 
         <div class="week-toggle">
             <button id="thisWeekBtn" class="toggle-button active">This Week</button>
@@ -535,37 +520,16 @@
             statsContainer.style.display = 'grid';
         }
 
-        // Profile dropdown functions
-        function updateProfileDropdown(user) {
-            // Update user initials (first letter of name)
-            const initials = user.name ? user.name.charAt(0).toUpperCase() : 'U';
-            document.getElementById('userInitials').textContent = initials;
-            
-            // Update dropdown content
-            document.getElementById('dropdownUserName').textContent = user.name || 'User';
-            document.getElementById('dropdownUserEmail').textContent = user.email || '';
-        }
+        // Profile dropdown is now handled by mobile navigation component
 
-        // Profile dropdown toggle
-        document.getElementById('profileButton').addEventListener('click', function() {
-            const dropdown = document.getElementById('dropdownMenu');
-            dropdown.classList.toggle('show');
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('dropdownMenu');
-            const button = document.getElementById('profileButton');
-            
-            if (!button.contains(event.target) && !dropdown.contains(event.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
-
-        // Load initial data when page loads
-        window.addEventListener('load', () => {
-            loadDashboardData();
-        });
+        // Load initial data when page loads - called from DOM ready above
+        // (removed duplicate loading to prevent issues)
     </script>
+        
+            </div> <!-- Close dashboard-container -->
+        </main> <!-- Close mobile-main-content -->
+        
+        <!-- Bottom Navigation will be inserted here by JavaScript -->
+    </div> <!-- Close app-container -->
 </body>
 </html>

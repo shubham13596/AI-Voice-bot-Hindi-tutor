@@ -5,228 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Choose Conversation - Your Hindi Tutor</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .selection-container {
-            background: white;
-            border-radius: 2rem;
-            padding: 3rem 2rem;
-            max-width: 600px;
-            width: 100%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #166534;
-            margin-bottom: 0.5rem;
-            line-height: 1.2;
-        }
-
-        .subtitle {
-            font-size: 1.2rem;
-            color: #6b7280;
-            margin-bottom: 3rem;
-        }
-
-        .child-greeting {
-            background: #f0fdf4;
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin-bottom: 2.5rem;
-            border-left: 4px solid #22c55e;
-        }
-
-        .child-name {
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: #166534;
-        }
-
-        .greeting-text {
-            font-size: 1.1rem;
-            color: #16a34a;
-            margin-top: 0.5rem;
-        }
-
-        .conversation-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .conversation-option {
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            border: 2px solid #e2e8f0;
-            border-radius: 1.5rem;
-            padding: 2rem 1.5rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            color: inherit;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .conversation-option:hover {
-            border-color: #22c55e;
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.15);
-        }
-
-        .option-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .option-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 0.8rem;
-        }
-
-        .option-description {
-            font-size: 0.95rem;
-            color: #6b7280;
-            line-height: 1.4;
-        }
-
-        .option-tag {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: #22c55e;
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .back-button {
-            background: #f8fafc;
-            color: #6b7280;
-            border: 1px solid #e2e8f0;
-            padding: 0.75rem 1.5rem;
-            border-radius: 1rem;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 1rem;
-        }
-
-        .back-button:hover {
-            background: #e2e8f0;
-            color: #374151;
-        }
-
-        @media (max-width: 640px) {
-            .selection-container {
-                padding: 2rem 1.5rem;
-            }
-            
-            .title {
-                font-size: 2rem;
-            }
-
-            .conversation-options {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .conversation-option {
-                padding: 1.5rem 1rem;
-            }
-
-            .option-icon {
-                font-size: 2.5rem;
-            }
-
-            .option-title {
-                font-size: 1.1rem;
-            }
-        }
-
-        /* Animation for options */
-        .conversation-option {
-            opacity: 0;
-            animation: slideInUp 0.6s ease-out forwards;
-        }
-
-        .conversation-option:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/mobile-design-system.css">
+    <script src="/static/js/mobile-navigation.js" defer></script>
 </head>
 <body>
-    <div class="selection-container">
-        <h1 class="title">Choose Your Adventure!</h1>
-        <p class="subtitle">What would you like to talk about today?</p>
+    <div class="app-container">
+        <!-- Top Bar with Profile Only -->
+        <header class="mobile-top-bar">
+            <!-- Profile avatar will be inserted here by JavaScript -->
+        </header>
         
-        <div class="child-greeting">
-            <div class="child-name">नमस्ते <span id="childName">...</span>! 👋</div>
-            <div class="greeting-text">Let's practice Hindi together through fun conversations!</div>
-        </div>
-        
-        <div class="conversation-options">
-            <a href="/conversation?type=everyday" class="conversation-option" data-type="everyday">
-                <div class="option-tag">Popular</div>
-                <div class="option-icon">🏠</div>
-                <div class="option-title">Everyday Life</div>
-                <div class="option-description">
-                    Talk about your day, school, friends, and daily activities. Perfect for learning practical Hindi!
+        <!-- Main Content -->
+        <main class="mobile-main-content">
+            <div class="mobile-card">
+                <div class="text-center mb-lg">
+                    <h1 class="font-bold text-primary" style="font-size: 2.5rem; margin-bottom: 0.5rem;">Choose Your Adventure!</h1>
+                    <p class="text-medium" style="font-size: 1.2rem;">What would you like to talk about today?</p>
                 </div>
-            </a>
-            
-            <a href="/conversation?type=cartoons" class="conversation-option" data-type="cartoons">
-                <div class="option-tag">Fun</div>
-                <div class="option-icon">🎭</div>
-                <div class="option-title">Favorite Cartoons</div>
-                <div class="option-description">
-                    Chat about your favorite cartoon characters, shows, and stories. Let's make Hindi fun!
+                
+                <div class="child-greeting mb-xl" style="background: #f0fdf4; border-radius: 1rem; padding: 1.5rem; border-left: 4px solid var(--primary-green);">
+                    <div class="font-semibold text-primary" style="font-size: 1.3rem;">नमस्ते <span id="childName">...</span>! 👋</div>
+                    <div class="text-medium mt-xs" style="font-size: 1.1rem;">Let's practice Hindi together through fun conversations!</div>
                 </div>
-            </a>
-        </div>
+                
+                <div class="conversation-options-grid">
+                    <a href="/conversation?type=everyday" class="conversation-option-card fade-in-up" data-type="everyday">
+                        <div class="option-tag">Popular</div>
+                        <div class="option-icon">🏠</div>
+                        <div class="option-title">Everyday Life</div>
+                        <div class="option-description">
+                            Talk about your day, school, friends, and daily activities. Perfect for learning practical Hindi!
+                        </div>
+                    </a>
+                    
+                    <a href="/conversation?type=cartoons" class="conversation-option-card fade-in-up" data-type="cartoons" style="animation-delay: 0.2s;">
+                        <div class="option-tag">Fun</div>
+                        <div class="option-icon">🎭</div>
+                        <div class="option-title">Favorite Cartoons</div>
+                        <div class="option-description">
+                            Chat about your favorite cartoon characters, shows, and stories. Let's make Hindi fun!
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </main>
         
-        <a href="/dashboard" class="back-button">← Back to Dashboard</a>
+        <!-- Bottom Navigation will be inserted here by JavaScript -->
     </div>
 
     <script>
+        // Page-specific initialization
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 // Get user info to display child name
@@ -243,7 +71,10 @@
                 }
                 
                 // Update child name in greeting
-                document.getElementById('childName').textContent = user.child_name;
+                const childNameEl = document.getElementById('childName');
+                if (childNameEl) {
+                    childNameEl.textContent = user.child_name;
+                }
                 
                 // Update page title
                 document.title = `Choose Conversation - ${user.child_name}`;
@@ -255,17 +86,21 @@
         });
 
         // Add click tracking for analytics
-        document.querySelectorAll('.conversation-option').forEach(option => {
-            option.addEventListener('click', function(e) {
-                const type = this.getAttribute('data-type');
+        document.addEventListener('click', function(e) {
+            const conversationCard = e.target.closest('.conversation-option-card');
+            if (conversationCard) {
+                const type = conversationCard.getAttribute('data-type');
                 
                 // Track the selection (you can add analytics here)
                 console.log(`Selected conversation type: ${type}`);
                 
-                // Optional: Add loading state
-                this.style.opacity = '0.7';
-                this.style.transform = 'translateY(2px)';
-            });
+                // Add loading state
+                conversationCard.style.opacity = '0.8';
+                conversationCard.style.transform = 'translateY(2px)';
+                
+                // Add transition effect
+                MobilePageUtils.showPageTransition();
+            }
         });
     </script>
 </body>
