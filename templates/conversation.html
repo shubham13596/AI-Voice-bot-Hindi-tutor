@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>आपका हिंदी मित्र - Your Hindi Tutor</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/mobile-design-system.css">
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
@@ -39,24 +39,11 @@
                     'everyday': 'Everyday Life',
                     'cartoons': 'Favorite Cartoons'
                 };
-                const typeDescs = {
-                    'everyday': 'Talk about daily activities and school',
-                    'cartoons': 'Chat about favorite cartoon characters'
-                };
-                const typeIcons = {
-                    'everyday': '🏠',
-                    'cartoons': '🎭'
-                };
                 const typeName = typeNames[conversationType] || 'Conversation';
                 document.title = `${typeName} - ${user.child_name}`;
                 
-                // Update conversation type indicator
-                document.getElementById('conversationTypeName').textContent = typeName;
-                document.getElementById('conversationTypeDesc').textContent = typeDescs[conversationType] || 'General conversation';
-                document.getElementById('conversationIcon').textContent = typeIcons[conversationType] || '💬';
-                
-                // Update profile dropdown
-                updateProfileDropdown(user);
+                // Update page title only - no conversation type indicator needed
+                // Profile avatar will be non-interactive as per requirements
                 
             } catch (error) {
                 console.error('Error checking user authentication:', error);
@@ -65,376 +52,262 @@
             }
         });
 
-        // Profile dropdown functions
-        function updateProfileDropdown(user) {
-            // Update user initials (first letter of name)
-            const initials = user.name ? user.name.charAt(0).toUpperCase() : 'U';
-            document.getElementById('userInitials').textContent = initials;
-            
-            // Update dropdown content
-            document.getElementById('dropdownUserName').textContent = user.name || 'User';
-            document.getElementById('dropdownUserEmail').textContent = user.email || '';
-        }
-
-        // Profile dropdown toggle
-        document.getElementById('profileButton').addEventListener('click', function() {
-            const dropdown = document.getElementById('dropdownMenu');
-            dropdown.classList.toggle('show');
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('dropdownMenu');
-            const button = document.getElementById('profileButton');
-            
-            if (!button.contains(event.target) && !dropdown.contains(event.target)) {
-                dropdown.classList.remove('show');
+        // Profile avatar and stars are display-only (no interactions as per requirements)
+        async function updateStarsDisplay() {
+            try {
+                const response = await fetch('/api/user');
+                if (response.ok) {
+                    const user = await response.json();
+                    // Update stars count if available
+                    const starsEl = document.getElementById('starsCount');
+                    if (starsEl && user.reward_points !== undefined) {
+                        starsEl.textContent = user.reward_points || 0;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating stars:', error);
             }
-        });
+        }
+        
+        // Initialize stars display
+        updateStarsDisplay();
     </script>
     
     <style>
-        /* Reset and base styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Conversation-specific styles that extend mobile design system */
+        :root {
+            --conversation-bg: #ffffff;
+            --conversation-header-height: 60px;
         }
-
+        
         body {
-            background-color: #f3f4f6;
+            background: var(--conversation-bg);
             min-height: 100vh;
-            padding-top: 4rem; /* Space for fixed header */
+            padding-top: var(--conversation-header-height);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        /* Header styles */
-        .rewards-header {
+        /* Conversation header - minimal and focused */
+        .conversation-header {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 4rem;
-            background: linear-gradient(to right, #22c55e, #16a34a);
-            color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: var(--conversation-header-height);
+            background: var(--conversation-bg);
+            border-bottom: 1px solid var(--border-light);
             z-index: 1000;
-            padding: 0.5rem;
-        }
-
-        .header-container {
-            height: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 1rem;
+            padding: 0 var(--space-md);
         }
-
-        .left-section {
+        
+        .back-button {
             display: flex;
             align-items: center;
-            gap: 1rem;
-        }
-
-        .app-title {
-            font-size: 1.25rem;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        .app-title .mobile-icon {
-            display: none;
-        }
-
-        .app-title .desktop-text {
-            display: inline;
-        }
-
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            transition: background-color 0.3s;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
-        .nav-link .mobile-icon {
-            display: none;
-        }
-
-        .nav-link .desktop-text {
-            display: inline;
-        }
-
-        .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .rewards-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* Profile dropdown */
-        .profile-dropdown {
-            position: relative;
-        }
-
-        .profile-button {
-            background: rgba(255, 255, 255, 0.15);
+            justify-content: center;
+            width: 40px;
+            height: 40px;
             border: none;
-            color: white;
-            padding: 0.4rem 0.8rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            transition: background-color 0.3s;
-            font-size: 0.875rem;
-        }
-
-        .profile-button:hover {
-            background-color: rgba(255, 255, 255, 0.25);
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            min-width: 180px;
-            z-index: 1001;
-            display: none;
-            margin-top: 0.5rem;
-        }
-
-        .dropdown-menu.show {
-            display: block;
-        }
-
-        .dropdown-header {
-            padding: 0.75rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .dropdown-user-name {
-            font-weight: 600;
-            color: #166534;
-            margin-bottom: 0.25rem;
-            font-size: 0.9rem;
-        }
-
-        .dropdown-user-email {
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        .dropdown-item {
-            display: block;
-            width: 100%;
-            padding: 0.6rem 0.75rem;
             background: none;
-            border: none;
-            text-align: left;
-            color: #374151;
-            text-decoration: none;
-            transition: background-color 0.2s;
+            color: var(--text-dark);
             cursor: pointer;
-            font-size: 0.875rem;
+            border-radius: var(--radius-full);
+            transition: all 0.2s ease;
+            text-decoration: none;
         }
-
-        .dropdown-item:hover {
-            background-color: #f3f4f6;
+        
+        .back-button:hover {
+            background: rgba(0, 0, 0, 0.05);
         }
-
-        .dropdown-item.danger {
-            color: #dc2626;
+        
+        .back-arrow {
+            font-size: 1.5rem;
+            font-weight: bold;
         }
-
-        .dropdown-item.danger:hover {
-            background-color: #fef2f2;
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
         }
-
-        .reward-box {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 0.5rem;
-            padding: 0.25rem 0.5rem;
-            min-width: 60px;
+        
+        .stars-display {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) var(--space-sm);
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: var(--radius-full);
+        }
+        
+        .star-icon {
+            font-size: 1.2rem;
+            color: #ffd700;
+        }
+        
+        .stars-count {
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            color: var(--text-dark);
+            min-width: 20px;
             text-align: center;
         }
-
-        .reward-box .reward-label {
-            display: block;
+        
+        .profile-avatar-simple {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: var(--primary-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+            cursor: default; /* Non-interactive as per requirements */
         }
 
-        .reward-box .mobile-icon {
-            display: none;
-        }
-
-        /* Main content container */
-        .main-container {
-            max-width: 100%;
-            width: 100%;
+        /* Conversation area - full height and focused */
+        .conversation-container {
+            height: calc(100vh - var(--conversation-header-height));
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 1rem;
+            padding: 0 var(--space-md);
         }
-
-        .content-card {
-            background: white;
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin: 0 auto;
-            max-width: 600px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        
+        .conversation-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-lg) 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
         }
-
-        /* Responsive adjustments */
+        
+        .message {
+            padding: var(--space-md);
+            border-radius: var(--radius-lg);
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: messageSlideIn 0.3s ease-out;
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: var(--primary-green);
+            color: white;
+        }
+        
+        .message.assistant {
+            align-self: flex-start;
+            background: var(--border-light);
+            color: var(--text-dark);
+        }
+        
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Status and interaction area */
+        .conversation-status {
+            text-align: center;
+            padding: var(--space-lg);
+            color: var(--text-medium);
+            font-size: var(--font-size-lg);
+        }
+        
+        .touch-interaction-area {
+            padding: var(--space-xl) var(--space-md);
+            text-align: center;
+            background: rgba(34, 197, 94, 0.05);
+            border-radius: var(--radius-lg);
+            margin: var(--space-lg) 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .touch-interaction-area:hover {
+            background: rgba(34, 197, 94, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .touch-interaction-area:active {
+            transform: translateY(0);
+        }
+        
+        .touch-instruction {
+            font-size: var(--font-size-lg);
+            color: var(--primary-green);
+            font-weight: 600;
+            margin-bottom: var(--space-sm);
+        }
+        
+        .touch-hint {
+            font-size: var(--font-size-sm);
+            color: var(--text-medium);
+        }
+        
+        /* Responsive design */
         @media (max-width: 768px) {
-            .left-section {
-                gap: 0.3rem;
+            .conversation-container {
+                padding: 0 var(--space-sm);
             }
-
-            /* Keep app title as text on mobile */
-            .app-title .desktop-text {
-                display: inline;
+            
+            .message {
+                max-width: 90%;
             }
-
-            .app-title .mobile-icon {
-                display: none;
-            }
-
-            .nav-link .desktop-text {
-                display: none;
-            }
-
-            .nav-link .mobile-icon {
-                display: inline;
-                font-size: 1rem;
-            }
-
-            .reward-box .reward-label {
-                display: none;
-            }
-
-            .reward-box .mobile-icon {
-                display: block;
-                font-size: 0.9rem;
-                margin-bottom: 0.1rem;
-            }
-
-            .nav-link {
-                padding: 0.4rem 0.6rem;
-                min-width: auto;
-            }
-
-            .reward-box {
-                min-width: 45px;
-                font-size: 0.8rem;
-                padding: 0.2rem 0.4rem;
-            }
-
-            .app-title {
-                font-size: 1.2rem;
-            }
-
-            .content-card {
-                padding: 1rem;
-            }
-
-            .profile-button {
-                padding: 0.3rem 0.6rem;
-                font-size: 0.8rem;
-            }
-
-            .header-container {
-                padding: 0 0.5rem;
-            }
-
-            .rewards-container {
-                gap: 0.3rem;
-            }
+        }
+        
+        /* Hide elements that are no longer needed */
+        #recordButton {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <header class="rewards-header">
-        <div class="header-container">
-            <div class="left-section">
-                <div class="app-title">
-                    <span class="desktop-text">Your Hindi Tutor</span>
-                    <span class="mobile-icon">🎓</span>
-                </div>
-                <a href="/dashboard" class="nav-link">
-                    <span class="desktop-text">Dashboard</span>
-                    <span class="mobile-icon">📊</span>
-                </a>
+    <!-- Minimal conversation header -->
+    <header class="conversation-header">
+        <a href="/conversation-select" class="back-button" title="Back to conversation selection">
+            <span class="back-arrow">←</span>
+        </a>
+        
+        <div class="header-right">
+            <div class="stars-display">
+                <span class="star-icon">⭐</span>
+                <span class="stars-count" id="starsCount">0</span>
             </div>
-            <div class="rewards-container">
-                <div class="reward-box sentences-count">
-                    <span class="reward-label">Sentences</span>
-                    <span class="mobile-icon">💬</span>
-                    <div class="reward-value" id="sentenceCount">0</div>
-                </div>
-                <div class="reward-box points-count">
-                    <div class="star-icon">⭐</div>
-                    <div class="reward-value" id="rewardPoints">0</div>
-                </div>
-                
-                <div class="profile-dropdown">
-                    <button class="profile-button" id="profileButton">
-                        <span id="userInitials">U</span>
-                        <span>▼</span>
-                    </button>
-                    <div class="dropdown-menu" id="dropdownMenu">
-                        <div class="dropdown-header">
-                            <div class="dropdown-user-name" id="dropdownUserName">User</div>
-                            <div class="dropdown-user-email" id="dropdownUserEmail">user@example.com</div>
-                        </div>
-                        <a href="/profile-setup" class="dropdown-item">Edit Profile</a>
-                        <a href="/logout" class="dropdown-item danger">Sign Out</a>
-                    </div>
-                </div>
+            <div class="profile-avatar-simple" id="profileAvatar">
+                🐶
             </div>
         </div>
     </header>
 
-    <main class="main-container">
-        <div class="content-card">
-            <!-- Conversation Type Indicator -->
-            <div id="conversationTypeIndicator" class="mb-4 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-3">
-                <div class="flex items-center gap-3">
-                    <span id="conversationIcon" class="text-2xl">🏠</span>
-                    <div>
-                        <div id="conversationTypeName" class="font-semibold text-green-800">Everyday Life</div>
-                        <div id="conversationTypeDesc" class="text-sm text-green-600">Talk about daily activities and school</div>
-                    </div>
-                </div>
-                <a href="/conversation-select" class="text-green-600 hover:text-green-800 text-sm font-medium transition-colors">
-                    Change Topic →
-                </a>
-            </div>
-            
-            <div id="status" class="text-center text-lg font-medium text-gray-600 mb-6">
-                Initializing...
-            </div>
-
-            <div id="conversation" class="mt-6 space-y-4">
-            </div>
-            <div class="flex justify-center">
-                <button id="recordButton" 
-                        class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50">
-                    <span id="recordIcon">🎤</span>
-                    <span id="recordText">Start Speaking</span>
-                </button>
-            </div>
+    <!-- Full-screen conversation container -->
+    <main class="conversation-container">
+        <div class="conversation-status" id="status">
+            Initializing...
+        </div>
+        
+        <div class="conversation-messages" id="conversation">
+            <!-- Conversation messages will appear here -->
+        </div>
+        
+        <!-- Touch interaction area (replaces mic button) -->
+        <div class="touch-interaction-area" id="touchInteraction">
+            <div class="touch-instruction">Tap to Speak</div>
+            <div class="touch-hint">Touch anywhere here to start your Hindi conversation</div>
         </div>
     </main>
 </body>
 </html>
-

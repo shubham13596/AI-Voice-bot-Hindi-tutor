@@ -97,7 +97,7 @@ function initializeAudioEffects() {
 // Let's create a function to get these elements
 function initializeDOMElements() {
     return {
-        recordButton: document.getElementById('recordButton'),
+        touchInteraction: document.getElementById('touchInteraction'),
         recordText: document.getElementById('recordText'),
         recordIcon: document.getElementById('recordIcon'),
         status: document.getElementById('status'),
@@ -493,9 +493,9 @@ async function initializeRecording() {
             audioChunks = [];
         };
 
-        // Make sure button starts disabled
-        elements.recordButton.disabled = true;
-        elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
+        // Make sure touch area starts disabled
+        elements.touchInteraction.style.opacity = '0.5';
+        elements.touchInteraction.style.pointerEvents = 'none';
         elements.status.textContent = 'Starting conversation...';
 
         await startConversation();
