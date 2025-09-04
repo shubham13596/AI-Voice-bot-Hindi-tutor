@@ -97,11 +97,12 @@ function initializeAudioEffects() {
 // Let's create a function to get these elements
 function initializeDOMElements() {
     return {
-        touchInteraction: document.getElementById('touchInteraction'),
+        recordButton: document.getElementById('recordButton'),
+        recordText: document.getElementById('recordText'),
+        recordIcon: document.getElementById('recordIcon'),
         status: document.getElementById('status'),
-        conversation: document.getElementById('conversation'),
-        touchInstruction: document.querySelector('.touch-instruction'),
-        touchHint: document.querySelector('.touch-hint')
+        conversation: document.getElementById('conversation')
+        //waveform: document.getElementById('waveform')
     };
 }
 
@@ -299,16 +300,18 @@ function showCelebration(type, message, playSound = true) {
 
 // Update rewards display with animation
 function updateRewardsDisplay(sentenceCount, rewardPoints) {
-    const sentenceElement = document.getElementById('sentenceCount');
-    const pointsElement = document.getElementById('rewardPoints');
-    
-    animateNumberChange(sentenceElement, sentenceCount);
-    animateNumberChange(pointsElement, rewardPoints);
+    // Update stars count in new minimal header
+    const starsCountElement = document.getElementById('starsCount');
+    if (starsCountElement && rewardPoints !== undefined) {
+        animateNumberChange(starsCountElement, rewardPoints);
+    }
 }
 
 // Helper function to animate number changes
 function animateNumberChange(element, newValue) {
-    const currentValue = parseInt(element.textContent);
+    if (!element || newValue === undefined) return;
+    
+    const currentValue = parseInt(element.textContent) || 0;
     const difference = newValue - currentValue;
     
     if (difference === 0) return;
@@ -335,8 +338,8 @@ function animateNumberChange(element, newValue) {
 
 // Show subtle reward feedback for good responses
 function showSubtleReward(points) {
-    const pointsElement = document.getElementById('rewardPoints');
-    if (!pointsElement) return;
+    const starsElement = document.getElementById('starsCount');
+    if (!starsElement) return;
     
     // Create a small floating points indicator
     const floatingPoints = document.createElement('div');
@@ -346,19 +349,22 @@ function showSubtleReward(points) {
         top: -20px;
         right: 0;
         animation: subtleReward 2s ease-out forwards;
+        z-index: 1001;
     `;
     
-    // Position relative to points element
-    const pointsContainer = pointsElement.parentElement;
-    pointsContainer.style.position = 'relative';
-    pointsContainer.appendChild(floatingPoints);
-    
-    // Add subtle glow to points element
-    pointsElement.classList.add('reward-glow');
-    setTimeout(() => pointsElement.classList.remove('reward-glow'), 1000);
-    
-    // Remove floating element
-    setTimeout(() => floatingPoints.remove(), 2000);
+    // Position relative to stars element
+    const starsContainer = starsElement.parentElement;
+    if (starsContainer) {
+        starsContainer.style.position = 'relative';
+        starsContainer.appendChild(floatingPoints);
+        
+        // Add subtle glow to stars element
+        starsElement.classList.add('reward-glow');
+        setTimeout(() => starsElement.classList.remove('reward-glow'), 1000);
+        
+        // Remove floating element
+        setTimeout(() => floatingPoints.remove(), 2000);
+    }
 }
 
 // Add CSS for subtle reward animations
@@ -379,6 +385,11 @@ subtleRewardStyles.textContent = `
         box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
         transition: box-shadow 0.3s ease;
     }
+    
+    .highlight {
+        background: rgba(34, 197, 94, 0.2);
+        transition: background 0.5s ease;
+    }
 `;
 document.head.appendChild(subtleRewardStyles);
 
@@ -392,11 +403,11 @@ function toggleRecording() {
     }
 
     const elements = {
-        touchInteraction: document.getElementById('touchInteraction'),
+        recordButton: document.getElementById('recordButton'),
+        recordText: document.getElementById('recordText'),
+        recordIcon: document.getElementById('recordIcon'),
         status: document.getElementById('status'),
-        conversation: document.getElementById('conversation'),
-        touchInstruction: document.querySelector('.touch-instruction'),
-        touchHint: document.querySelector('.touch-hint')
+        conversation: document.getElementById('conversation')
     };
 
     // Validate all required elements exist
@@ -405,32 +416,25 @@ function toggleRecording() {
         return;
     }
 
-    // Add touch press animation
-    if (elements.touchInteraction) {
-        elements.touchInteraction.classList.add('button-press');
-        setTimeout(() => elements.touchInteraction.classList.remove('button-press'), 100);
-    }
+    // Add button press animation
+    elements.recordButton.classList.add('button-press');
+    setTimeout(() => elements.recordButton.classList.remove('button-press'), 100);
 
     if (!isRecording) {
         mediaRecorder.start();
         isRecording = true;
-        if (elements.touchInstruction) elements.touchInstruction.textContent = 'Recording...';
-        if (elements.touchHint) elements.touchHint.textContent = 'Release to stop recording';
-        if (elements.touchInteraction) {
-            elements.touchInteraction.classList.add('recording-pulse');
-            elements.touchInteraction.style.background = 'rgba(239, 68, 68, 0.1)';
-        }
+        elements.recordText.textContent = 'Stop Speaking';
+        elements.recordIcon.textContent = '⏹️';
+        elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
         
-        // Add recording indicator to touch area
+        // Add recording indicator
         const indicator = document.createElement('div');
         indicator.className = 'recording-indicator';
         indicator.innerHTML = `
             <div class="recording-dot"></div>
             <span class="text-red-500 text-sm font-medium">Recording...</span>
         `;
-        if (elements.touchInteraction) {
-            elements.touchInteraction.appendChild(indicator);
-        }
+        elements.recordButton.appendChild(indicator);
 
         // Optional: Add a subtle background animation to the conversation area
         elements.conversation.style.boxShadow = 'inset 0 0 10px rgba(239, 68, 68, 0.1)';
@@ -441,17 +445,14 @@ function toggleRecording() {
         isRecording = false;
 
         // Update UI to show processing state
-        if (elements.touchInteraction) {
-            elements.touchInteraction.style.opacity = '0.5';
-            elements.touchInteraction.style.pointerEvents = 'none';
-            elements.touchInteraction.classList.remove('recording-pulse');
-            elements.touchInteraction.style.background = 'rgba(34, 197, 94, 0.05)';
-        }
-        if (elements.touchInstruction) elements.touchInstruction.textContent = 'Processing...';
-        if (elements.touchHint) elements.touchHint.textContent = 'Please wait while we process your speech';
+        elements.recordButton.disabled = true;
+        elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
+        elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
+        elements.recordText.textContent = 'Processing...';
+        elements.recordIcon.textContent = '⏳';
 
         // Remove recording indicator
-        const indicator = elements.touchInteraction ? elements.touchInteraction.querySelector('.recording-indicator') : null;
+        const indicator = elements.recordButton.querySelector('.recording-indicator');
         if (indicator) {
             indicator.remove();
         }
@@ -502,9 +503,9 @@ async function initializeRecording() {
             audioChunks = [];
         };
 
-        // Make sure touch area starts disabled
-        elements.touchInteraction.style.opacity = '0.5';
-        elements.touchInteraction.style.pointerEvents = 'none';
+        // Make sure button starts disabled
+        elements.recordButton.disabled = true;
+        elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         elements.status.textContent = 'Starting conversation...';
 
         await startConversation();
@@ -534,13 +535,11 @@ async function initializeRecording() {
 async function startConversation() {
     try {
         const status = document.getElementById('status');
-        const touchInteraction = document.getElementById('touchInteraction');
+        const recordButton = document.getElementById('recordButton');
         
-        // Disable touch area at the start
-        if (touchInteraction) {
-            touchInteraction.style.opacity = '0.5';
-            touchInteraction.style.pointerEvents = 'none';
-        }
+        // Disable button at the start
+        recordButton.disabled = true;
+        recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         status.textContent = 'Starting conversation...';
         
         console.log('Making API call to start conversation');
@@ -587,12 +586,10 @@ async function startConversation() {
                 playAudioResponse(data.audio);
             }
             
-            // Only now enable the touch area and update status
-            if (touchInteraction) {
-                touchInteraction.style.opacity = '1';
-                touchInteraction.style.pointerEvents = 'auto';
-            }
-            status.textContent = 'Tap to start talking!';
+            // Only now enable the button and update status
+            recordButton.disabled = false;
+            recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            status.textContent = 'Click the button to start talking!';
 
         } else {
             throw new Error('No initial message received');
@@ -903,17 +900,15 @@ async function sendAudioToServer(audioBlob) {
         updateRewardsDisplay(data.sentence_count, data.reward_points);
         playAudioResponse(data.audio);
 
-        // Reset touch area state
-        const touchInteraction = document.getElementById('touchInteraction');
-        const touchInstruction = document.querySelector('.touch-instruction');
-        const touchHint = document.querySelector('.touch-hint');
+        // Reset button state
+        const recordButton = document.getElementById('recordButton');
+        const recordText = document.getElementById('recordText');
+        const recordIcon = document.getElementById('recordIcon');
         
-        if (touchInteraction) {
-            touchInteraction.style.opacity = '1';
-            touchInteraction.style.pointerEvents = 'auto';
-        }
-        if (touchInstruction) touchInstruction.textContent = 'Tap to Speak';
-        if (touchHint) touchHint.textContent = 'Touch anywhere here to start your Hindi conversation';
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        recordText.textContent = 'Start Speaking';
+        recordIcon.textContent = '🎤';
         status.textContent = 'Ready to listen!';
         
         status.textContent = 'Ready to listen!';
@@ -922,17 +917,15 @@ async function sendAudioToServer(audioBlob) {
         console.error('Error:', error);
         status.textContent = `Error: ${error.message}`;
 
-        // Reset touch area state even on error
-        const touchInteraction = document.getElementById('touchInteraction');
-        const touchInstruction = document.querySelector('.touch-instruction');
-        const touchHint = document.querySelector('.touch-hint');
+        // Reset button state even on error
+        const recordButton = document.getElementById('recordButton');
+        const recordText = document.getElementById('recordText');
+        const recordIcon = document.getElementById('recordIcon');
         
-        if (touchInteraction) {
-            touchInteraction.style.opacity = '1';
-            touchInteraction.style.pointerEvents = 'auto';
-        }
-        if (touchInstruction) touchInstruction.textContent = 'Tap to Speak';
-        if (touchHint) touchHint.textContent = 'Touch anywhere here to start your Hindi conversation';
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        recordText.textContent = 'Start Speaking';
+        recordIcon.textContent = '🎤';
     }
 }
 
@@ -955,28 +948,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Event listeners - will be added after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    const touchInteraction = document.getElementById('touchInteraction');
-    if (touchInteraction) {
-        // Use mousedown/mouseup for desktop, touchstart/touchend for mobile
-        touchInteraction.addEventListener('mousedown', startRecording);
-        touchInteraction.addEventListener('mouseup', stopRecording);
-        touchInteraction.addEventListener('mouseleave', stopRecording);
-        
-        // Touch events for mobile
-        touchInteraction.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            startRecording();
-        });
-        
-        touchInteraction.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            stopRecording();
-        });
-        
-        touchInteraction.addEventListener('touchcancel', function(e) {
-            e.preventDefault();
-            stopRecording();
-        });
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.addEventListener('click', toggleRecording);
     }
 });
 
@@ -1169,11 +1143,11 @@ async function awardCorrectionBonus() {
     try {
         const bonusPoints = 50; // Generous bonus for completing corrections
         
-        // Update local display immediately
-        const pointsElement = document.getElementById('rewardPoints');
-        if (pointsElement) {
-            const currentPoints = parseInt(pointsElement.textContent) || 0;
-            animateNumberChange(pointsElement, currentPoints + bonusPoints);
+        // Update stars display immediately
+        const starsElement = document.getElementById('starsCount');
+        if (starsElement) {
+            const currentPoints = parseInt(starsElement.textContent) || 0;
+            animateNumberChange(starsElement, currentPoints + bonusPoints);
             
             // Show bonus feedback
             showSubtleReward(bonusPoints);
@@ -1204,23 +1178,21 @@ async function clearAmberResponses() {
 
 // Reset recording interface to ready state
 function resetRecordingInterface() {
-    const touchInteraction = document.getElementById('touchInteraction');
-    const touchInstruction = document.querySelector('.touch-instruction');
-    const touchHint = document.querySelector('.touch-hint');
+    const recordButton = document.getElementById('recordButton');
+    const recordText = document.getElementById('recordText');
+    const recordIcon = document.getElementById('recordIcon');
     const status = document.getElementById('status');
     
-    if (touchInteraction && status) {
+    if (recordButton && recordText && recordIcon && status) {
         // Ensure recording is not active
         isRecording = false;
         
-        // Reset touch area state
-        touchInteraction.style.opacity = '1';
-        touchInteraction.style.pointerEvents = 'auto';
-        touchInteraction.classList.remove('recording-pulse');
-        touchInteraction.style.background = 'rgba(34, 197, 94, 0.05)';
-        
-        if (touchInstruction) touchInstruction.textContent = 'Tap to Speak';
-        if (touchHint) touchHint.textContent = 'Touch anywhere here to start your Hindi conversation';
+        // Reset button state
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
+        recordButton.classList.add('bg-green-500');
+        recordText.textContent = 'Start Speaking';
+        recordIcon.textContent = '🎤';
         status.textContent = 'Ready to listen!';
         
         // Remove any processing messages
