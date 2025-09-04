@@ -96,6 +96,64 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
+# Conversation type configurations
+CONVERSATION_TYPES = {
+    'everyday': {
+        'name': 'Everyday Life',
+        'description': 'Daily activities, school, friends, and routine conversations',
+        'system_prompts': {
+            'initial': """You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
+            Create a warm, engaging greeting and ask if they went to school today or what they did today in Hindi.
+            Focus on everyday activities, school, friends, family, and daily routines.
+            Guidelines:
+            1. Keep it very short (max 10 words)
+            2. Use simple Hindi words
+            3. Make it cheerful and inviting
+            4. Ask about school, friends, or daily activities
+            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
+            'conversation': """You are a friendly Hindi tutor speaking with a 6-year-old child.
+            Focus on everyday life topics: school, friends, family, daily activities, food, play, etc.
+            Strategy: {strategy}
+            Guidelines:
+            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
+            2. If strategy is 'continue_conversation': Continue the natural conversation flow about everyday topics
+            3. Keep responses short (max 20 words)
+            4. Be curious about their daily life like a caring parent
+            5. Ask follow-up questions about school, friends, activities
+            Return JSON format: {{"response": "Your Hindi response here"}}"""
+        },
+        'icon': '🏠',
+        'tag': 'Popular'
+    },
+    'cartoons': {
+        'name': 'Favorite Cartoons',
+        'description': 'Talk about cartoon characters, shows, stories, and animated movies',
+        'system_prompts': {
+            'initial': """You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
+            Create a warm, engaging greeting and ask about their favorite cartoons or animated characters in Hindi.
+            Focus on cartoons, animated shows, characters, and stories.
+            Guidelines:
+            1. Keep it very short (max 10 words)
+            2. Use simple Hindi words
+            3. Make it cheerful and fun
+            4. Ask about their favorite cartoon character or show
+            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
+            'conversation': """You are a friendly Hindi tutor speaking with a 6-year-old child.
+            Focus on cartoon and animation topics: favorite characters, shows, stories, what they like about cartoons, etc.
+            Strategy: {strategy}
+            Guidelines:
+            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
+            2. If strategy is 'continue_conversation': Continue the natural conversation flow about cartoons and characters
+            3. Keep responses short (max 20 words)
+            4. Be enthusiastic about their favorite cartoons
+            5. Ask follow-up questions about characters, stories, what they like
+            Return JSON format: {{"response": "Your Hindi response here"}}"""
+        },
+        'icon': '🎭',
+        'tag': 'Fun'
+    }
+}
+
 
 # Sarvam AI API endpoints
 SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
@@ -110,31 +168,23 @@ port = int(os.getenv('PORT', 5001))
 user_sessions = {}
 
 
-def get_initial_conversation(child_name="दोस्त"):
-    """Generate initial conversation starter"""
+def get_initial_conversation(child_name="दोस्त", conversation_type="everyday"):
+    """Generate initial conversation starter based on conversation type"""
     try:
         client = openai.OpenAI(
             api_key=os.getenv('OPENAI_API_KEY'),
-            base_url="https://api.openai.com/v1",  # Explicitly set base URL
-            http_client=None  # Prevent automatic proxy detection
+            base_url="https://api.openai.com/v1",
+            http_client=None
         )
         
-        system_prompt = f"""
-        You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
-        Create a warm, engaging greeting and ask if they went to school today or not in Hindi.
-        Guidelines:
-        1. Keep it very short (max 10 words)
-        2. Use simple Hindi words
-        3. Make it cheerful and inviting
+        # Get the appropriate system prompt for the conversation type
+        if conversation_type in CONVERSATION_TYPES:
+            system_prompt = CONVERSATION_TYPES[conversation_type]['system_prompts']['initial'].format(child_name=child_name)
+        else:
+            # Fallback to everyday conversation
+            system_prompt = CONVERSATION_TYPES['everyday']['system_prompts']['initial'].format(child_name=child_name)
 
-        Return response in JSON format:
-        {{
-            "response": "Your Hindi greeting here"
-        }}
-        """
-
-        # Add logging
-        logger.info("Making OpenAI API call for initial conversation")
+        logger.info(f"Making OpenAI API call for initial {conversation_type} conversation")
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -149,7 +199,7 @@ def get_initial_conversation(child_name="दोस्त"):
         return result.get('response', "नमस्ते! कैसा है आपका दिन?")
         
     except Exception as e:
-        print(f"Error in initial conversation: {str(e)}")
+        logger.error(f"Error in initial conversation: {str(e)}")
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
 
@@ -227,8 +277,8 @@ class TalkerModule:
     """Handles conversation responses based on evaluation context"""
     
     @staticmethod
-    def get_response(conversation_history, user_text, evaluation_result, sentence_count):
-        """Generate conversation response based on evaluation context"""
+    def get_response(conversation_history, user_text, evaluation_result, sentence_count, conversation_type="everyday"):
+        """Generate conversation response based on evaluation context and conversation type"""
         try:
             client = openai.OpenAI(
                 api_key=os.getenv('OPENAI_API_KEY'),
@@ -242,24 +292,14 @@ class TalkerModule:
             else:
                 strategy = "continue_conversation"
             
-            system_prompt = f"""
-            You are a friendly Hindi tutor speaking with a 6-year-old child.
-            The child has spoken {sentence_count} sentences so far.
+            # Get the appropriate system prompt for the conversation type
+            if conversation_type in CONVERSATION_TYPES:
+                system_prompt_template = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
+            else:
+                # Fallback to everyday conversation
+                system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
             
-            Strategy: {strategy}
-            
-            Guidelines:
-            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
-            2. If strategy is 'continue_conversation': Continue the natural conversation flow
-            3. Keep responses short (max 20 words)
-            4. Be curious and encouraging
-            5. Respond only in Hindi
-            
-            Return JSON format:
-            {{
-                "response": "Your Hindi response here"
-            }}
-            """
+            system_prompt = system_prompt_template.format(strategy=strategy)
             
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -296,11 +336,13 @@ class ConversationController:
             evaluation = self.evaluator.evaluate_response(user_text)
             
             # Generate conversation response
+            conversation_type = session_data.get('conversation_type', 'everyday')
             conversation_response = self.talker.get_response(
                 session_data['conversation_history'],
                 user_text,
                 evaluation,
-                session_data['sentence_count']
+                session_data['sentence_count'],
+                conversation_type
             )
             
             # Track good responses and handle amber responses
@@ -416,10 +458,18 @@ def start_conversation():
     try:
         logger.info("Starting new conversation")
         
+        # Get conversation type from request
+        data = request.get_json() or {}
+        conversation_type = data.get('conversation_type', 'everyday')
+        
+        # Validate conversation type
+        if conversation_type not in CONVERSATION_TYPES:
+            conversation_type = 'everyday'
+        
         # Use the authenticated user's child name
         child_name = current_user.child_name or 'दोस्त'
         
-        initial_message = get_initial_conversation(child_name)
+        initial_message = get_initial_conversation(child_name, conversation_type)
         
         logger.info("Converting text to speech")
         audio_response = text_to_speech_hindi(initial_message)
@@ -442,6 +492,21 @@ def start_conversation():
         
         db.session.add(conversation)
         db.session.commit()
+        
+        # Store conversation type in session
+        session_data = {
+            'conversation_history': [],
+            'sentence_count': 0,
+            'reward_points': 0,
+            'good_response_count': 0,
+            'conversation_type': conversation_type,
+            'created_at': datetime.now().isoformat(),
+            'amber_responses': []
+        }
+        
+        # Save session
+        session_store = FileSessionStore()
+        session_store.save_session(session_id, session_data)
 
         # Initialize session data for Redis/file storage (backward compatibility)
         session_data = {
@@ -568,7 +633,7 @@ def home():
     if current_user.is_authenticated:
         if not current_user.child_name:
             return redirect(url_for('profile_setup'))
-        return redirect(url_for('conversation'))
+        return redirect(url_for('conversation_select'))
     return render_template('index.html')
 
 @app.route('/profile-setup')
@@ -577,13 +642,29 @@ def profile_setup():
     """Profile setup page for setting child name"""
     return render_template('profile_setup.html')
 
+@app.route('/conversation-select')
+@login_required
+def conversation_select():
+    """Conversation type selection page - requires authentication and profile setup"""
+    if not current_user.child_name:
+        return redirect(url_for('profile_setup'))
+    return render_template('conversation_select.html')
+
 @app.route('/conversation')
 @login_required
 def conversation():
-    """Main conversation page - requires authentication"""
+    """Main conversation page - requires authentication and conversation type selection"""
     if not current_user.child_name:
         return redirect(url_for('profile_setup'))
-    return render_template('conversation.html')
+    
+    # Get conversation type from query parameter, default to 'everyday'
+    conversation_type = request.args.get('type', 'everyday')
+    
+    # Validate conversation type
+    if conversation_type not in CONVERSATION_TYPES:
+        return redirect(url_for('conversation_select'))
+    
+    return render_template('conversation.html', conversation_type=conversation_type)
 
 @app.route('/dashboard')
 @login_required

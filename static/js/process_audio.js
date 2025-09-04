@@ -533,11 +533,17 @@ async function startConversation() {
         status.textContent = 'Starting conversation...';
         
         console.log('Making API call to start conversation');
+        const conversationType = window.conversationType || 'everyday';
+        console.log('Conversation type:', conversationType);
+        
         const response = await fetch('/api/start_conversation', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+                conversation_type: conversationType
+            })
         });
 
         console.log('API response status:', response.status);

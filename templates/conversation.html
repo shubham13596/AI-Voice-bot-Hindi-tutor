@@ -9,6 +9,13 @@
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
+        // Get conversation type from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const conversationType = urlParams.get('type') || 'everyday';
+        
+        // Make conversation type available globally
+        window.conversationType = conversationType;
+        
         // Check if user is authenticated and has child name set
         document.addEventListener('DOMContentLoaded', async function() {
             try {
@@ -27,8 +34,26 @@
                     return;
                 }
                 
-                // Update page title with child's name
-                document.title = `Your Hindi Tutor - ${user.child_name}`;
+                // Update page title with child's name and conversation type
+                const typeNames = {
+                    'everyday': 'Everyday Life',
+                    'cartoons': 'Favorite Cartoons'
+                };
+                const typeDescs = {
+                    'everyday': 'Talk about daily activities and school',
+                    'cartoons': 'Chat about favorite cartoon characters'
+                };
+                const typeIcons = {
+                    'everyday': '🏠',
+                    'cartoons': '🎭'
+                };
+                const typeName = typeNames[conversationType] || 'Conversation';
+                document.title = `${typeName} - ${user.child_name}`;
+                
+                // Update conversation type indicator
+                document.getElementById('conversationTypeName').textContent = typeName;
+                document.getElementById('conversationTypeDesc').textContent = typeDescs[conversationType] || 'General conversation';
+                document.getElementById('conversationIcon').textContent = typeIcons[conversationType] || '💬';
                 
                 // Update profile dropdown
                 updateProfileDropdown(user);
@@ -381,6 +406,20 @@
 
     <main class="main-container">
         <div class="content-card">
+            <!-- Conversation Type Indicator -->
+            <div id="conversationTypeIndicator" class="mb-4 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-3">
+                <div class="flex items-center gap-3">
+                    <span id="conversationIcon" class="text-2xl">🏠</span>
+                    <div>
+                        <div id="conversationTypeName" class="font-semibold text-green-800">Everyday Life</div>
+                        <div id="conversationTypeDesc" class="text-sm text-green-600">Talk about daily activities and school</div>
+                    </div>
+                </div>
+                <a href="/conversation-select" class="text-green-600 hover:text-green-800 text-sm font-medium transition-colors">
+                    Change Topic →
+                </a>
+            </div>
+            
             <div id="status" class="text-center text-lg font-medium text-gray-600 mb-6">
                 Initializing...
             </div>
