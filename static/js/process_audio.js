@@ -390,6 +390,11 @@ subtleRewardStyles.textContent = `
         background: rgba(34, 197, 94, 0.2);
         transition: background 0.5s ease;
     }
+    
+    /* Animation for checking state */
+    .animate-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
 `;
 document.head.appendChild(subtleRewardStyles);
 
@@ -973,7 +978,7 @@ function showCorrectionPopup(amberResponses) {
             </div>
             
             <div class="mb-6">
-                <div class="text-sm text-gray-500 mb-2">Your response:</div>
+                <div class="text-sm text-gray-500 mb-2">Your original response:</div>
                 <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4">
                     ${item.user_response}
                 </div>
@@ -982,12 +987,19 @@ function showCorrectionPopup(amberResponses) {
                 <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium">
                     ${item.corrected_response}
                 </div>
+                
+                <!-- User's current spoken words display area -->
+                <div id="spokenWordsArea" class="hidden mb-4">
+                    <div class="text-sm text-gray-500 mb-2">What you just said:</div>
+                    <div id="spokenWords" class="bg-blue-50 p-3 rounded border-l-4 border-blue-300 font-medium">
+                    </div>
+                </div>
             </div>
             
             <div class="text-center mb-4">
                 <button id="recordCorrectionBtn" class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto">
-                    <span>🎤</span>
-                    <span>Record Correct Response</span>
+                    <span id="recordCorrectionIcon">🎤</span>
+                    <span id="recordCorrectionText">Record Correct Response</span>
                 </button>
             </div>
             
@@ -1042,82 +1054,138 @@ function showCorrectionPopup(amberResponses) {
     document.body.appendChild(overlay);
 }
 
-// Record correction attempt
+// Global variables for correction recording state
+let correctionRecorder = null;
+let isCorrectionRecording = false;
+
+// Record correction attempt with proper UI state management
 async function recordCorrection(targetText, onSuccess) {
     const recordBtn = document.getElementById('recordCorrectionBtn');
-    const originalText = recordBtn.innerHTML;
+    const recordIcon = document.getElementById('recordCorrectionIcon');
+    const recordText = document.getElementById('recordCorrectionText');
+    const spokenWordsArea = document.getElementById('spokenWordsArea');
+    const spokenWords = document.getElementById('spokenWords');
     
-    if (!mediaRecorder || mediaRecorder.state === 'recording') return;
-    
-    recordBtn.innerHTML = '<span>⏹️</span><span>Stop Recording</span>';
-    recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
-    
-    // Create a separate media recorder for corrections to avoid conflicts
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const correctionRecorder = new MediaRecorder(stream);
-        const tempAudioChunks = [];
-        
-        correctionRecorder.ondataavailable = (event) => {
-            tempAudioChunks.push(event.data);
-        };
-        
-        correctionRecorder.onstop = async () => {
-            const audioBlob = new Blob(tempAudioChunks, { type: 'audio/wav' });
+    // Handle button click based on current state
+    if (!isCorrectionRecording) {
+        // START RECORDING STATE
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            correctionRecorder = new MediaRecorder(stream);
+            const tempAudioChunks = [];
             
-            try {
-                // Use STT-only endpoint for corrections
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'audio.wav');
+            // Update UI to recording state
+            isCorrectionRecording = true;
+            recordIcon.textContent = '⏹️';
+            recordText.textContent = 'Stop Recording';
+            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            
+            // Hide previous spoken words
+            spokenWordsArea.classList.add('hidden');
+            
+            correctionRecorder.ondataavailable = (event) => {
+                tempAudioChunks.push(event.data);
+            };
+            
+            correctionRecorder.onstop = async () => {
+                // CHECKING STATE
+                recordIcon.textContent = '🔄';
+                recordText.textContent = 'Your Hindi tutor is checking...';
+                recordBtn.className = 'bg-blue-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto animate-pulse';
+                recordBtn.disabled = true;
                 
-                const response = await fetch('/api/correction_stt', {
-                    method: 'POST',
-                    body: formData
-                });
+                const audioBlob = new Blob(tempAudioChunks, { type: 'audio/wav' });
                 
-                const data = await response.json();
-                const userText = data.transcript?.toLowerCase().trim();
-                const targetTextNormalized = targetText.toLowerCase().trim();
-                
-                // Simple text matching
-                const similarity = calculateSimilarity(userText, targetTextNormalized);
-                
-                if (similarity > 0.7) { // 70% similarity threshold
-                    recordBtn.innerHTML = '<span>✅</span><span>Correct! Moving to next...</span>';
-                    recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto';
-                    setTimeout(onSuccess, 1500);
-                } else {
-                    recordBtn.innerHTML = '<span>🔄</span><span>Try Again</span>';
+                try {
+                    // Use STT-only endpoint for corrections
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'audio.wav');
+                    
+                    const response = await fetch('/api/correction_stt', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    const userText = data.transcript?.toLowerCase().trim() || '';
+                    const targetTextNormalized = targetText.toLowerCase().trim();
+                    
+                    // Show what user said
+                    if (userText) {
+                        spokenWords.textContent = userText;
+                        spokenWordsArea.classList.remove('hidden');
+                    }
+                    
+                    // Simple text matching
+                    const similarity = calculateSimilarity(userText, targetTextNormalized);
+                    
+                    if (similarity > 0.7) { // 70% similarity threshold
+                        // SUCCESS STATE
+                        recordIcon.textContent = '✅';
+                        recordText.textContent = 'You got this right; let\'s move on';
+                        recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto';
+                        recordBtn.disabled = true;
+                        setTimeout(onSuccess, 2000);
+                    } else {
+                        // TRY AGAIN STATE
+                        recordIcon.textContent = '🔄';
+                        recordText.textContent = 'Try Again';
+                        recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
+                        recordBtn.disabled = false;
+                        isCorrectionRecording = false; // Allow user to record again
+                        
+                        // Reset to initial state after 3 seconds if user doesn't click
+                        setTimeout(() => {
+                            if (!isCorrectionRecording) {
+                                recordIcon.textContent = '🎤';
+                                recordText.textContent = 'Record Correct Response';
+                                recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
+                            }
+                        }, 3000);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing correction:', error);
+                    // ERROR STATE
+                    recordIcon.textContent = '🔄';
+                    recordText.textContent = 'Try Again';
                     recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
-                    setTimeout(() => {
-                        recordBtn.innerHTML = originalText;
-                        recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
-                    }, 2000);
+                    recordBtn.disabled = false;
+                    isCorrectionRecording = false;
+                } finally {
+                    // Stop and cleanup correction recorder
+                    stream.getTracks().forEach(track => track.stop());
                 }
-                
-            } catch (error) {
-                console.error('Error processing correction:', error);
-                recordBtn.innerHTML = originalText;
+            };
+            
+            correctionRecorder.start();
+            
+            // Auto-stop after 10 seconds
+            setTimeout(() => {
+                if (correctionRecorder && correctionRecorder.state === 'recording') {
+                    correctionRecorder.stop();
+                    isCorrectionRecording = false;
+                }
+            }, 10000);
+            
+        } catch (error) {
+            console.error('Error starting correction recording:', error);
+            recordIcon.textContent = '❌';
+            recordText.textContent = 'Microphone Error - Try Again';
+            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            setTimeout(() => {
+                recordIcon.textContent = '🎤';
+                recordText.textContent = 'Record Correct Response';
                 recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
-            } finally {
-                // Stop and cleanup correction recorder
-                stream.getTracks().forEach(track => track.stop());
-            }
-        };
+            }, 3000);
+        }
         
-        correctionRecorder.start();
-        
-        // Auto-stop after 10 seconds
-        setTimeout(() => {
-            if (correctionRecorder.state === 'recording') {
-                correctionRecorder.stop();
-            }
-        }, 10000);
-        
-    } catch (error) {
-        console.error('Error starting correction recording:', error);
-        recordBtn.innerHTML = originalText;
-        recordBtn.className = 'bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors mx-auto';
+    } else {
+        // STOP RECORDING
+        if (correctionRecorder && correctionRecorder.state === 'recording') {
+            correctionRecorder.stop();
+            isCorrectionRecording = false;
+        }
     }
 }
 
