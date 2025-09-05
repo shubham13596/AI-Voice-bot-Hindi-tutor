@@ -37,15 +37,21 @@
                 // Update page title with child's name and conversation type
                 const typeNames = {
                     'everyday': 'Everyday Life',
-                    'cartoons': 'Favorite Cartoons'
+                    'cartoons': 'Favorite Cartoons',
+                    'adventure_story': 'Adventure Story',
+                    'mystery_story': 'Mystery Story'
                 };
                 const typeDescs = {
                     'everyday': 'Talk about daily activities and school',
-                    'cartoons': 'Chat about favorite cartoon characters'
+                    'cartoons': 'Chat about favorite cartoon characters',
+                    'adventure_story': 'Create exciting adventure stories together',
+                    'mystery_story': 'Solve fun mysteries and detective stories'
                 };
                 const typeIcons = {
                     'everyday': '🏠',
-                    'cartoons': '🎭'
+                    'cartoons': '🎭',
+                    'adventure_story': '🗺️',
+                    'mystery_story': '🔍'
                 };
                 const typeName = typeNames[conversationType] || 'Conversation';
                 document.title = `${typeName} - ${user.child_name}`;
