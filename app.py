@@ -605,6 +605,9 @@ def start_conversation():
 
 def text_to_speech_hindi(text, output_filename="response.wav"):
     """Convert text to speech using ElevenLabs"""
+    tts_function_start = time.time()
+    logger.info(f"🔊 ELEVENLABS TTS: Starting synthesis for '{text[:50]}...'")
+    
     try:
         max_retries = 3
         for attempt in range(max_retries):
@@ -634,6 +637,10 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
                 if output_filename:
                     with open(output_filename, 'wb') as f:
                         f.write(audio_data.getvalue())
+                
+                tts_function_end = time.time()
+                api_time = (tts_function_end - tts_function_start) * 1000
+                logger.info(f"✅ ELEVENLABS TTS: Success in {api_time:.1f}ms")
                         
                 return audio_base64
                 
@@ -687,6 +694,9 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
 
 def speech_to_text_hindi_deepgram(audio_data):
     """Convert Hindi speech to text using Deepgram AI"""
+    stt_start_time = time.time()
+    logger.info("🎙️ DEEPGRAM STT: Starting transcription...")
+    
     headers = {
         "Authorization": f"Token {DEEPGRAM_API_KEY}",
         "Content-Type": "audio/wav"
@@ -704,12 +714,17 @@ def speech_to_text_hindi_deepgram(audio_data):
         max_retries = 3
         for attempt in range(max_retries):
             try:
+                api_start_time = time.time()
                 response = requests.post(
                     "https://api.deepgram.com/v1/listen",
                     headers=headers,
                     params=params,
                     data=audio_data
                 )
+                api_end_time = time.time()
+                api_latency = (api_end_time - api_start_time) * 1000
+                logger.info(f"🌐 DEEPGRAM API: Response received in {api_latency:.1f}ms")
+                
                 response.raise_for_status()
                 result = response.json()
                 
@@ -719,18 +734,26 @@ def speech_to_text_hindi_deepgram(audio_data):
                     if channels and "alternatives" in channels[0]:
                         alternatives = channels[0]["alternatives"]
                         if alternatives:
-                            return alternatives[0].get("transcript")
+                            transcript = alternatives[0].get("transcript")
+                            stt_end_time = time.time()
+                            total_latency = (stt_end_time - stt_start_time) * 1000
+                            logger.info(f"✅ DEEPGRAM STT: Success! Total time: {total_latency:.1f}ms")
+                            logger.info(f"📝 TRANSCRIPT: '{transcript}'")
+                            return transcript
                 
+                logger.warning("⚠️ DEEPGRAM: No transcript found in response")
                 return None
                 
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise
-                logger.warning(f"Deepgram STT attempt {attempt + 1} failed: {e}")
+                logger.warning(f"❌ Deepgram STT attempt {attempt + 1} failed: {e}")
                 time.sleep(0.1 * (attempt + 1))
 
     except Exception as e:
-        print(f"Deepgram STT Error: {str(e)}")
+        stt_end_time = time.time()
+        total_latency = (stt_end_time - stt_start_time) * 1000
+        logger.error(f"❌ DEEPGRAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
 @app.route('/')
@@ -883,10 +906,12 @@ def translate_text():
 @app.route('/api/process_audio', methods=['POST'])
 @login_required
 def process_audio():
+    request_start_time = time.time()
+    logger.info("🚀 PROCESS AUDIO: Request started")
+    
     temp_file = None
     try:
         # Log incoming request data
-        logger.info("Received process_audio request")
         logger.info(f"Files in request: {list(request.files.keys())}")
         logger.info(f"Form data in request: {list(request.form.keys())}")
 
@@ -914,6 +939,8 @@ def process_audio():
         session_store.save_session(session_id, session_data)
         
         # Use tempfile for secure file handling
+        # Step 1: Save audio file
+        file_start_time = time.time()
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
             audio_file = request.files['audio']
             audio_file.save(temp_file.name)
@@ -921,15 +948,27 @@ def process_audio():
             with open(temp_file.name, 'rb') as f:
                 transcript = speech_to_text_hindi_deepgram(f.read())
         
+        file_end_time = time.time()
+        logger.info(f"📁 FILE PROCESSING: {(file_end_time - file_start_time) * 1000:.1f}ms")
+        
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
+        # Step 2: LLM Processing
+        llm_start_time = time.time()
+        logger.info("🤖 LLM PROCESSING: Starting conversation logic...")
+        
         # Initialize conversation controller
         controller = ConversationController()
         
         # Process user response through controller
         controller_result = controller.process_user_response(session_data, transcript)
         
+        llm_end_time = time.time()
+        logger.info(f"✅ LLM PROCESSING: Complete in {(llm_end_time - llm_start_time) * 1000:.1f}ms")
+        
+        # Step 3: Rewards calculation
+        rewards_start_time = time.time()
         new_rewards = calculate_rewards(
             controller_result['evaluation'], 
             controller_result['good_response_count']
@@ -938,11 +977,18 @@ def process_audio():
         if new_rewards > 0:
             session_data['reward_points'] += new_rewards
         
+        rewards_end_time = time.time()
+        logger.info(f"🎯 REWARDS: Calculated in {(rewards_end_time - rewards_start_time) * 1000:.1f}ms")
+        
         if not controller_result['response']:
             return jsonify({'error': 'Failed to get conversation response'}), 500
         
-        # Convert response to speech
+        # Step 4: Convert response to speech
+        tts_start_time = time.time()
+        logger.info("🔊 TTS: Starting text-to-speech...")
         audio_response = text_to_speech_hindi(controller_result['response'])
+        tts_end_time = time.time()
+        logger.info(f"✅ TTS: Complete in {(tts_end_time - tts_start_time) * 1000:.1f}ms")
         
         if not audio_response:
             return jsonify({'error': 'Text-to-speech failed'}), 500
@@ -975,6 +1021,11 @@ def process_audio():
             os.unlink(temp_file.name)
         except Exception as e:
                 logger.error(f"Failed to delete temporary file: {e}")
+        
+        # Final timing
+        request_end_time = time.time()
+        total_time = (request_end_time - request_start_time) * 1000
+        logger.info(f"🏁 TOTAL REQUEST TIME: {total_time:.1f}ms")
         
         return jsonify({
             'text': controller_result['response'],
@@ -1022,6 +1073,9 @@ def clear_amber_responses():
 @app.route('/api/correction_stt', methods=['POST'])
 def correction_speech_to_text():
     """STT-only endpoint for correction attempts (doesn't affect conversation)"""
+    correction_start_time = time.time()
+    logger.info("🔄 CORRECTION STT: Request started")
+    
     temp_file = None
     try:
         if 'audio' not in request.files:
@@ -1037,6 +1091,10 @@ def correction_speech_to_text():
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        correction_end_time = time.time()
+        total_time = (correction_end_time - correction_start_time) * 1000
+        logger.info(f"✅ CORRECTION STT: Complete in {total_time:.1f}ms")
 
         return jsonify({
             'transcript': transcript
