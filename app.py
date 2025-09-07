@@ -94,6 +94,7 @@ app.register_blueprint(auth_bp)
 # Configure API keys from environment variables
 openai.api_key = os.getenv('OPENAI_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
+DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
 # Conversation type configurations
@@ -646,41 +647,90 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
         print(f"TTS Error: {str(e)}")
         return None
 
-def speech_to_text_hindi(audio_data):
-    """Convert Hindi speech to text using Sarvam AI"""
-    headers = {
-        "api-subscription-key": SARVAM_API_KEY,
-    }
+# COMMENTED OUT FOR DEEPGRAM TESTING - UNCOMMENT TO SWITCH BACK
+# def speech_to_text_hindi(audio_data):
+#     """Convert Hindi speech to text using Sarvam AI"""
+#     headers = {
+#         "api-subscription-key": SARVAM_API_KEY,
+#     }
+#
+#     # Create form data
+#     files = {
+#             'file': ('audio.wav', audio_data, 'audio/wav')
+#         }
+#     
+#     # Form data parameters
+#     data = {
+#             'language_code': 'hi-IN',
+#             'model': 'saarika:v1',
+#             'with_timestamps': False
+#         }
+#     
+#     try:
+#         max_retries = 3
+#         for attempt in range(max_retries):
+#             try:
+#                 response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
+#                 response.raise_for_status()
+#                 result = response.json()
+#                 return result.get("transcript")
+#                 
+#             except Exception as e:
+#                 if attempt == max_retries - 1:
+#                     raise
+#                 logger.warning(f"STT attempt {attempt + 1} failed: {e}")
+#                 time.sleep(0.1 * (attempt + 1))
+#
+#     except Exception as e:
+#         print(f"STT Error: {str(e)}")
+#         return None
 
-    # Create form data
-    files = {
-            'file': ('audio.wav', audio_data, 'audio/wav')
-        }
+def speech_to_text_hindi_deepgram(audio_data):
+    """Convert Hindi speech to text using Deepgram AI"""
+    headers = {
+        "Authorization": f"Token {DEEPGRAM_API_KEY}",
+        "Content-Type": "audio/wav"
+    }
     
-    # Form data parameters
-    data = {
-            'language_code': 'hi-IN',
-            'model': 'saarika:v1',
-            'with_timestamps': False
-        }
+    # Query parameters for Deepgram
+    params = {
+        "language": "hi",
+        "model": "nova-2",
+        "smart_format": "true",
+        "punctuate": "true"
+    }
     
     try:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
+                response = requests.post(
+                    "https://api.deepgram.com/v1/listen",
+                    headers=headers,
+                    params=params,
+                    data=audio_data
+                )
                 response.raise_for_status()
                 result = response.json()
-                return result.get("transcript")
+                
+                # Extract transcript from Deepgram response
+                if "results" in result and "channels" in result["results"]:
+                    channels = result["results"]["channels"]
+                    if channels and "alternatives" in channels[0]:
+                        alternatives = channels[0]["alternatives"]
+                        if alternatives:
+                            return alternatives[0].get("transcript")
+                
+                return None
                 
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise
-                logger.warning(f"STT attempt {attempt + 1} failed: {e}")
+                logger.warning(f"Deepgram STT attempt {attempt + 1} failed: {e}")
                 time.sleep(0.1 * (attempt + 1))
 
     except Exception as e:
-        print(f"STT Error: {str(e)}")
+        print(f"Deepgram STT Error: {str(e)}")
         return None
 
 @app.route('/')
@@ -869,7 +919,7 @@ def process_audio():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi(f.read())
+                transcript = speech_to_text_hindi_deepgram(f.read())
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
@@ -983,7 +1033,7 @@ def correction_speech_to_text():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi(f.read())
+                transcript = speech_to_text_hindi_deepgram(f.read())
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
