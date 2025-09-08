@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import json
 import tempfile
 import time
+import concurrent.futures
 
 # Import our models and auth
 from models import db, User, Conversation, AnalyticsHelper
@@ -334,8 +335,8 @@ class TalkerModule:
     """Handles conversation responses based on evaluation context"""
     
     @staticmethod
-    def get_response(conversation_history, user_text, evaluation_result, sentence_count, conversation_type="everyday"):
-        """Generate conversation response based on evaluation context and conversation type"""
+    def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday"):
+        """Generate conversation response based on conversation type"""
         try:
             client = openai.OpenAI(
                 api_key=os.getenv('OPENAI_API_KEY'),
@@ -343,11 +344,8 @@ class TalkerModule:
                 http_client=None
             )
             
-            # Determine conversation strategy based on evaluation
-            if not evaluation_result["is_complete"]:
-                strategy = "nudge_for_completeness"
-            else:
-                strategy = "continue_conversation"
+            # Always use continue_conversation strategy for simplicity and speed
+            strategy = "continue_conversation"
             
             # Get the appropriate system prompt for the conversation type
             if conversation_type in CONVERSATION_TYPES:
@@ -389,18 +387,27 @@ class ConversationController:
     def process_user_response(self, session_data, user_text):
         """Process user response through evaluation and conversation flow"""
         try:
-            # Evaluate response in parallel with conversation
-            evaluation = self.evaluator.evaluate_response(user_text)
-            
-            # Generate conversation response
             conversation_type = session_data.get('conversation_type', 'everyday')
-            conversation_response = self.talker.get_response(
-                session_data['conversation_history'],
-                user_text,
-                evaluation,
-                session_data['sentence_count'],
-                conversation_type
-            )
+            
+            # Run evaluation and conversation response in PARALLEL
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                # Submit both OpenAI API calls simultaneously
+                eval_future = executor.submit(
+                    self.evaluator.evaluate_response, 
+                    user_text
+                )
+                
+                conv_future = executor.submit(
+                    self.talker.get_response,
+                    session_data['conversation_history'],
+                    user_text,
+                    session_data['sentence_count'],
+                    conversation_type
+                )
+                
+                # Wait for both to complete
+                evaluation = eval_future.result()
+                conversation_response = conv_future.result()
             
             # Track good responses and handle amber responses
             if evaluation['feedback_type'] == 'green':
@@ -654,107 +661,128 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
         print(f"TTS Error: {str(e)}")
         return None
 
-# COMMENTED OUT FOR DEEPGRAM TESTING - UNCOMMENT TO SWITCH BACK
-# def speech_to_text_hindi(audio_data):
-#     """Convert Hindi speech to text using Sarvam AI"""
-#     headers = {
-#         "api-subscription-key": SARVAM_API_KEY,
-#     }
-#
-#     # Create form data
-#     files = {
-#             'file': ('audio.wav', audio_data, 'audio/wav')
-#         }
-#     
-#     # Form data parameters
-#     data = {
-#             'language_code': 'hi-IN',
-#             'model': 'saarika:v1',
-#             'with_timestamps': False
-#         }
-#     
-#     try:
-#         max_retries = 3
-#         for attempt in range(max_retries):
-#             try:
-#                 response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
-#                 response.raise_for_status()
-#                 result = response.json()
-#                 return result.get("transcript")
-#                 
-#             except Exception as e:
-#                 if attempt == max_retries - 1:
-#                     raise
-#                 logger.warning(f"STT attempt {attempt + 1} failed: {e}")
-#                 time.sleep(0.1 * (attempt + 1))
-#
-#     except Exception as e:
-#         print(f"STT Error: {str(e)}")
-#         return None
-
-def speech_to_text_hindi_deepgram(audio_data):
-    """Convert Hindi speech to text using Deepgram AI"""
+def speech_to_text_hindi_sarvam(audio_data):
+    """Convert Hindi speech to text using Sarvam AI"""
     stt_start_time = time.time()
-    logger.info("🎙️ DEEPGRAM STT: Starting transcription...")
+    logger.info("🎙️ SARVAM STT: Starting transcription...")
     
     headers = {
-        "Authorization": f"Token {DEEPGRAM_API_KEY}",
-        "Content-Type": "audio/wav"
+        "api-subscription-key": SARVAM_API_KEY,
     }
+
+    # Create form data
+    files = {
+            'file': ('audio.wav', audio_data, 'audio/wav')
+        }
     
-    # Query parameters for Deepgram
-    params = {
-        "language": "hi",
-        "model": "nova-2",
-        "smart_format": "true",
-        "punctuate": "true"
-    }
+    # Form data parameters
+    data = {
+            'language_code': 'hi-IN',
+            'model': 'saarika:v1',
+            'with_timestamps': False
+        }
     
     try:
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 api_start_time = time.time()
-                response = requests.post(
-                    "https://api.deepgram.com/v1/listen",
-                    headers=headers,
-                    params=params,
-                    data=audio_data
-                )
+                response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
                 api_end_time = time.time()
                 api_latency = (api_end_time - api_start_time) * 1000
-                logger.info(f"🌐 DEEPGRAM API: Response received in {api_latency:.1f}ms")
+                logger.info(f"🌐 SARVAM API: Response received in {api_latency:.1f}ms")
                 
                 response.raise_for_status()
                 result = response.json()
+                transcript = result.get("transcript")
                 
-                # Extract transcript from Deepgram response
-                if "results" in result and "channels" in result["results"]:
-                    channels = result["results"]["channels"]
-                    if channels and "alternatives" in channels[0]:
-                        alternatives = channels[0]["alternatives"]
-                        if alternatives:
-                            transcript = alternatives[0].get("transcript")
-                            stt_end_time = time.time()
-                            total_latency = (stt_end_time - stt_start_time) * 1000
-                            logger.info(f"✅ DEEPGRAM STT: Success! Total time: {total_latency:.1f}ms")
-                            logger.info(f"📝 TRANSCRIPT: '{transcript}'")
-                            return transcript
+                stt_end_time = time.time()
+                total_latency = (stt_end_time - stt_start_time) * 1000
+                logger.info(f"✅ SARVAM STT: Success! Total time: {total_latency:.1f}ms")
+                logger.info(f"📝 TRANSCRIPT: '{transcript}'")
                 
-                logger.warning("⚠️ DEEPGRAM: No transcript found in response")
-                return None
+                return transcript
                 
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise
-                logger.warning(f"❌ Deepgram STT attempt {attempt + 1} failed: {e}")
+                logger.warning(f"❌ Sarvam STT attempt {attempt + 1} failed: {e}")
                 time.sleep(0.1 * (attempt + 1))
 
     except Exception as e:
         stt_end_time = time.time()
         total_latency = (stt_end_time - stt_start_time) * 1000
-        logger.error(f"❌ DEEPGRAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
+        logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
+
+def speech_to_text_hindi(audio_data):
+    """Convert Hindi speech to text using Sarvam AI"""
+    return speech_to_text_hindi_sarvam(audio_data)
+
+# COMMENTED OUT FOR SARVAM USAGE  
+# def speech_to_text_hindi_deepgram(audio_data):
+#     """Convert Hindi speech to text using Deepgram AI"""
+#     stt_start_time = time.time()
+#     logger.info("🎙️ DEEPGRAM STT: Starting transcription...")
+#     
+#     headers = {
+#         "Authorization": f"Token {DEEPGRAM_API_KEY}",
+#         "Content-Type": "audio/wav"
+#     }
+#     
+#     # Query parameters for Deepgram
+#     params = {
+#         "language": "hi",
+#         "model": "nova-2",
+#         "smart_format": "true",
+#         "punctuate": "true"
+#     }
+#     
+#     try:
+#         max_retries = 3
+#         for attempt in range(max_retries):
+#             try:
+#                 api_start_time = time.time()
+#                 response = requests.post(
+#                     "https://api.deepgram.com/v1/listen",
+#                     headers=headers,
+#                     params=params,
+#                     data=audio_data
+#                 )
+#                 api_end_time = time.time()
+#                 api_latency = (api_end_time - api_start_time) * 1000
+#                 logger.info(f"🌐 DEEPGRAM API: Response received in {api_latency:.1f}ms")
+#                 
+#                 response.raise_for_status()
+#                 result = response.json()
+#                 
+#                 # Extract transcript from Deepgram response
+#                 if "results" in result and "channels" in result["results"]:
+#                     channels = result["results"]["channels"]
+#                     if channels and "alternatives" in channels[0]:
+#                         alternatives = channels[0]["alternatives"]
+#                         if alternatives:
+#                             transcript = alternatives[0].get("transcript")
+#                             stt_end_time = time.time()
+#                             total_latency = (stt_end_time - stt_start_time) * 1000
+#                             logger.info(f"✅ DEEPGRAM STT: Success! Total time: {total_latency:.1f}ms")
+#                             logger.info(f"📝 TRANSCRIPT: '{transcript}'")
+#                             return transcript
+#                 
+#                 logger.warning("⚠️ DEEPGRAM: No transcript found in response")
+#                 return None
+#                 
+#             except Exception as e:
+#                 if attempt == max_retries - 1:
+#                     raise
+#                 logger.warning(f"❌ Deepgram STT attempt {attempt + 1} failed: {e}")
+#                 time.sleep(0.1 * (attempt + 1))
+#
+#     except Exception as e:
+#         stt_end_time = time.time()
+#         total_latency = (stt_end_time - stt_start_time) * 1000
+#         logger.error(f"❌ DEEPGRAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
+#         return None
 
 @app.route('/')
 def home():
@@ -946,7 +974,7 @@ def process_audio():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi_deepgram(f.read())
+                transcript = speech_to_text_hindi(f.read())
         
         file_end_time = time.time()
         logger.info(f"📁 FILE PROCESSING: {(file_end_time - file_start_time) * 1000:.1f}ms")
@@ -1087,7 +1115,7 @@ def correction_speech_to_text():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi_deepgram(f.read())
+                transcript = speech_to_text_hindi(f.read())
         
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
