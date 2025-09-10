@@ -452,69 +452,6 @@ class ConversationController:
                 'amber_responses': []
             }
 
-def get_hindi_response(conversation_history, audio_transcript, sentence_count):
-    """Get response from GPT-4 with Hindi conversation context and gamification"""
-    try:
-        client = openai.OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),
-            base_url="https://api.openai.com/v1",
-            http_client=None
-        )
-        
-        # Enhanced system prompt with gamification awareness
-        system_prompt = f"""
-        You are a friendly Hindi tutor speaking with a 6-year-old child. The goal is to improve the user's Hindi.
-        The child has spoken {sentence_count} sentences so far.
-        
-        Follow these guidelines:
-        1. First, analyze their input and read each word. See if there is any English words or phrases used instead of Hindi words.
-        2. For each English word/phrase found, provide the correct Hindi translation. 
-        3. Also provide the entire corrected proper Hindi sentence against what is spoken.
-        4. Then generate your normal response in Hindi. 
-        5. Be curious as a mom would to know more about the user's activities.
-        6. Keep responses short (max 20 words).
-        7. Keep the conversation flowing naturally by asking questions and showing curiosity.
-         
-        Return your response in this exact JSON format. In this Json, include only corrections limited to that chat, not the entire chat session.
-        {{
-            "corrections": [
-                {{"original": "book", "corrected": "किताब"}},
-                {{"original": "school", "corrected": "स्कूल"}},
-                {{"original": "आज हमने बर्ड्स को डिस्कस किया लाइक पैरेट आउल", "corrected": "आज हमने पक्षियों पर चर्चा की, जैसे तोता, उल्लू"}}
-            ],
-            "response": "Your Hindi response here"
-        }}
-
-        If no corrections are needed, return empty array for corrections.
-        Keep your response short and friendly as before.
-        """
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            *conversation_history,
-            {"role": "user", "content": audio_transcript}
-        ]
-        
-        # Use streaming for faster initial response
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            response_format={ "type": "json_object" },
-            temperature=0.6,
-            max_tokens=150
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error in GPT-4 response: {str(e)}")
-        # Return a fallback response structure
-        return {
-            "corrections": [],
-            "response": "मैं समझ नहीं पाया। कृपया दोबारा बोलें।"  # "I didn't understand. Please speak again."
-        }
-    
 @app.route('/api/start_conversation', methods=['POST'])
 @login_required
 def start_conversation():
@@ -887,36 +824,6 @@ def translate_text():
         print(f"Translation Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-#@app.route('/api/process_text', methods=['POST'])
-#def process_text():
-    try:
-        data = request.json
-        text = data.get('text')
-        conversation_history = data.get('conversation_history', [])
-        
-        if not text:
-            return jsonify({'error': 'No text provided'}), 400
-            
-        # Get response from GPT-4
-        response_text = get_hindi_response(conversation_history, text, 0)  # You might want to handle sentence count differently
-        
-        if not response_text:
-            return jsonify({'error': 'Failed to get GPT response'}), 500
-            
-        # Convert response to speech
-        audio_response = text_to_speech_hindi(response_text)
-        
-        if not audio_response:
-            return jsonify({'error': 'Text-to-speech failed'}), 500
-            
-        return jsonify({
-            'text': response_text,
-            'audio': audio_response
-        })
-        
-    except Exception as e:
-        print(f"Process Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/process_audio', methods=['POST'])
 @login_required
