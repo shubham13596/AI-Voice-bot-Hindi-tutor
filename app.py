@@ -120,8 +120,9 @@ CONVERSATION_TYPES = {
             1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
             2. If strategy is 'continue_conversation': Continue the natural conversation flow about everyday topics
             3. Keep responses short (max 20 words)
-            4. Be curious about their daily life like a caring parent
-            5. Ask follow-up questions about school, friends, activities
+            4. Be curious about their daily life like a caring mother would.
+            5. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
+            6. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🏠',
@@ -678,7 +679,7 @@ def speech_to_text_hindi_sarvam(audio_data):
     # Form data parameters
     data = {
             'language_code': 'hi-IN',
-            'model': 'saarika:v1',
+            'model': 'saarika:v2.5',
             'with_timestamps': False
         }
     
