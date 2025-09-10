@@ -558,22 +558,8 @@ def start_conversation():
         db.session.add(conversation)
         db.session.commit()
         
-        # Store conversation type in session
-        session_data = {
-            'conversation_history': [],
-            'sentence_count': 0,
-            'reward_points': 0,
-            'good_response_count': 0,
-            'conversation_type': conversation_type,
-            'created_at': datetime.now().isoformat(),
-            'amber_responses': []
-        }
-        
-        # Save session
+        # Initialize complete session data with all required fields
         session_store = FileSessionStore()
-        session_store.save_session(session_id, session_data)
-
-        # Initialize session data for Redis/file storage (backward compatibility)
         session_data = {
             'conversation_id': conversation.id,
             'user_id': current_user.id,
@@ -581,11 +567,12 @@ def start_conversation():
             'sentence_count': 0,
             'good_response_count': 0,
             'reward_points': 0,
+            'conversation_type': conversation_type,
             'amber_responses': [],
-            'created_at': datetime.now()
+            'created_at': datetime.now().isoformat()
         }
         
-        # Save session
+        # Save session once with complete data
         session_store.save_session(session_id, session_data)
 
         # Add initial message
