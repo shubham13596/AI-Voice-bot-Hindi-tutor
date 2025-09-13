@@ -17,6 +17,7 @@ import json
 import tempfile
 import time
 import concurrent.futures
+import random
 
 # Import our models and auth
 from models import db, User, Conversation, AnalyticsHelper
@@ -99,6 +100,54 @@ DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
 # Conversation type configurations
+# Hindi affirmations for good responses - natural and encouraging
+HINDI_AFFIRMATIONS = [
+    "शाबाश!",
+    "काफी अच्छे!",
+    "बहुत अच्छे",
+    "वाह!",
+    "बहुत बढ़िया!",
+    "शानदार!",
+    "प्यारा जवाब!",
+    "बहुत सही!",
+    "कमाल है!",
+    "लाजवाब!"
+]
+
+class AffirmationService:
+    """Service to manage natural Hindi affirmations for good responses"""
+    
+    @staticmethod
+    def should_affirm(session_data):
+        """Decide if we should add an affirmation based on conversation context"""
+        # Get consecutive good responses count
+        good_count = session_data.get('good_response_count', 0)
+        sentences_count = session_data.get('sentences_count', 0)
+        
+        # Strategy: Affirm on first good response, then every 2nd good response
+        # But not too frequently to keep it natural
+        if good_count == 1:  # First good response
+            return True
+        elif good_count % 2 == 0 and sentences_count > 2:  # Every 2nd good response
+            return True
+        elif good_count % 3 == 0 and sentences_count > 5:  # Every 3rd after more conversation
+            return True
+        
+        return False
+    
+    @staticmethod
+    def get_affirmation():
+        """Get a random Hindi affirmation"""
+        return random.choice(HINDI_AFFIRMATIONS)
+    
+    @staticmethod
+    def add_affirmation_to_response(response, session_data):
+        """Add affirmation to response if appropriate"""
+        if AffirmationService.should_affirm(session_data):
+            affirmation = AffirmationService.get_affirmation()
+            return f"{affirmation} {response}"
+        return response
+
 CONVERSATION_TYPES = {
     'everyday': {
         'name': 'Everyday Life',
@@ -113,15 +162,12 @@ CONVERSATION_TYPES = {
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': """You are a friendly Hindi tutor speaking with a 6-year-old child.
             Focus on everyday life topics: school, friends, family, daily activities, food, play, etc.
-            Strategy: {strategy}
             Guidelines:
-            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
-            2. If strategy is 'continue_conversation': Continue the natural conversation flow about everyday topics
-            3. Keep responses short (max 20 words)
-            4. Be curious about their daily life like a caring mother would.
-            5. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
-            6. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
-            7. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
+            1. Be curious about their daily life like a their grandmother would be. Choose to ask about the things that they did today; give advice, support, and guidance wherever necessary.
+            2. Keep responses short (max 20 words)
+            3. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
+            4. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
+            5. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🏠',
@@ -142,13 +188,11 @@ CONVERSATION_TYPES = {
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': """You are a friendly Hindi tutor speaking with a 6-year-old child.
             Focus on cartoon and animation topics: favorite characters, shows, stories, what they like about cartoons, etc.
-            Strategy: {strategy}
             Guidelines:
-            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
-            2. If strategy is 'continue_conversation': Continue the natural conversation flow about cartoons and characters
-            3. Keep responses short (max 20 words)
-            4. Be enthusiastic about their favorite cartoons
-            5. Ask follow-up questions about characters, stories, what they like
+            1. Continue the natural conversation flow about cartoons and characters
+            2. Keep responses short (max 20 words)
+            3. Be enthusiastic about their favorite cartoons
+            4. Ask follow-up questions about characters, stories, what they like
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🎭',
@@ -169,14 +213,12 @@ CONVERSATION_TYPES = {
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': """You are a friendly Hindi storytelling tutor co-creating an adventure story with a 6-year-old child.
             Help them build an exciting adventure story by asking for their input and expanding on their ideas.
-            Strategy: {strategy}
             Guidelines:
-            1. If strategy is 'nudge_for_completeness': Encourage them to add more details to the story
-            2. If strategy is 'continue_conversation': Continue the story based on their input and ask what happens next
-            3. Keep responses short (max 20 words)
-            4. Use simple Hindi vocabulary suitable for children
-            5. Make the story exciting with simple adventures (finding treasure, helping animals, exploring places)
-            6. Always ask for their input: "What should happen next?" or "Who should they meet?"
+            1. Continue the story based on their input and ask what happens next
+            2. Keep responses short (max 20 words)
+            3. Use simple Hindi vocabulary suitable for children
+            4. Make the story exciting with simple adventures (finding treasure, helping animals, exploring places)
+            5. Always ask for their input: "What should happen next?" or "Who should they meet?"
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🗺️',
@@ -197,14 +239,11 @@ CONVERSATION_TYPES = {
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': """You are a friendly Hindi storytelling tutor co-creating a mystery story with a 6-year-old child.
             Help them solve a fun, child-friendly mystery by giving simple clues and asking for their detective ideas.
-            Strategy: {strategy}
             Guidelines:
-            1. If strategy is 'nudge_for_completeness': Encourage them to explain their detective thinking more
-            2. If strategy is 'continue_conversation': Give them a clue and ask what they think happened or what to do next
-            3. Keep responses short (max 20 words)
-            4. Use simple Hindi vocabulary suitable for children
-            5. Keep mysteries light and fun (missing toys, hidden treats, simple puzzles)
-            6. Always ask for their detective input: "What clue should we look for?" or "What do you think happened?"
+            1. Give them a clue and ask what they think happened or what to do next
+            2. Keep responses short (max 20 words) with simple Hindi vocabulary suitable for children.
+            3. Keep mysteries light and fun (missing toys, hidden treats, simple puzzles)
+            4. Always ask for their detective input: "What clue should we look for?" or "What do you think happened?"
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🔍',
@@ -442,6 +481,10 @@ class ConversationController:
             # Track good responses and handle amber responses
             if evaluation['feedback_type'] == 'green':
                 session_data['good_response_count'] = session_data.get('good_response_count', 0) + 1
+                # Add affirmation to conversation response for good responses
+                conversation_response = AffirmationService.add_affirmation_to_response(
+                    conversation_response, session_data
+                )
             elif evaluation['feedback_type'] == 'amber':
                 amber_entry = {
                     'user_response': user_text,
