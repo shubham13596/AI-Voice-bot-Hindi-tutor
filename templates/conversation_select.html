@@ -443,12 +443,30 @@
                 historyList.style.display = 'none';
                 historyEmpty.style.display = 'none';
                 
-                const response = await fetch('/api/conversation-history');
+                const response = await fetch('/api/conversation-history', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Conversation history response status:', response.status);
+                
+                // Handle authentication failures
+                if (response.status === 302 || response.status === 401) {
+                    console.log('User not authenticated, redirecting to login');
+                    window.location.href = '/';
+                    return;
+                }
+                
                 if (!response.ok) {
-                    throw new Error('Failed to load conversation history');
+                    throw new Error(`Failed to load conversation history: ${response.status} ${response.statusText}`);
                 }
                 
                 const data = await response.json();
+                console.log('Conversation history data:', data);
+                
                 if (data.success) {
                     conversationHistory = data.conversations;
                     renderConversationHistory();
