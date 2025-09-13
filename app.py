@@ -120,8 +120,8 @@ CONVERSATION_TYPES = {
             3. Keep responses short (max 20 words)
             4. Be curious about their daily life like a caring mother would.
             5. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
-            5. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
-            6. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
+            6. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
+            7. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '🏠',
@@ -269,8 +269,8 @@ def calculate_rewards(evaluation_result, good_response_count):
     if evaluation_result.get('feedback_type') == 'green':
         points = 10  # Base points for good response
         
-        # Bonus for milestones (every 5 good responses)
-        if good_response_count % 5 == 0 and good_response_count > 0:
+        # Bonus for milestones (every 4 good responses)
+        if good_response_count % 4 == 0 and good_response_count > 0:
             points += 20  # Milestone bonus
     
     return points
@@ -420,9 +420,9 @@ class ConversationController:
                 }
                 session_data.setdefault('amber_responses', []).append(amber_entry)
             
-            # Check if correction popup should trigger (every 5 interactions, and we have amber responses)
+            # Check if correction popup should trigger (every 4 interactions, and we have amber responses)
             should_show_popup = (
-                session_data['sentence_count'] % 5 == 0 and
+                session_data['sentence_count'] % 4 == 0 and
                 session_data['sentence_count'] > 0 and
                 len(session_data.get('amber_responses', [])) > 0
             )
@@ -430,7 +430,7 @@ class ConversationController:
             # Calculate milestone status for celebration
             is_milestone = (
                 evaluation['feedback_type'] == 'green' and 
-                session_data['good_response_count'] % 5 == 0 and
+                session_data['good_response_count'] % 4 == 0 and
                 session_data['good_response_count'] > 0
             )
             
