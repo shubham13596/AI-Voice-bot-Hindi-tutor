@@ -94,7 +94,7 @@ def callback():
             if not user.child_name:
                 return redirect(url_for('profile_setup'))
             else:
-                return redirect(url_for('conversation'))
+                return redirect(url_for('conversation_select'))
     
     except Exception as e:
         print(f"OAuth callback error: {e}")
