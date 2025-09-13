@@ -143,10 +143,21 @@ class ProfileAvatar {
             </div>
         `;
 
-        // Find the mobile top bar and insert avatar
+        // Find the mobile top bar and insert avatar while preserving existing content
         const topBar = document.querySelector('.mobile-top-bar');
         if (topBar) {
-            topBar.innerHTML = avatarHTML;
+            // Store existing content before replacing
+            const existingContent = topBar.innerHTML;
+            
+            // Only replace if we haven't already added the profile components
+            if (!topBar.querySelector('#profileButton')) {
+                // If there's existing content (like history button), preserve it
+                if (existingContent.trim()) {
+                    topBar.insertAdjacentHTML('beforeend', avatarHTML);
+                } else {
+                    topBar.innerHTML = avatarHTML;
+                }
+            }
         }
     }
 

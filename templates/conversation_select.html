@@ -9,6 +9,14 @@
     <script src="/static/js/mobile-navigation.js" defer></script>
     
     <style>
+        /* Header layout fixes */
+        .mobile-top-bar {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 0.5rem 1rem !important;
+        }
+        
         /* History toggle button */
         .history-toggle-btn {
             display: flex;
@@ -22,6 +30,7 @@
             cursor: pointer;
             transition: background-color 0.2s;
             font-weight: 500;
+            flex-shrink: 0;
         }
         
         .history-toggle-btn:hover {
