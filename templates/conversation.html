@@ -9,12 +9,15 @@
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
-        // Get conversation type from URL parameters
+        // Get conversation parameters from URL
         const urlParams = new URLSearchParams(window.location.search);
         const conversationType = urlParams.get('type') || 'everyday';
+        const conversationId = urlParams.get('id') || null;
         
-        // Make conversation type available globally
+        // Make conversation parameters available globally
         window.conversationType = conversationType;
+        window.conversationId = conversationId;
+        window.isResumingConversation = !!conversationId;
         
         // Check if user is authenticated and has child name set
         document.addEventListener('DOMContentLoaded', async function() {

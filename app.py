@@ -1083,6 +1083,133 @@ def get_dashboard_comparison():
         logger.error(f"Dashboard comparison API error: {e}")
         return jsonify({'error': 'Failed to fetch comparison data'}), 500
 
+@app.route('/api/conversation-history', methods=['GET'])
+@login_required
+def get_conversation_history():
+    """API endpoint to fetch conversation history for last 15 days"""
+    try:
+        # Calculate date 15 days ago
+        fifteen_days_ago = datetime.now() - timedelta(days=15)
+        
+        # Query conversations from last 15 days for current user
+        conversations = Conversation.query.filter(
+            Conversation.user_id == current_user.id,
+            Conversation.created_at >= fifteen_days_ago
+        ).order_by(Conversation.created_at.desc()).all()
+        
+        # Format conversation data for frontend
+        conversation_list = []
+        for conv in conversations:
+            # Get last message preview from conversation history
+            last_message = ""
+            if conv.conversation_history:
+                try:
+                    history = json.loads(conv.conversation_history)
+                    if history and len(history) > 0:
+                        # Get the last user message
+                        for msg in reversed(history):
+                            if msg.get('role') == 'user':
+                                last_message = msg.get('content', '')[:50] + "..." if len(msg.get('content', '')) > 50 else msg.get('content', '')
+                                break
+                except:
+                    last_message = "Conversation started"
+            
+            # Map conversation type to display info
+            type_info = {
+                'everyday': {'name': 'Everyday Life', 'icon': '🏠'},
+                'cartoons': {'name': 'Favorite Cartoons', 'icon': '🎭'},
+                'adventure_story': {'name': 'Adventure Story', 'icon': '🗺️'},
+                'mystery_story': {'name': 'Mystery Story', 'icon': '🔍'}
+            }
+            
+            conv_type = type_info.get(conv.conversation_type, {'name': 'Conversation', 'icon': '💬'})
+            
+            conversation_list.append({
+                'id': conv.id,
+                'conversation_type': conv.conversation_type,
+                'type_name': conv_type['name'],
+                'type_icon': conv_type['icon'],
+                'created_at': conv.created_at.isoformat(),
+                'last_message_preview': last_message or "New conversation",
+                'sentence_count': conv.sentences_count or 0,
+                'reward_points': conv.reward_points or 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'conversations': conversation_list
+        })
+        
+    except Exception as e:
+        logger.error(f"Conversation history API error: {e}")
+        return jsonify({'error': 'Failed to fetch conversation history'}), 500
+
+@app.route('/api/resume_conversation', methods=['POST'])
+@login_required
+def resume_conversation():
+    """API endpoint to resume an existing conversation"""
+    try:
+        data = request.json
+        conversation_id = data.get('conversation_id')
+        
+        if not conversation_id:
+            return jsonify({'error': 'Conversation ID is required'}), 400
+        
+        # Find the conversation and verify ownership
+        conversation = Conversation.query.filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id
+        ).first()
+        
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+        
+        # Load conversation history
+        conversation_history = []
+        if conversation.conversation_history:
+            try:
+                conversation_history = json.loads(conversation.conversation_history)
+            except:
+                logger.error(f"Failed to parse conversation history for conversation {conversation_id}")
+        
+        # Create session ID for this resumed conversation
+        session_id = f"resume_{conversation_id}_{int(time.time())}"
+        
+        # Store session data
+        session_data = {
+            'conversation_id': conversation_id,
+            'conversation_type': conversation.conversation_type,
+            'conversation_history': conversation_history,
+            'sentences_count': conversation.sentences_count or 0,
+            'good_response_count': conversation.good_response_count or 0,
+            'reward_points': conversation.reward_points or 0,
+            'amber_responses': json.loads(conversation.amber_responses) if conversation.amber_responses else []
+        }
+        
+        session_store.save_session(session_id, session_data)
+        
+        # Get the last assistant message to continue from
+        last_assistant_message = "Let's continue our conversation! What would you like to talk about?"
+        if conversation_history:
+            for msg in reversed(conversation_history):
+                if msg.get('role') == 'assistant':
+                    last_assistant_message = msg.get('content', last_assistant_message)
+                    break
+        
+        return jsonify({
+            'session_id': session_id,
+            'conversation_id': conversation_id,
+            'conversation_type': conversation.conversation_type,
+            'conversation_history': conversation_history,
+            'text': last_assistant_message,
+            'sentences_count': conversation.sentences_count or 0,
+            'reward_points': conversation.reward_points or 0
+        })
+        
+    except Exception as e:
+        logger.error(f"Resume conversation API error: {e}")
+        return jsonify({'error': 'Failed to resume conversation'}), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

@@ -613,21 +613,42 @@ async function startConversation() {
         // Disable button at the start
         recordButton.disabled = true;
         recordButton.classList.add('opacity-50', 'cursor-not-allowed');
-        status.textContent = 'Starting conversation...';
         
-        console.log('Making API call to start conversation');
-        const conversationType = window.conversationType || 'everyday';
-        console.log('Conversation type:', conversationType);
+        // Check if we're resuming a conversation
+        const isResuming = window.isResumingConversation;
+        const conversationId = window.conversationId;
         
-        const response = await fetch('/api/start_conversation', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                conversation_type: conversationType
-            })
-        });
+        let response;
+        
+        if (isResuming && conversationId) {
+            status.textContent = 'Resuming conversation...';
+            console.log('Making API call to resume conversation', conversationId);
+            
+            response = await fetch('/api/resume_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversation_id: conversationId
+                })
+            });
+        } else {
+            status.textContent = 'Starting conversation...';
+            console.log('Making API call to start conversation');
+            const conversationType = window.conversationType || 'everyday';
+            console.log('Conversation type:', conversationType);
+            
+            response = await fetch('/api/start_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversation_type: conversationType
+                })
+            });
+        }
 
         console.log('API response status:', response.status);
         if (!response.ok) {
@@ -644,29 +665,59 @@ async function startConversation() {
         // Store the session ID
         sessionId = data.session_id;
         
-        // Display initial message
-        if (data.text) {
-            displayMessage('assistant', data.text, null);
+        // Handle resumed conversation differently
+        if (isResuming && data.conversation_history) {
+            // Load existing conversation history
+            conversationHistory = data.conversation_history;
             
-            // Add to conversation history
-            conversationHistory.push({ 
-                role: 'assistant', 
-                content: data.text 
+            // Display all previous messages
+            const conversationDiv = document.getElementById('conversation');
+            conversationDiv.innerHTML = ''; // Clear any existing content
+            
+            data.conversation_history.forEach(msg => {
+                displayMessage(msg.role, msg.content, null);
             });
             
-            // Play initial audio if available
-            if (data.audio) {
-                playAudioResponse(data.audio);
+            // Display continuation message
+            displayMessage('assistant', data.text, null);
+            
+            // Add the continuation message to history
+            conversationHistory.push({
+                role: 'assistant',
+                content: data.text
+            });
+            
+            // Update conversation type indicator if available
+            if (data.conversation_type && window.conversationType !== data.conversation_type) {
+                window.conversationType = data.conversation_type;
+                // Update the conversation type display
+                updateConversationTypeDisplay(data.conversation_type);
             }
             
-            // Only now enable the button and update status
-            recordButton.disabled = false;
-            recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
-            status.textContent = 'Click the button to start talking!';
-
         } else {
-            throw new Error('No initial message received');
+            // New conversation - display initial message
+            if (data.text) {
+                displayMessage('assistant', data.text, null);
+                
+                // Add to conversation history
+                conversationHistory.push({ 
+                    role: 'assistant', 
+                    content: data.text 
+                });
+            } else {
+                throw new Error('No initial message received');
+            }
         }
+        
+        // Play initial audio if available
+        if (data.audio) {
+            playAudioResponse(data.audio);
+        }
+        
+        // Enable the button and update status
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        status.textContent = isResuming ? 'Conversation resumed! Click to continue talking.' : 'Click the button to start talking!';
         
     } catch (error) {
         console.error('Error starting conversation:', error);
@@ -1348,6 +1399,37 @@ function resetRecordingInterface() {
             indicator.remove();
         }
     }
+}
+
+// Helper function to update conversation type display
+function updateConversationTypeDisplay(conversationType) {
+    const typeNames = {
+        'everyday': 'Everyday Life',
+        'cartoons': 'Favorite Cartoons',
+        'adventure_story': 'Adventure Story',
+        'mystery_story': 'Mystery Story'
+    };
+    const typeDescs = {
+        'everyday': 'Talk about daily activities and school',
+        'cartoons': 'Chat about favorite cartoon characters',
+        'adventure_story': 'Create exciting adventure stories together',
+        'mystery_story': 'Solve fun mysteries and detective stories'
+    };
+    const typeIcons = {
+        'everyday': '🏠',
+        'cartoons': '🎭',
+        'adventure_story': '🗺️',
+        'mystery_story': '🔍'
+    };
+    
+    // Update conversation type indicator
+    const nameEl = document.getElementById('conversationTypeName');
+    const descEl = document.getElementById('conversationTypeDesc');
+    const iconEl = document.getElementById('conversationIcon');
+    
+    if (nameEl) nameEl.textContent = typeNames[conversationType] || 'Conversation';
+    if (descEl) descEl.textContent = typeDescs[conversationType] || 'General conversation';
+    if (iconEl) iconEl.textContent = typeIcons[conversationType] || '💬';
 }
 
 // Add refresh button for errors
