@@ -27,7 +27,7 @@
                 document.title = `Activity Dashboard - ${user.child_name}`;
                 const childNameEl = document.getElementById('childName');
                 if (childNameEl) {
-                    childNameEl.textContent = user.child_name;
+                    childNameEl.textContent = user.child_name + "'s";
                 }
                 
                 // Initialize dashboard data
@@ -300,6 +300,44 @@
             color: #6b7280;
         }
 
+        /* Back button styles */
+        .back-button-container {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+        }
+
+        .back-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+            font-size: 0.9rem;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .back-button svg {
+            transition: transform 0.3s;
+        }
+
+        .back-button:hover svg {
+            transform: translateX(-2px);
+        }
+
         /* Loading and error states */
         .loading {
             text-align: center;
@@ -362,6 +400,17 @@
     <div class="app-container">
         <!-- No top bar for dashboard as per requirements -->
         
+        <!-- Back button -->
+        <div class="back-button-container">
+            <button onclick="window.location.href='/conversation-select'" class="back-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+                Back
+            </button>
+        </div>
+
         <!-- Main Content -->
         <main class="mobile-main-content dashboard-content">
             <div class="dashboard-container">
@@ -445,9 +494,12 @@
                 if (result.success) {
                     displayStats(result.data);
                     
-                    // Load comparison data if viewing this week
+                    // Load comparison data only if viewing this week
                     if (currentWeek === 'this') {
                         loadComparisonData();
+                    } else {
+                        // Clear comparison data when viewing last week
+                        clearComparison();
                     }
                 } else {
                     throw new Error('API returned error');
@@ -487,8 +539,25 @@
             updateComparisonElement('pointsComparison', comparison.points);
         }
 
+        function clearComparison() {
+            // Hide comparison elements for "This Week" view
+            const comparisonElements = [
+                'sentenceComparison', 
+                'daysComparison', 
+                'pointsComparison'
+            ];
+            
+            comparisonElements.forEach(elementId => {
+                const element = document.getElementById(elementId);
+                element.style.display = 'none';
+            });
+        }
+
         function updateComparisonElement(elementId, change) {
             const element = document.getElementById(elementId);
+            
+            // Show the element when displaying comparison data
+            element.style.display = 'block';
             
             if (change > 0) {
                 element.textContent = `+${change} from last week`;
