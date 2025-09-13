@@ -37,6 +37,9 @@
                     return;
                 }
                 
+                // Store child name in sessionStorage for process_audio.js
+                sessionStorage.setItem('childName', user.child_name);
+                
                 // Update page title with child's name and conversation type
                 const typeNames = {
                     'everyday': 'Everyday Life',

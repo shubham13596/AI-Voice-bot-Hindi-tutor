@@ -359,6 +359,9 @@
                     childNameEl.textContent = user.child_name;
                 }
                 
+                // Store child name in sessionStorage for process_audio.js
+                sessionStorage.setItem('childName', user.child_name);
+                
                 // Update page title
                 document.title = `Choose Conversation - ${user.child_name}`;
                 

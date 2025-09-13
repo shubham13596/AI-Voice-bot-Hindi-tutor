@@ -87,7 +87,7 @@ function initializeAudioEffects() {
         firstMessage: new Audio('/static/sounds/first-message.mp3'),
         milestone: new Audio('/static/sounds/milestone.mp3'),
         reward: new Audio('/static/sounds/reward.mp3'),
-        applause: createApplauseSound() // Generate soft clapping sound
+        applause: new Audio('/static/applause_v1.wav') // Use applause sound file
     };
     
     // Preload audio
@@ -97,56 +97,28 @@ function initializeAudioEffects() {
     return audioEffects;
 }
 
-// Create a soft applause/clapping sound using Web Audio API
+// Create applause sound from audio file
 function createApplauseSound() {
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audio = new Audio('/static/applause_v1.wav');
+        audio.volume = 0.3; // Set volume to 30%
         
-        const playApplause = () => {
-            return new Promise((resolve) => {
-                const duration = 2.5; // 2.5 seconds of soft clapping
-                const claps = 8; // Number of individual claps
-                
-                // Create multiple overlapping clap sounds
-                for (let i = 0; i < claps; i++) {
-                    setTimeout(() => {
-                        // Create a single soft clap sound
-                        const oscillator = audioContext.createOscillator();
-                        const gainNode = audioContext.createGain();
-                        const filter = audioContext.createBiquadFilter();
-                        
-                        // Configure noise-like sound for clap
-                        oscillator.type = 'sawtooth';
-                        oscillator.frequency.setValueAtTime(200 + Math.random() * 300, audioContext.currentTime);
-                        
-                        // Soft volume and quick decay
-                        gainNode.gain.setValueAtTime(0.08, audioContext.currentTime); // Very soft
-                        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
-                        
-                        // High-pass filter for crispness
-                        filter.type = 'highpass';
-                        filter.frequency.setValueAtTime(800, audioContext.currentTime);
-                        
-                        // Connect and play
-                        oscillator.connect(filter);
-                        filter.connect(gainNode);
-                        gainNode.connect(audioContext.destination);
-                        
-                        oscillator.start(audioContext.currentTime);
-                        oscillator.stop(audioContext.currentTime + 0.1);
-                        
-                        if (i === claps - 1) {
-                            setTimeout(resolve, 100);
-                        }
-                    }, i * 300 + Math.random() * 100); // Slightly randomized timing
-                }
-            });
+        return {
+            play: () => {
+                return new Promise((resolve) => {
+                    audio.currentTime = 0; // Reset to beginning
+                    audio.play().then(() => {
+                        // Resolve after audio finishes playing
+                        audio.addEventListener('ended', resolve, { once: true });
+                    }).catch((error) => {
+                        console.warn('Applause sound playback failed:', error);
+                        resolve();
+                    });
+                });
+            }
         };
-        
-        return { play: playApplause };
     } catch (error) {
-        console.warn('Web Audio API not available, using fallback sound');
-        // Fallback: Simple console message when Web Audio API is not available
+        console.warn('Applause audio file not available, using fallback');
         return {
             play: () => {
                 console.log('🎉 Applause sound would play here!');
