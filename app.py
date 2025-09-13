@@ -753,6 +753,21 @@ def dashboard():
     """User dashboard with analytics"""
     return render_template('dashboard.html')
 
+@app.route('/mission')
+def mission():
+    """Mission page - accessible to all users"""
+    return render_template('mission.html')
+
+@app.route('/contact')
+def contact():
+    """Contact us page - accessible to all users"""
+    return render_template('contact.html')
+
+@app.route('/privacy')
+def privacy():
+    """Privacy policy and terms page - accessible to all users"""
+    return render_template('privacy.html')
+
 # Configure static files handling
 @app.route('/favicon.ico')
 def favicon():
