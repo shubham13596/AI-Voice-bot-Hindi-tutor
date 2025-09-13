@@ -1502,7 +1502,7 @@ class FileSessionStore(SessionStore):
                 **data,
                 'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
             }
-            with open(self.filename, 'w') as f:
+            with open(self.filename, 'w', encoding='utf-8') as f:
                 json.dump(sessions, f, ensure_ascii=False)
         except Exception as e:
             logging.error(f"Failed to save session to file: {e}")
@@ -1521,7 +1521,7 @@ class FileSessionStore(SessionStore):
     def load_all_sessions(self):
         try:
             if os.path.exists(self.filename):
-                with open(self.filename, 'r') as f:
+                with open(self.filename, 'r', encoding='utf-8') as f:
                     return json.load(f)
             return {}
         except Exception as e:
@@ -1536,7 +1536,7 @@ class FileSessionStore(SessionStore):
                 sid: data for sid, data in sessions.items()
                 if current_time - datetime.fromisoformat(data['created_at']) < timedelta(hours=24)
             }
-            with open(self.filename, 'w') as f:
+            with open(self.filename, 'w', encoding='utf-8') as f:
                 json.dump(sessions, f, ensure_ascii=False)
         except Exception as e:
             logging.error(f"Failed to cleanup sessions: {e}")
