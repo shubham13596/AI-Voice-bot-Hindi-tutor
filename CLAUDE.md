@@ -55,7 +55,7 @@ Required environment variables in `.env`:
 #### Conversation System
 The conversation flow is managed by several classes in `app.py`:
 - **ConversationController**: Main orchestrator for conversation flow
-- **ResponseEvaluator**: Evaluates user responses for grammar and completeness
+- **ResponseEvaluator**: Evaluates user responses for grammar, completeness, and contextual appropriateness using both user response and last talker response
 - **TalkerModule**: Generates AI responses based on conversation type
 - **CONVERSATION_TYPES**: Configuration dict defining different conversation modes (everyday, cartoons, adventure_story, mystery_story)
 
@@ -87,6 +87,8 @@ The conversation flow is managed by several classes in `app.py`:
 - Session tracking with metrics (sentences_count, good_response_count, reward_points)
 - JSON storage for conversation_history and amber_responses (corrections needed)
 - Analytics helpers for weekly stats and comparisons
+- **conversation_type** field to track different conversation modes
+- Support for conversation resumption with proper session data handling
 
 ### API Endpoints
 
@@ -102,14 +104,55 @@ The conversation flow is managed by several classes in `app.py`:
 - `GET /api/dashboard` - User analytics and progress
 - `GET /api/user` - Current user information
 
+#### Conversation History APIs
+- `GET /api/conversation-history` - Fetch user's conversations from last 15 days
+- `POST /api/resume_conversation` - Resume existing conversation by ID
+
 ### Frontend Architecture
 - Mobile-first responsive design
 - Vanilla JavaScript with audio recording capabilities
 - Real-time audio visualization during recording
 - Progress tracking with gamification (points, milestones, Captain America rewards)
 - Multiple conversation types with different themes and prompts
+- **Conversation History Sidebar**: Collapsible sidebar on conversation-select page showing last 15 days of conversations
+- **Mobile Navigation System**: Reusable bottom navigation and profile avatar components
 
 ## Important Implementation Details
+
+### Conversation History & Resume Functionality
+The app includes a comprehensive conversation history system that allows users to view and resume previous conversations:
+
+#### Key Features
+- **Collapsible Sidebar**: Located on the conversation-select page with smooth animations
+- **15-Day History**: Shows conversations from the last 15 days, sorted by most recent
+- **Resume Capability**: Users can click on any previous conversation to resume exactly where they left off
+- **Mobile-Responsive**: Optimized for mobile devices with touch-friendly interactions
+
+#### Technical Implementation
+- **Backend**: `/api/conversation-history` endpoint fetches conversations with proper authentication
+- **Frontend**: JavaScript handles sidebar toggle, API calls, and conversation resumption
+- **Session Management**: Proper session data structure preservation during resume operations
+- **Database Integration**: conversation_type field tracks different conversation modes
+
+#### Key Files
+- `templates/conversation_select.html`: Sidebar HTML structure and JavaScript logic
+- `static/js/mobile-navigation.js`: Mobile navigation components with content preservation
+- `app.py`: API endpoints for history fetching and conversation resumption
+- `models.py`: Enhanced Conversation model with conversation_type support
+
+### Mobile Navigation System
+Reusable navigation components for consistent mobile experience:
+
+#### Components
+- **MobileNavigation**: Bottom navigation with home and activity tabs
+- **ProfileAvatar**: Animated profile dropdown with user information
+- **MobilePageUtils**: Utility functions for page management and transitions
+
+#### Features
+- **Content Preservation**: Navigation components preserve existing page content
+- **Responsive Design**: Optimized for mobile-first approach
+- **User Avatars**: Fun animal avatars with cycling functionality
+- **Smooth Transitions**: Page transition effects for better UX
 
 ### Conversation Types
 Each conversation type has specific system prompts and focuses:
@@ -129,6 +172,8 @@ Each conversation type has specific system prompts and focuses:
 - File storage fallback when Redis unavailable
 - Retry logic with exponential backoff for API calls
 - Comprehensive logging for debugging
+- **Authentication Handling**: Proper session credential handling for API calls
+- **Field Name Consistency**: Resolved session data structure inconsistencies
 
 ### Security Considerations
 - Google OAuth for secure authentication
@@ -137,12 +182,44 @@ Each conversation type has specific system prompts and focuses:
 - File cleanup for temporary audio files
 
 ## Development Workflow
-1. Set up environment variables in `.env` file
-2. Install Python dependencies via `requirements.txt`
-3. Run `python app.py` for local development
-4. Application runs on port 5001 by default (configurable via PORT env var)
-5. Database auto-initializes on first run
-6. Use browser developer tools for debugging frontend audio issues
+
+### Git Branching Strategy
+**IMPORTANT**: Always create a new branch for any feature changes, functionality changes, or bug fixes:
+
+```bash
+# For new features
+git checkout -b feature/feature-name
+
+# For bug fixes  
+git checkout -b fix/bug-description
+
+# For enhancements to existing features
+git checkout -b enhancement/improvement-description
+
+# Examples:
+git checkout -b feature/evaluator-context-enhancement
+git checkout -b fix/session-timeout-issue
+git checkout -b enhancement/mobile-navigation-improvements
+```
+
+**Branch Naming Convention**:
+- `feature/` - New functionality or major additions
+- `fix/` - Bug fixes and issue resolutions  
+- `enhancement/` - Improvements to existing features
+- `refactor/` - Code restructuring without functional changes
+- `docs/` - Documentation updates
+
+### Development Steps
+1. **Create Branch**: Always start with a new branch for your changes
+2. Set up environment variables in `.env` file
+3. Install Python dependencies via `requirements.txt`
+4. Run `python app.py` for local development
+5. Application runs on port 5001 by default (configurable via PORT env var)
+6. Database auto-initializes on first run
+7. Use browser developer tools for debugging frontend audio issues
+8. **Commit Changes**: Make frequent commits with descriptive messages
+9. **Test Thoroughly**: Ensure all changes work as expected
+10. **Create Pull Request**: When ready, merge back to main branch
 
 ## Deployment
 - Configured for Heroku deployment via `Procfile`
@@ -150,3 +227,32 @@ Each conversation type has specific system prompts and focuses:
 - PostgreSQL database in production (SQLite for development)
 - Redis session storage in production (file storage fallback)
 - Python 3.11.9 runtime (specified in `runtime.txt`)
+
+## Recent Updates & Bug Fixes
+
+### v25 (Latest) - Enhanced Response Evaluator with Context Awareness
+- **Major Enhancement**: ResponseEvaluator now uses both user response and last talker response for better contextual evaluation
+- **Improved Corrections**: Evaluator provides more accurate corrected responses that properly answer questions in context
+- **Example**: For tutor question "kya tum aaj school gaye?" and child response "nahi", evaluator now generates "aaj mein school nahi gaya" instead of just correcting grammar
+- **Enhanced Completeness**: Better detection of incomplete responses based on conversational context
+- **Git Workflow**: Added comprehensive branching guidelines to CLAUDE.md for all future development
+
+### v24 - Conversation History Feature
+- **Major Feature**: Added conversation history sidebar with resume functionality
+- **Database Enhancement**: Added conversation_type field to Conversation model
+- **Mobile Navigation**: Improved mobile navigation with content preservation
+- **Authentication**: Fixed session credential handling for API calls
+- **Session Management**: Resolved field name consistency issues (sentences_count vs sentence_count)
+- **User Experience**: Enhanced dashboard UI with better navigation
+
+### Key Technical Improvements
+- **API Authentication**: All conversation history API calls include proper session credentials
+- **Database Schema**: Conversation model now includes conversation_type tracking
+- **Session Resume**: Proper handling of resumed conversations with complete session data
+- **Mobile Responsiveness**: Enhanced mobile design with collapsible sidebar
+- **Error Handling**: Improved error handling for conversation resumption scenarios
+
+### Security & Maintenance
+- **Environment Variables**: Added comprehensive .gitignore to protect sensitive data
+- **Professional Footer**: Added informational pages and company footer
+- **Dashboard Logic**: Improved weekly comparison logic and back button functionality

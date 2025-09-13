@@ -279,7 +279,7 @@ class ResponseEvaluator:
     """Evaluates user responses for completeness and grammar"""
     
     @staticmethod
-    def evaluate_response(user_text):
+    def evaluate_response(user_text, last_talker_response=None):
         """Evaluate user response and return score + analysis"""
         try:
             client = openai.OpenAI(
@@ -288,12 +288,26 @@ class ResponseEvaluator:
                 http_client=None
             )
             
+            # Build system prompt with context from last talker response
+            if last_talker_response:
+                context_section = f"""
+                Context - Last question/statement from tutor: "{last_talker_response}"
+                User response: "{user_text}"
+                
+                Consider the context when evaluating the response.
+                """
+            else:
+                context_section = f"""
+                User response: "{user_text}"
+                """
+            
             system_prompt = f"""
             Evaluate this Hindi response from a 6-year-old child for:
             1. Completeness (is it a full sentence or just 1-2 words?)
             2. Grammar correctness in Hindi
+            3. Contextual appropriateness (does it properly answer the question/respond to the statement?)
             
-            User response: "{user_text}"
+            {context_section}
             
             Return JSON format:
             {{
@@ -301,13 +315,18 @@ class ResponseEvaluator:
                 "is_complete": true/false,
                 "is_grammatically_correct": true/false,
                 "issues": ["incomplete", "grammar_error"],
-                "corrected_response": "grammatically correct version if needed",
+                "corrected_response": "grammatically correct and complete version that properly responds to the context",
                 "feedback_type": "green/amber"
             }}
             
             Score guide:
-            - 8-10: Complete, grammatically correct = green
-            - 1-7: Incomplete or grammar issues = amber
+            - 8-10: Complete, grammatically correct, and contextually appropriate = green
+            - 1-7: Incomplete, grammar issues, or doesn't properly respond to context = amber
+            
+            For the corrected_response, provide a complete sentence that:
+            - Is grammatically correct
+            - Properly answers the question or responds to the statement
+            - Is appropriate for a 6-year-old's vocabulary
             """
             
             response = client.chat.completions.create(
@@ -389,12 +408,23 @@ class ConversationController:
         try:
             conversation_type = session_data.get('conversation_type', 'everyday')
             
+            # Extract the last talker response from conversation history
+            last_talker_response = None
+            conversation_history = session_data.get('conversation_history', [])
+            
+            # Find the most recent assistant message
+            for message in reversed(conversation_history):
+                if message.get('role') == 'assistant':
+                    last_talker_response = message.get('content')
+                    break
+            
             # Run evaluation and conversation response in PARALLEL
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 # Submit both OpenAI API calls simultaneously
                 eval_future = executor.submit(
                     self.evaluator.evaluate_response, 
-                    user_text
+                    user_text,
+                    last_talker_response
                 )
                 
                 conv_future = executor.submit(
