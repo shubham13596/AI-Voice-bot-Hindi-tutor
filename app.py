@@ -267,7 +267,7 @@ CONVERSATION_TYPES = {
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '📖',
-        'tag': 'Story'
+        'tag': 'Indian fables'
     }
 }
 
