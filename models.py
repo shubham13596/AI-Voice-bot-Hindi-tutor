@@ -162,3 +162,155 @@ class AnalyticsHelper:
                 'active_days': this_week['active_days'] - last_week['active_days']
             }
         }
+
+class PageView(db.Model):
+    """Track page visits for analytics funnel analysis"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Nullable for anonymous users
+    session_id = db.Column(db.String(100), nullable=False, index=True)  # Browser session ID
+    page = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'landing', 'conversation-select', 'conversation'
+    url_path = db.Column(db.String(500), nullable=False)  # Full URL path
+    referrer = db.Column(db.String(500), nullable=True)  # HTTP referrer
+    user_agent = db.Column(db.String(500), nullable=True)  # Browser info
+    ip_address = db.Column(db.String(45), nullable=True)  # User IP (IPv4/IPv6)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_id': self.session_id,
+            'page': self.page,
+            'url_path': self.url_path,
+            'referrer': self.referrer,
+            'created_at': self.created_at.isoformat()
+        }
+
+class UserAction(db.Model):
+    """Track specific user actions for conversion analysis"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Nullable for anonymous users
+    session_id = db.Column(db.String(100), nullable=False, index=True)
+    action = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'gmail_login_click', 'conversation_start'
+    page = db.Column(db.String(100), nullable=False)  # Page where action occurred
+    action_metadata = db.Column(db.Text, nullable=True)  # JSON for additional action data
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_id': self.session_id,
+            'action': self.action,
+            'page': self.page,
+            'action_metadata': self.action_metadata,
+            'created_at': self.created_at.isoformat()
+        }
+
+class FunnelAnalytics:
+    """Helper class for user funnel analytics and admin dashboard"""
+    
+    @staticmethod
+    def get_funnel_stats(start_date=None, end_date=None):
+        """Get complete funnel conversion stats"""
+        if not start_date:
+            start_date = datetime.utcnow() - timedelta(days=30)
+        if not end_date:
+            end_date = datetime.utcnow()
+        
+        # Step 1: Landing page visits
+        landing_visits = PageView.query.filter(
+            PageView.page == 'landing',
+            PageView.created_at >= start_date,
+            PageView.created_at <= end_date
+        ).count()
+        
+        # Step 2: Gmail login clicks
+        gmail_clicks = UserAction.query.filter(
+            UserAction.action == 'gmail_login_click',
+            UserAction.created_at >= start_date,
+            UserAction.created_at <= end_date
+        ).count()
+        
+        # Step 3: Users reaching conversation-select
+        conversation_select_visits = PageView.query.filter(
+            PageView.page == 'conversation-select',
+            PageView.created_at >= start_date,
+            PageView.created_at <= end_date
+        ).count()
+        
+        # Step 4: Users reaching conversation page
+        conversation_visits = PageView.query.filter(
+            PageView.page == 'conversation',
+            PageView.created_at >= start_date,
+            PageView.created_at <= end_date
+        ).count()
+        
+        # Calculate conversion rates
+        gmail_conversion = (gmail_clicks / max(landing_visits, 1)) * 100
+        select_conversion = (conversation_select_visits / max(gmail_clicks, 1)) * 100
+        conversation_conversion = (conversation_visits / max(conversation_select_visits, 1)) * 100
+        overall_conversion = (conversation_visits / max(landing_visits, 1)) * 100
+        
+        return {
+            'period': f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
+            'funnel': {
+                'landing_visits': landing_visits,
+                'gmail_clicks': gmail_clicks,
+                'conversation_select_visits': conversation_select_visits,
+                'conversation_visits': conversation_visits
+            },
+            'conversion_rates': {
+                'landing_to_gmail': round(gmail_conversion, 2),
+                'gmail_to_select': round(select_conversion, 2),
+                'select_to_conversation': round(conversation_conversion, 2),
+                'overall': round(overall_conversion, 2)
+            }
+        }
+    
+    @staticmethod
+    def get_user_activity_stats(user_id):
+        """Get detailed activity stats for a specific user"""
+        user = User.query.get(user_id)
+        if not user:
+            return None
+        
+        # Get all conversations
+        conversations = Conversation.query.filter(Conversation.user_id == user_id).all()
+        
+        # Get page views
+        page_views = PageView.query.filter(PageView.user_id == user_id).count()
+        
+        # Get actions
+        actions = UserAction.query.filter(UserAction.user_id == user_id).count()
+        
+        # Calculate conversation frequency
+        if conversations:
+            first_conversation = min(conv.created_at for conv in conversations)
+            last_conversation = max(conv.created_at for conv in conversations)
+            days_active = (last_conversation - first_conversation).days + 1
+            conversation_frequency = len(conversations) / max(days_active, 1)
+        else:
+            conversation_frequency = 0
+        
+        # Get conversation types breakdown
+        conversation_types = {}
+        for conv in conversations:
+            conv_type = conv.conversation_type
+            if conv_type not in conversation_types:
+                conversation_types[conv_type] = 0
+            conversation_types[conv_type] += 1
+        
+        return {
+            'user': user.to_dict(),
+            'activity': {
+                'total_conversations': len(conversations),
+                'total_page_views': page_views,
+                'total_actions': actions,
+                'conversation_frequency_per_day': round(conversation_frequency, 2),
+                'conversation_types': conversation_types,
+                'total_sentences': sum(conv.sentences_count for conv in conversations),
+                'total_points': sum(conv.reward_points for conv in conversations),
+                'avg_conversation_duration': round(sum(conv.duration_minutes for conv in conversations) / max(len(conversations), 1), 1)
+            }
+        }

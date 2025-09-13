@@ -20,7 +20,7 @@ import concurrent.futures
 import random
 
 # Import our models and auth
-from models import db, User, Conversation, AnalyticsHelper
+from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics
 from auth import auth_bp, init_oauth
 
 
@@ -63,7 +63,7 @@ app = Flask(__name__,
 )
 
 # Configure Flask app
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///hindi_tutor.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -287,7 +287,7 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
             model="gpt-4o-mini",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
-            temperature=0.7,
+            temperature=0.3,
             max_tokens=50
         )
         
@@ -524,6 +524,56 @@ class ConversationController:
                 'should_show_popup': False,
                 'amber_responses': []
             }
+
+# Analytics Helper Functions
+def track_page_view(page, url_path):
+    """Track page view for analytics"""
+    try:
+        session_id = request.cookies.get('session', 'anonymous')
+        user_id = current_user.id if current_user.is_authenticated else None
+        referrer = request.referrer
+        user_agent = request.headers.get('User-Agent')
+        ip_address = request.remote_addr
+        
+        page_view = PageView(
+            user_id=user_id,
+            session_id=session_id,
+            page=page,
+            url_path=url_path,
+            referrer=referrer,
+            user_agent=user_agent,
+            ip_address=ip_address
+        )
+        
+        db.session.add(page_view)
+        db.session.commit()
+        logger.info(f"Tracked page view: {page} for {'user_' + str(user_id) if user_id else 'anonymous'}")
+        
+    except Exception as e:
+        logger.error(f"Error tracking page view: {str(e)}")
+        db.session.rollback()
+
+def track_user_action(action, page, metadata=None):
+    """Track user action for analytics"""
+    try:
+        session_id = request.cookies.get('session', 'anonymous')
+        user_id = current_user.id if current_user.is_authenticated else None
+        
+        user_action = UserAction(
+            user_id=user_id,
+            session_id=session_id,
+            action=action,
+            page=page,
+            action_metadata=json.dumps(metadata) if metadata else None
+        )
+        
+        db.session.add(user_action)
+        db.session.commit()
+        logger.info(f"Tracked action: {action} on {page} for {'user_' + str(user_id) if user_id else 'anonymous'}")
+        
+    except Exception as e:
+        logger.error(f"Error tracking user action: {str(e)}")
+        db.session.rollback()
 
 @app.route('/api/start_conversation', methods=['POST'])
 @login_required
@@ -785,6 +835,9 @@ def speech_to_text_hindi(audio_data):
 @app.route('/')
 def home():
     """Landing page - shows login or redirects if authenticated"""
+    # Track landing page visit
+    track_page_view('landing', request.path)
+    
     if current_user.is_authenticated:
         if not current_user.child_name:
             return redirect(url_for('profile_setup'))
@@ -803,6 +856,10 @@ def conversation_select():
     """Conversation type selection page - requires authentication and profile setup"""
     if not current_user.child_name:
         return redirect(url_for('profile_setup'))
+    
+    # Track conversation-select page visit
+    track_page_view('conversation-select', request.path)
+    
     return render_template('conversation_select.html')
 
 @app.route('/conversation')
@@ -818,6 +875,12 @@ def conversation():
     # Validate conversation type
     if conversation_type not in CONVERSATION_TYPES:
         return redirect(url_for('conversation_select'))
+    
+    # Track conversation page visit
+    track_page_view('conversation', request.path)
+    
+    # Track conversation start action
+    track_user_action('conversation_start', 'conversation', {'conversation_type': conversation_type})
     
     return render_template('conversation.html', conversation_type=conversation_type)
 
@@ -1278,6 +1341,107 @@ def resume_conversation():
     except Exception as e:
         logger.error(f"Resume conversation API error: {e}")
         return jsonify({'error': 'Failed to resume conversation'}), 500
+
+@app.route('/api/track', methods=['POST'])
+def track_analytics():
+    """API endpoint for frontend analytics tracking"""
+    try:
+        data = request.get_json() or {}
+        action = data.get('action')
+        page = data.get('page')
+        metadata = data.get('metadata')
+        
+        if not action or not page:
+            return jsonify({'error': 'Missing required fields: action, page'}), 400
+        
+        track_user_action(action, page, metadata)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error in analytics tracking: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin')
+def admin_dashboard():
+    """Admin dashboard for analytics - basic auth protection"""
+    auth = request.authorization
+    if not auth or auth.username != 'admin' or auth.password != os.getenv('ADMIN_PASSWORD', 'admin123'):
+        return authenticate()
+    
+    return render_template('admin_dashboard.html')
+
+@app.route('/api/admin/funnel-stats')
+def admin_funnel_stats():
+    """API endpoint for funnel analytics data"""
+    auth = request.authorization
+    if not auth or auth.username != 'admin' or auth.password != os.getenv('ADMIN_PASSWORD', 'admin123'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        days = request.args.get('days', 30, type=int)
+        start_date = datetime.utcnow() - timedelta(days=days)
+        end_date = datetime.utcnow()
+        
+        stats = FunnelAnalytics.get_funnel_stats(start_date, end_date)
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting funnel stats: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/admin/user-activity/<int:user_id>')
+def admin_user_activity(user_id):
+    """API endpoint for specific user activity data"""
+    auth = request.authorization
+    if not auth or auth.username != 'admin' or auth.password != os.getenv('ADMIN_PASSWORD', 'admin123'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        stats = FunnelAnalytics.get_user_activity_stats(user_id)
+        if not stats:
+            return jsonify({'error': 'User not found'}), 404
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting user activity: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/admin/all-users')
+def admin_all_users():
+    """API endpoint for all users list"""
+    auth = request.authorization
+    if not auth or auth.username != 'admin' or auth.password != os.getenv('ADMIN_PASSWORD', 'admin123'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        users = User.query.all()
+        users_data = []
+        
+        for user in users:
+            conversation_count = Conversation.query.filter(Conversation.user_id == user.id).count()
+            last_conversation = Conversation.query.filter(Conversation.user_id == user.id).order_by(Conversation.created_at.desc()).first()
+            
+            users_data.append({
+                'id': user.id,
+                'email': user.email,
+                'name': user.name,
+                'child_name': user.child_name,
+                'created_at': user.created_at.isoformat(),
+                'conversation_count': conversation_count,
+                'last_conversation': last_conversation.created_at.isoformat() if last_conversation else None
+            })
+        
+        return jsonify({'users': users_data})
+        
+    except Exception as e:
+        logger.error(f"Error getting all users: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def authenticate():
+    """Send a 401 response with WWW-Authenticate header"""
+    return jsonify({'error': 'Unauthorized'}), 401, {'WWW-Authenticate': 'Basic realm="Admin Login Required"'}
 
 @app.route('/health', methods=['GET'])
 def health_check():
