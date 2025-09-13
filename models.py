@@ -71,7 +71,7 @@ class Conversation(db.Model):
     @conversation_data.setter
     def conversation_data(self, data):
         """Set conversation history as JSON"""
-        self.conversation_history = json.dumps(data)
+        self.conversation_history = json.dumps(data, ensure_ascii=False)
     
     @property
     def amber_data(self):
@@ -86,7 +86,7 @@ class Conversation(db.Model):
     @amber_data.setter
     def amber_data(self, data):
         """Set amber responses as JSON"""
-        self.amber_responses = json.dumps(data)
+        self.amber_responses = json.dumps(data, ensure_ascii=False)
     
     def to_dict(self):
         return {

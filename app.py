@@ -568,7 +568,7 @@ def track_user_action(action, page, metadata=None):
             session_id=session_id,
             action=action,
             page=page,
-            action_metadata=json.dumps(metadata) if metadata else None
+            action_metadata=json.dumps(metadata, ensure_ascii=False) if metadata else None
         )
         
         db.session.add(user_action)
@@ -1487,7 +1487,7 @@ class FileSessionStore(SessionStore):
                 'created_at': data['created_at'].isoformat() if isinstance(data.get('created_at'), datetime) else data.get('created_at')
             }
             with open(self.filename, 'w') as f:
-                json.dump(sessions, f)
+                json.dump(sessions, f, ensure_ascii=False)
         except Exception as e:
             logging.error(f"Failed to save session to file: {e}")
 
@@ -1521,7 +1521,7 @@ class FileSessionStore(SessionStore):
                 if current_time - datetime.fromisoformat(data['created_at']) < timedelta(hours=24)
             }
             with open(self.filename, 'w') as f:
-                json.dump(sessions, f)
+                json.dump(sessions, f, ensure_ascii=False)
         except Exception as e:
             logging.error(f"Failed to cleanup sessions: {e}")
 
@@ -1558,7 +1558,7 @@ class RedisSessionStore(SessionStore):
             self.redis.setex(
                 f"session:{session_id}",
                 timedelta(hours=24),
-                json.dumps(data_copy)
+                json.dumps(data_copy, ensure_ascii=False)
             )
             logger.info(f"Session saved successfully: {session_id}")
         except Exception as e:
