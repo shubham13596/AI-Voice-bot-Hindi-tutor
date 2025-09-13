@@ -484,6 +484,7 @@ def start_conversation():
         conversation = Conversation(
             user_id=current_user.id,
             session_id=session_id,
+            conversation_type=conversation_type,
             sentences_count=0,
             good_response_count=0,
             reward_points=0

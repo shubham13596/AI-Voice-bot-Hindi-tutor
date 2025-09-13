@@ -36,6 +36,7 @@ class Conversation(db.Model):
     session_id = db.Column(db.String(100), nullable=False, index=True)
     
     # Session metadata
+    conversation_type = db.Column(db.String(50), default='everyday', nullable=False)
     sentences_count = db.Column(db.Integer, default=0)
     good_response_count = db.Column(db.Integer, default=0)
     reward_points = db.Column(db.Integer, default=0)
@@ -92,6 +93,7 @@ class Conversation(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'session_id': self.session_id,
+            'conversation_type': self.conversation_type,
             'sentences_count': self.sentences_count,
             'good_response_count': self.good_response_count,
             'reward_points': self.reward_points,
