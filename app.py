@@ -401,7 +401,7 @@ class ConversationController:
                     self.talker.get_response,
                     session_data['conversation_history'],
                     user_text,
-                    session_data['sentence_count'],
+                    session_data['sentences_count'],
                     conversation_type
                 )
                 
@@ -422,8 +422,8 @@ class ConversationController:
             
             # Check if correction popup should trigger (every 4 interactions, and we have amber responses)
             should_show_popup = (
-                session_data['sentence_count'] % 4 == 0 and
-                session_data['sentence_count'] > 0 and
+                session_data['sentences_count'] % 4 == 0 and
+                session_data['sentences_count'] > 0 and
                 len(session_data.get('amber_responses', [])) > 0
             )
             
@@ -501,7 +501,7 @@ def start_conversation():
             'conversation_id': conversation.id,
             'user_id': current_user.id,
             'conversation_history': [],
-            'sentence_count': 0,
+            'sentences_count': 0,
             'good_response_count': 0,
             'reward_points': 0,
             'conversation_type': conversation_type,
@@ -869,11 +869,11 @@ def process_audio():
             return jsonify({'error': 'Invalid or expired session'}), 400
         
          # Log current session state
-        logger.info(f"Current sentence count: {session_data['sentence_count']}")
+        logger.info(f"Current sentence count: {session_data['sentences_count']}")
 
         # Simply increment sentence count by 1 for each user interaction
-        session_data['sentence_count'] += 1
-        logger.info(f"Updated sentence count: {session_data['sentence_count']}")
+        session_data['sentences_count'] += 1
+        logger.info(f"Updated sentence count: {session_data['sentences_count']}")
         session_store.save_session(session_id, session_data)
         
         # Use tempfile for secure file handling
@@ -942,7 +942,7 @@ def process_audio():
             try:
                 conversation = Conversation.query.get(session_data['conversation_id'])
                 if conversation:
-                    conversation.sentences_count = session_data['sentence_count']
+                    conversation.sentences_count = session_data['sentences_count']
                     conversation.good_response_count = controller_result['good_response_count']
                     conversation.reward_points = session_data['reward_points']
                     conversation.conversation_data = session_data['conversation_history']
@@ -970,7 +970,7 @@ def process_audio():
             'audio': audio_response,
             'transcript': transcript,
             'evaluation': controller_result['evaluation'],
-            'sentence_count': session_data['sentence_count'],
+            'sentence_count': session_data['sentences_count'],
             'good_response_count': controller_result['good_response_count'],
             'reward_points': session_data['reward_points'],
             'new_rewards': new_rewards,
