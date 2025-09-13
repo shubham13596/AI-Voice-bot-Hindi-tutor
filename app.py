@@ -1176,7 +1176,7 @@ def resume_conversation():
         # Create session ID for this resumed conversation
         session_id = f"resume_{conversation_id}_{int(time.time())}"
         
-        # Store session data
+        # Store session data with all required fields
         session_data = {
             'conversation_id': conversation_id,
             'conversation_type': conversation.conversation_type,
@@ -1184,25 +1184,20 @@ def resume_conversation():
             'sentences_count': conversation.sentences_count or 0,
             'good_response_count': conversation.good_response_count or 0,
             'reward_points': conversation.reward_points or 0,
-            'amber_responses': json.loads(conversation.amber_responses) if conversation.amber_responses else []
+            'amber_responses': json.loads(conversation.amber_responses) if conversation.amber_responses else [],
+            'created_at': datetime.now().isoformat()  # Add required created_at field
         }
         
         session_store.save_session(session_id, session_data)
         
-        # Get the last assistant message to continue from
-        last_assistant_message = "Let's continue our conversation! What would you like to talk about?"
-        if conversation_history:
-            for msg in reversed(conversation_history):
-                if msg.get('role') == 'assistant':
-                    last_assistant_message = msg.get('content', last_assistant_message)
-                    break
-        
+        # For resumed conversations, we don't need to send a new message
+        # The frontend will load the existing history and be ready for user input
         return jsonify({
             'session_id': session_id,
             'conversation_id': conversation_id,
             'conversation_type': conversation.conversation_type,
             'conversation_history': conversation_history,
-            'text': last_assistant_message,
+            'text': None,  # No continuation message to avoid duplication
             'sentences_count': conversation.sentences_count or 0,
             'reward_points': conversation.reward_points or 0
         })

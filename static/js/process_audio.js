@@ -678,14 +678,16 @@ async function startConversation() {
                 displayMessage(msg.role, msg.content, null);
             });
             
-            // Display continuation message
-            displayMessage('assistant', data.text, null);
-            
-            // Add the continuation message to history
-            conversationHistory.push({
-                role: 'assistant',
-                content: data.text
-            });
+            // Only display continuation message if provided
+            if (data.text) {
+                displayMessage('assistant', data.text, null);
+                
+                // Add the continuation message to history
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: data.text
+                });
+            }
             
             // Update conversation type indicator if available
             if (data.conversation_type && window.conversationType !== data.conversation_type) {
