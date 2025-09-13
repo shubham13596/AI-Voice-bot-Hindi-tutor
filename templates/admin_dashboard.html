@@ -289,10 +289,18 @@
                             ${user.conversation_count}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${user.last_conversation ? new Date(user.last_conversation).toLocaleDateString() : 'Never'}
+                            ${user.last_conversation ? new Date(user.last_conversation).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short', 
+                                day: 'numeric'
+                            }) : 'Never'}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${new Date(user.created_at).toLocaleDateString()}
+                            ${new Date(user.created_at).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                            })}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button onclick="viewUserDetails(${user.id})" class="text-blue-600 hover:text-blue-900">

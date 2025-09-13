@@ -511,9 +511,9 @@
             item.className = 'history-item';
             item.setAttribute('data-conversation-id', conversation.id);
             
-            // Format date
+            // Format date in user's local timezone
             const date = new Date(conversation.created_at);
-            const formattedDate = date.toLocaleDateString('en-US', {
+            const formattedDate = date.toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
