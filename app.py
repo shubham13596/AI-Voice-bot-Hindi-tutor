@@ -652,14 +652,14 @@ def start_conversation():
             'created_at': datetime.now().isoformat()
         }
         
-        # Save session once with complete data
-        session_store.save_session(session_id, session_data)
-
-        # Add initial message
+        # Add initial message to conversation history
         session_data['conversation_history'].append({
             'role': 'assistant',
             'content': initial_message
         })
+
+        # Save session with complete data including initial message
+        session_store.save_session(session_id, session_data)
 
         logger.info("Conversation started successfully")
         
