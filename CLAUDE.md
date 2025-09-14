@@ -265,3 +265,19 @@ git checkout -b enhancement/mobile-navigation-improvements
 - **Environment Variables**: Added comprehensive .gitignore to protect sensitive data
 - **Professional Footer**: Added informational pages and company footer
 - **Dashboard Logic**: Improved weekly comparison logic and back button functionality
+
+## STT Provider Testing & Evaluation
+
+### Google Cloud Speech-to-Text Evaluation (September 2025)
+- **Branch**: `enhancement/google-cloud-stt-integration`
+- **Objective**: Test Google Cloud Speech-to-Text API as alternative to Sarvam AI for reduced ASR latency
+- **Implementation**: Complete integration with Hindi language support (`hi-IN`)
+- **Configuration**: Used `latest_short` model with enhanced mode for optimal performance
+- **Result**: **REJECTED** - Latency remained high, no significant improvement over Sarvam AI
+- **Technical Details**:
+  - Added google-cloud-speech==2.21.0 dependency
+  - Implemented feature flag (`STT_PROVIDER=google/sarvam`) for easy switching
+  - Full integration with existing audio processing pipeline
+  - Comprehensive error handling and logging
+- **Conclusion**: Google Cloud STT does not solve the ASR latency bottleneck for real-time conversation
+- **Status**: Branch discarded, seeking alternative STT solutions

@@ -1224,15 +1224,25 @@ async function recordCorrection(targetText, onSuccess) {
                     const data = await response.json();
                     const userText = data.transcript?.toLowerCase().trim() || '';
                     const targetTextNormalized = targetText.toLowerCase().trim();
-                    
+
+                    // DEBUG: Log the comparison values
+                    console.log('=== SIMILARITY DEBUG ===');
+                    console.log('User text:', JSON.stringify(userText));
+                    console.log('Target text:', JSON.stringify(targetTextNormalized));
+                    console.log('User words:', userText.split(' ').filter(w => w.length > 0));
+                    console.log('Target words:', targetTextNormalized.split(' ').filter(w => w.length > 0));
+
                     // Show what user said
                     if (userText) {
                         spokenWords.textContent = userText;
                         spokenWordsArea.classList.remove('hidden');
                     }
-                    
+
                     // Simple text matching
                     const similarity = calculateSimilarity(userText, targetTextNormalized);
+                    console.log('Calculated similarity:', similarity);
+                    console.log('Threshold check (>0.7):', similarity > 0.7);
+                    console.log('========================');
                     
                     if (similarity > 0.7) { // 70% similarity threshold
                         // SUCCESS STATE
