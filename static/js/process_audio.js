@@ -999,7 +999,7 @@ async function sendAudioToServer(audioBlob) {
                     displayMessage('assistant', data.text, []);
                     updateRewardsDisplay(data.sentence_count, data.reward_points);
                     playAudioResponse(data.audio);
-                }, 1000);
+                }, 4500);
             });
         } else {
             // No correction popup, proceed normally
@@ -1155,7 +1155,7 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
         }
 
         // Show completion message with Captain America shield and clapping sound
-        showCelebration('milestone', 'Great work on improving your Hindi! Keep practicing! 🌟', true, true);
+        showCelebration('milestone', 'Great work on improving your Hindi! You have scored 50 additional stars! Keep practicing! 🌟', true, true);
 
         // Clear amber responses from session
         clearAmberResponses();
