@@ -280,4 +280,12 @@ git checkout -b enhancement/mobile-navigation-improvements
   - Full integration with existing audio processing pipeline
   - Comprehensive error handling and logging
 - **Conclusion**: Google Cloud STT does not solve the ASR latency bottleneck for real-time conversation
-- **Status**: Branch discarded, seeking alternative STT solutions
+- **Status**: **REMOVED** - Google Cloud Speech dependency and code removed to reduce app size (~8MB savings)
+
+### App Size Optimization (January 2025)
+- **Objective**: Reduce Heroku app size from 52MB for faster deployments and reduced slug size
+- **Actions Taken**:
+  - Removed `google-cloud-speech==2.21.0` dependency (~8MB with grpcio dependencies)
+  - Removed all related Google Cloud Speech STT code from app.py
+  - Updated STT_PROVIDER options to support only `sarvam` and `groq`
+- **Result**: Significant reduction in app size and dependency complexity

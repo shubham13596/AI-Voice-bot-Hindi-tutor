@@ -19,7 +19,6 @@ import tempfile
 import time
 import concurrent.futures
 import random
-from google.cloud import speech
 
 # Import our models and auth
 from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics
@@ -106,10 +105,7 @@ SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 
-# Google Cloud STT Configuration
-GOOGLE_CLOUD_PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT_ID')
-GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, google, groq)
+STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, groq)
 
 # Initialize Groq client
 try:
@@ -775,56 +771,6 @@ def speech_to_text_hindi_sarvam(audio_data):
         logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
-def speech_to_text_hindi_gcloud(audio_data):
-    """Convert Hindi speech to text using Google Cloud Speech-to-Text"""
-    stt_start_time = time.time()
-    logger.info("🎙️ GOOGLE CLOUD STT: Starting transcription...")
-
-    try:
-        # Initialize the Google Cloud Speech client
-        client = speech.SpeechClient()
-
-        # Configure recognition with Hindi language
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,  # Common browser format
-            sample_rate_hertz=48000,  # Common browser sample rate
-            language_code="hi-IN",
-            model="latest_short",  # Optimized for short audio clips
-            use_enhanced=True,  # Enhanced model for better accuracy
-            enable_automatic_punctuation=True,
-            audio_channel_count=1,  # Mono audio
-        )
-
-        # Create the audio object
-        audio = speech.RecognitionAudio(content=audio_data)
-
-        # Perform the transcription
-        api_start_time = time.time()
-        response = client.recognize(config=config, audio=audio)
-        api_end_time = time.time()
-        api_latency = (api_end_time - api_start_time) * 1000
-        logger.info(f"🌐 GOOGLE CLOUD API: Response received in {api_latency:.1f}ms")
-
-        # Extract the transcript
-        transcript = ""
-        if response.results:
-            # Get the best alternative from the first result
-            transcript = response.results[0].alternatives[0].transcript
-            confidence = response.results[0].alternatives[0].confidence
-            logger.info(f"📊 CONFIDENCE: {confidence:.2f}")
-
-        stt_end_time = time.time()
-        total_latency = (stt_end_time - stt_start_time) * 1000
-        logger.info(f"✅ GOOGLE CLOUD STT: Success! Total time: {total_latency:.1f}ms")
-        logger.info(f"📝 TRANSCRIPT: '{transcript}'")
-
-        return transcript
-
-    except Exception as e:
-        stt_end_time = time.time()
-        total_latency = (stt_end_time - stt_start_time) * 1000
-        logger.error(f"❌ GOOGLE CLOUD STT: Failed after {total_latency:.1f}ms - {str(e)}")
-        return None
 
 def speech_to_text_hindi_groq(audio_data):
     """Convert Hindi speech to text using Groq Whisper-Large-V3"""
@@ -878,9 +824,7 @@ def speech_to_text_hindi_groq(audio_data):
 
 def speech_to_text_hindi(audio_data):
     """Convert Hindi speech to text using the configured STT provider"""
-    if STT_PROVIDER.lower() == 'google':
-        return speech_to_text_hindi_gcloud(audio_data)
-    elif STT_PROVIDER.lower() == 'groq':
+    if STT_PROVIDER.lower() == 'groq':
         return speech_to_text_hindi_groq(audio_data)
     else:
         return speech_to_text_hindi_sarvam(audio_data)
