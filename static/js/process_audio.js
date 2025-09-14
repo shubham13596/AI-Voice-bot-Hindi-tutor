@@ -988,15 +988,25 @@ async function sendAudioToServer(audioBlob) {
         );
 
         displayMessage('user', data.transcript, data.corrections, data.evaluation?.feedback_type);
-        displayMessage('assistant', data.text, []);
-        
-        // Check if correction popup should be shown
+
+        // Check if correction popup should be shown FIRST
         if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
-            showCorrectionPopup(data.amber_responses);
+            // Hold the talker response and show correction popup first
+            showCorrectionPopup(data.amber_responses, () => {
+                // This callback runs after popup closes
+                setTimeout(() => {
+                    // Display assistant message and play audio after 1-second delay
+                    displayMessage('assistant', data.text, []);
+                    updateRewardsDisplay(data.sentence_count, data.reward_points);
+                    playAudioResponse(data.audio);
+                }, 1000);
+            });
+        } else {
+            // No correction popup, proceed normally
+            displayMessage('assistant', data.text, []);
+            updateRewardsDisplay(data.sentence_count, data.reward_points);
+            playAudioResponse(data.audio);
         }
-        
-        updateRewardsDisplay(data.sentence_count, data.reward_points);
-        playAudioResponse(data.audio);
 
         // Reset button state
         const recordButton = document.getElementById('recordButton');
@@ -1053,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Show correction popup for amber responses
-function showCorrectionPopup(amberResponses) {
+function showCorrectionPopup(amberResponses, onCloseCallback = null) {
     const overlay = document.createElement('div');
     overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
     
@@ -1127,22 +1137,29 @@ function showCorrectionPopup(amberResponses) {
     
     function closeCorrectionPopup() {
         overlay.classList.add('fade-out');
-        setTimeout(() => overlay.remove(), 300);
-        
+        setTimeout(() => {
+            overlay.remove();
+
+            // Execute the callback after popup is closed
+            if (onCloseCallback) {
+                onCloseCallback();
+            }
+        }, 300);
+
         // Award bonus points for completion
         awardCorrectionBonus();
-        
+
         // Play soft clapping sound to celebrate completion
         if (audioEffects && audioEffects.applause) {
             audioEffects.applause.play().catch(e => console.log('Applause sound failed:', e));
         }
-        
+
         // Show completion message with Captain America shield and clapping sound
         showCelebration('milestone', 'Great work on improving your Hindi! Keep practicing! 🌟', true, true);
-        
+
         // Clear amber responses from session
         clearAmberResponses();
-        
+
         // Reset main recording interface to ready state
         resetRecordingInterface();
     }
