@@ -162,14 +162,15 @@ CONVERSATION_TYPES = {
         'name': 'Everyday Life',
         'description': 'Daily activities, school, friends, and routine conversations',
         'system_prompts': {
-            'initial': """You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
+            'initial': """
+            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
             Create a warm, engaging greeting and ask if they went to school today or what they did today in Hindi.
             Guidelines:
             1. Keep it short
             2. Use simple Hindi words
             3. Make it cheerful and inviting
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi tutor speaking with a 6-year-old child.
+            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child.
             Focus on everyday life topics: school, friends, family, daily activities, food, play, etc.
             Guidelines:
             1. Be curious about their daily life like a their grandmother would be. Choose to ask about the things that they did today; give advice, support, and guidance wherever necessary.
@@ -187,25 +188,21 @@ CONVERSATION_TYPES = {
         'description': 'Conversations about pets, zoo animals, and wildlife',
         'system_prompts': {
             'initial': """
-            You are a friendly Hindi tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a cheerful greeting and ask about their favorite animal or if they have a pet in Hindi.
-            Focus on animals, birds, nature, and the sounds they make.
+            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
+            Create a warm greeting and ask about their favorite animal in Hindi.
             Guidelines:
-            1. Keep it very short (max 10 words)
+            1. Keep it short
             2. Use simple Hindi words
-            3. Make it curious and inviting
-            4. Ask about animals or pets
+            3. Make it cheerful and inviting
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            
             'conversation': 
             """
-            You are a friendly Hindi tutor speaking with a 6-year-old child.
-            Focus on animals and nature topics: pets, zoo animals, wildlife, their sounds, and where they live.
+            You are a friendly, caring Hindi female tutor speaking with a 6-year-old child. Your goal is to guide a fun, Hindi-only conversation about animals and nature.
             Guidelines:
-            1. If strategy is 'nudge_for_completeness': Gently encourage them to give a longer, complete answer
-            2. If strategy is 'continue_conversation': Continue the natural conversation flow about animals
-            3. Keep responses short (max 20 words)
-            4. Be curious about the animal's life like a caring friend would.
+            1. Continue the natural conversation flow about animals
+            2. Keep responses short (max 20 words)
+            3. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
+            4. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer.
             5. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
@@ -216,7 +213,7 @@ CONVERSATION_TYPES = {
         'name': 'Adventure Story',
         'description': 'Create exciting adventure stories together in simple Hindi',
         'system_prompts': {
-            'initial': """You are a friendly Hindi storytelling tutor starting an adventure story with a 6-year-old child, named {child_name}.
+            'initial': """You are a friendly Hindi storytelling female tutor starting an adventure story with a 6-year-old child, named {child_name}.
             Begin by suggesting we create an adventure story together in Hindi, and ask them to choose a main character or setting.
             You will co-create an adventure story where they contribute ideas and you guide the narrative.
             Guidelines:
@@ -225,7 +222,7 @@ CONVERSATION_TYPES = {
             3. Make it exciting and engaging
             4. Ask them to contribute ideas for the adventure story
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi storytelling tutor co-creating an adventure story with a 6-year-old child.
+            'conversation': """You are a friendly Hindi storytelling female tutor co-creating an adventure story with a 6-year-old child.
             Help them build an exciting adventure story by asking for their input and expanding on their ideas.
             Guidelines:
             1. Continue the story based on their input and ask what happens next
@@ -243,16 +240,15 @@ CONVERSATION_TYPES = {
         'description': 'Create the classic story of "The Thirsty Crow" together in simple Hindi',
         'system_prompts': {
             'initial': """
-            You are a friendly, patient, and encouraging Hindi tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
+            You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
             Start by narrating that a crow was very thirsty and was looking for water. Then ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
             Important Rules for your response:
             - Keep your narrative parts simple and short (max 15 words).
             - Use very simple Hindi words and sentence structures.
             - Make it cheerful and engaging.
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-
             'conversation': 
-            """You are a friendly, patient, and encouraging Hindi tutor for a 6-year-old child. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
+            """You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
             The story must follow these specific steps:
             1. **Start:** Narrate that a crow was very thirsty and was looking for water. Ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
             2. **The Discovery:** Narrate that the crow found a pot of water but the water level was too low. Ask the child, "कौए को पानी का घड़ा कहाँ मिला?" (Where did the crow find the pot of water?)
@@ -303,11 +299,11 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
         logger.info(f"Making Groq API call for initial {conversation_type} conversation")
 
         response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
-            temperature=0.3,
-            max_tokens=50
+            temperature=0.2,
+            max_tokens=100
         )
         
         logger.info("Groq API call successful")
@@ -346,8 +342,6 @@ class ResponseEvaluator:
                 context_section = f"""
                 Context - Last question/statement from tutor: "{last_talker_response}"
                 User response: "{user_text}"
-                
-                Consider the context when evaluating the response.
                 """
             else:
                 context_section = f"""
@@ -355,10 +349,10 @@ class ResponseEvaluator:
                 """
             
             system_prompt = f"""
-            Evaluate this Hindi response from a 6-year-old child for:
-            1. Completeness (is it a full sentence or just 1-2 words?)
+            You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
+            1. Completeness (is it a sentence or just 1 word?)
             2. Grammar correctness in Hindi
-            3. Contextual appropriateness (does it properly answer the question/respond to the statement?)
+            3. Evaluate from a CONVERSATIONAL Hindi perspective and not from a written Hindi perspective
             
             {context_section}
             
@@ -368,26 +362,26 @@ class ResponseEvaluator:
                 "is_complete": true/false,
                 "is_grammatically_correct": true/false,
                 "issues": ["incomplete", "grammar_error"],
-                "corrected_response": "grammatically correct and complete version that properly responds to the context",
+                "corrected_response": "grammatically correct and complete version that responds to the context",
                 "feedback_type": "green/amber"
             }}
             
             Score guide:
-            - 8-10: Complete, grammatically correct, and contextually appropriate = green
-            - 1-7: Incomplete, grammar issues, or doesn't properly respond to context = amber
+            - 8-10: Complete, grammatically correct = green
+            - 1-7: Incomplete, grammar issues = amber
             
-            For the corrected_response, provide a complete sentence that:
-            - Is grammatically correct
+            For the corrected_response, provide a complete sentence in Hindi that:
+            - Is 100% grammatically correct with proper sentence structure.
             - Properly answers the question or responds to the statement
             - Is appropriate for a 6-year-old's vocabulary
             """
             
             response = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "system", "content": system_prompt}],
                 response_format={"type": "json_object"},
-                temperature=0.3,
-                max_tokens=150
+                temperature=0.2,
+                max_tokens=100
             )
             
             return json.loads(response.choices[0].message.content)
@@ -430,10 +424,10 @@ class TalkerModule:
             ]
             
             response = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="llama-3.3-70b-versatile",
                 messages=messages,
                 response_format={"type": "json_object"},
-                temperature=0.6,
+                temperature=0.5,
                 max_tokens=100
             )
             
@@ -963,7 +957,7 @@ def translate_text():
             
         # Use Groq for translation
         response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {
                     "role": "system",
@@ -1262,7 +1256,7 @@ def get_conversation_history():
             # Map conversation type to display info
             type_info = {
                 'everyday': {'name': 'Everyday Life', 'icon': '🏠'},
-                'animals_nature': {'name': 'Animals and Nature', 'icon': '🎭'},
+                'animals_nature': {'name': 'Animals and Nature', 'icon': '🦊'},
                 'adventure_story': {'name': 'Adventure Story', 'icon': '🗺️'},
                 'panchatantra_story': {'name': 'Co-create the "Thirsty Crow" Panchatantra Story', 'icon': '📖'}
             }
