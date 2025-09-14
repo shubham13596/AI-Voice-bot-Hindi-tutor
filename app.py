@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory,
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
 import openai
+from groq import Groq
 import logging
 import logging.config
 import requests
@@ -98,10 +99,14 @@ auth.google = google
 app.register_blueprint(auth_bp)
 
 # Configure API keys from environment variables
-openai.api_key = os.getenv('OPENAI_API_KEY')
+openai.api_key = os.getenv('OPENAI_API_KEY')  # Keep as fallback
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+
+# Initialize Groq client
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 # Conversation type configurations
 # Hindi affirmations for good responses - natural and encouraging
@@ -288,12 +293,6 @@ user_sessions = {}
 def get_initial_conversation(child_name="दोस्त", conversation_type="everyday"):
     """Generate initial conversation starter based on conversation type"""
     try:
-        client = openai.OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),
-            base_url="https://api.openai.com/v1",
-            http_client=None
-        )
-        
         # Get the appropriate system prompt for the conversation type
         if conversation_type in CONVERSATION_TYPES:
             system_prompt = CONVERSATION_TYPES[conversation_type]['system_prompts']['initial'].format(child_name=child_name)
@@ -301,17 +300,17 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
             # Fallback to everyday conversation
             system_prompt = CONVERSATION_TYPES['everyday']['system_prompts']['initial'].format(child_name=child_name)
 
-        logger.info(f"Making OpenAI API call for initial {conversation_type} conversation")
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+        logger.info(f"Making Groq API call for initial {conversation_type} conversation")
+
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.3,
             max_tokens=50
         )
         
-        logger.info("OpenAI API call successful")
+        logger.info("Groq API call successful")
         result = json.loads(response.choices[0].message.content)
         return result.get('response', "नमस्ते! कैसा है आपका दिन?")
         
@@ -341,11 +340,6 @@ class ResponseEvaluator:
     def evaluate_response(user_text, last_talker_response=None):
         """Evaluate user response and return score + analysis"""
         try:
-            client = openai.OpenAI(
-                api_key=os.getenv('OPENAI_API_KEY'),
-                base_url="https://api.openai.com/v1",
-                http_client=None
-            )
             
             # Build system prompt with context from last talker response
             if last_talker_response:
@@ -388,8 +382,8 @@ class ResponseEvaluator:
             - Is appropriate for a 6-year-old's vocabulary
             """
             
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
                 messages=[{"role": "system", "content": system_prompt}],
                 response_format={"type": "json_object"},
                 temperature=0.3,
@@ -416,11 +410,6 @@ class TalkerModule:
     def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday"):
         """Generate conversation response based on conversation type"""
         try:
-            client = openai.OpenAI(
-                api_key=os.getenv('OPENAI_API_KEY'),
-                base_url="https://api.openai.com/v1",
-                http_client=None
-            )
             
             # Always use continue_conversation strategy for simplicity and speed
             strategy = "continue_conversation"
@@ -440,8 +429,8 @@ class TalkerModule:
                 {"role": "user", "content": user_text}
             ]
             
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
+            response = groq_client.chat.completions.create(
+                model="llama-3.1-8b-instant",
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.6,
@@ -972,10 +961,9 @@ def translate_text():
         if not text:
             return jsonify({'error': 'No text provided'}), 400
             
-        # Use GPT-4 for translation
-        client = openai.OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+        # Use Groq for translation
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[
                 {
                     "role": "system",

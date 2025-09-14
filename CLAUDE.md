@@ -32,7 +32,8 @@ git push heroku main
 
 ### Environment Setup
 Required environment variables in `.env`:
-- `OPENAI_API_KEY` - OpenAI GPT-4 API key for conversation logic
+- `GROQ_API_KEY` - Groq API key for Llama 3.1 8B conversation logic
+- `OPENAI_API_KEY` - OpenAI GPT-4 API key (fallback, optional)
 - `SARVAM_API_KEY` - Sarvam AI API for Hindi speech-to-text
 - `ELEVENLABS_API_KEY` - ElevenLabs API for text-to-speech
 - `GOOGLE_CLIENT_ID` - Google OAuth authentication
@@ -62,7 +63,7 @@ The conversation flow is managed by several classes in `app.py`:
 #### Speech Processing Pipeline
 1. **Audio Input**: User records voice via browser MediaRecorder API
 2. **STT**: Sarvam AI API converts Hindi speech to text
-3. **LLM Processing**: OpenAI GPT-4 processes conversation (parallel evaluation + response generation)
+3. **LLM Processing**: Groq Llama 3.1 8B processes conversation (parallel evaluation + response generation)
 4. **TTS**: ElevenLabs converts Hindi response to speech
 5. **Audio Output**: Browser plays generated audio response
 
@@ -162,7 +163,8 @@ Each conversation type has specific system prompts and focuses:
 - **mystery_story**: Solving child-friendly mysteries together
 
 ### Performance Optimizations
-- Parallel API calls to OpenAI for evaluation and response generation (44% faster)
+- Parallel API calls to Groq Llama 3.1 8B for evaluation and response generation (44% faster)
+- Groq's fast inference for reduced LLM processing latency
 - ElevenLabs streaming audio for reduced latency
 - Redis session caching in production
 - Optimized voice settings for child-friendly speech patterns
@@ -230,7 +232,14 @@ git checkout -b enhancement/mobile-navigation-improvements
 
 ## Recent Updates & Bug Fixes
 
-### v25 (Latest) - Enhanced Response Evaluator with Context Awareness
+### v26 (Latest) - Groq Llama 3.1 8B Migration for Reduced Latency
+- **Major Performance Improvement**: Migrated from OpenAI GPT-4o-mini to Groq Llama 3.1 8B for significantly reduced LLM processing latency
+- **API Migration**: Complete replacement of all OpenAI API calls with Groq API calls
+- **Maintained Functionality**: All conversation features (ResponseEvaluator, TalkerModule, initial conversation, translation) preserved
+- **Enhanced Speed**: Leverages Groq's fast inference for better user experience
+- **Environment Updates**: Added GROQ_API_KEY to required environment variables, kept OpenAI as optional fallback
+
+### v25 - Enhanced Response Evaluator with Context Awareness
 - **Major Enhancement**: ResponseEvaluator now uses both user response and last talker response for better contextual evaluation
 - **Improved Corrections**: Evaluator provides more accurate corrected responses that properly answer questions in context
 - **Example**: For tutor question "kya tum aaj school gaye?" and child response "nahi", evaluator now generates "aaj mein school nahi gaya" instead of just correcting grammar
