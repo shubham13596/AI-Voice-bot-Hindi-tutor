@@ -147,6 +147,8 @@ let conversationHistory = [];
 let isRecording = false;
 let sessionId = null;
 let waveformAnimationFrame;
+let conversationPairs = []; // Track conversation pairs for sliding
+let isFirstExchange = true; // Track if this is the first user-bot exchange
 
 // Initialize recording visualization
 /*
@@ -407,7 +409,7 @@ function showSubtleReward(points) {
     }
 }
 
-// Add CSS for subtle reward animations and typewriter effect
+// Add CSS for subtle reward animations, typewriter effect, and smooth conversation sliding
 const subtleRewardStyles = document.createElement('style');
 subtleRewardStyles.textContent = `
     @keyframes subtleReward {
@@ -453,9 +455,91 @@ subtleRewardStyles.textContent = `
     .text-content {
         transition: all 0.2s ease;
     }
+
+    /* Smooth conversation sliding styles */
+    #conversation {
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform;
+    }
+
+    .message-pair {
+        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .message-hidden {
+        opacity: 0;
+        transform: translateY(-20px);
+        pointer-events: none;
+    }
+
+    .message-visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: all;
+    }
+
+    /* Enhanced smooth sliding for mobile */
+    @media (max-width: 768px) {
+        #conversation {
+            transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .message-pair {
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+    }
 `;
 document.head.appendChild(subtleRewardStyles);
 
+// Smooth conversation sliding functionality
+function smoothSlideToLatestPair() {
+    const conversation = document.getElementById('conversation');
+    const allMessages = conversation.querySelectorAll('.p-4'); // All message divs
+
+    if (allMessages.length < 2) return; // Need at least user + bot message
+
+    // Hide all messages except the last 2 (latest user + bot pair)
+    allMessages.forEach((message, index) => {
+        if (index < allMessages.length - 2) {
+            // Hide older messages with smooth animation
+            message.classList.add('message-hidden');
+            message.classList.remove('message-visible');
+
+            // After animation, actually hide them
+            setTimeout(() => {
+                if (message.classList.contains('message-hidden')) {
+                    message.style.display = 'none';
+                }
+            }, 800); // Match transition duration
+        } else {
+            // Show latest messages
+            message.style.display = '';
+            message.classList.remove('message-hidden');
+            message.classList.add('message-visible');
+        }
+    });
+}
+
+function initializeMessageForSliding(messageDiv) {
+    // Add classes for smooth transitions
+    messageDiv.classList.add('message-visible');
+
+    // Ensure proper display
+    messageDiv.style.display = '';
+}
+
+function triggerSmoothSlide() {
+    // Only slide after the first user-bot exchange
+    if (isFirstExchange) {
+        isFirstExchange = false;
+        return;
+    }
+
+    // Wait a moment for the bot response to complete, then slide
+    setTimeout(() => {
+        smoothSlideToLatestPair();
+    }, 1000); // Small delay to let user see the full response
+}
 
 // Toggle recording state
 function toggleRecording() {
@@ -838,6 +922,9 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     buttonsDiv.appendChild(translateButton);
     messageDiv.appendChild(buttonsDiv);
 
+    // Initialize message for sliding animation
+    initializeMessageForSliding(messageDiv);
+
     // Add message to conversation
     conversation.appendChild(messageDiv);
     conversation.scrollTop = conversation.scrollHeight;
@@ -1066,6 +1153,9 @@ async function sendAudioToServerStream(audioBlob) {
                                 const ttsStartTime = performance.now();
                                 console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
                                 generateAndPlayAudio(data.final_text);
+
+                                // Trigger smooth slide after TTS starts
+                                triggerSmoothSlide();
                             }
                         }
 
@@ -1278,6 +1368,9 @@ async function sendAudioToServer(audioBlob) {
                     displayMessage('assistant', data.text, []);
                     updateRewardsDisplay(data.sentence_count, data.reward_points);
                     playAudioResponse(data.audio);
+
+                    // Trigger smooth slide after bot response
+                    triggerSmoothSlide();
                 }, 4500);
             });
         } else {
@@ -1285,6 +1378,9 @@ async function sendAudioToServer(audioBlob) {
             displayMessage('assistant', data.text, []);
             updateRewardsDisplay(data.sentence_count, data.reward_points);
             playAudioResponse(data.audio);
+
+            // Trigger smooth slide after bot response
+            triggerSmoothSlide();
         }
 
         // Reset button state

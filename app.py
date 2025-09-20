@@ -357,9 +357,8 @@ class ResponseEvaluator:
             
             system_prompt = f"""
             You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
-            1. Completeness (is it a sentence or just 1 word?)
-            2. Grammar correctness in Hindi
-            3. Evaluate from a CONVERSATIONAL Hindi perspective and not from a written Hindi perspective
+            1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
+            3. Dont' evaluaate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type can be green.
             
             {context_section}
             
