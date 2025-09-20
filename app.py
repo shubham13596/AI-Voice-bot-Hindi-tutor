@@ -720,7 +720,12 @@ def speech_to_text_hindi_sarvam(audio_data):
     """Convert Hindi speech to text using Sarvam AI"""
     stt_start_time = time.time()
     logger.info("🎙️ SARVAM STT: Starting transcription...")
-    
+
+    # Validate audio duration before processing
+    if not validate_audio_duration(audio_data):
+        logger.info("❌ SARVAM STT: Audio rejected due to invalid duration")
+        return None
+
     headers = {
         "api-subscription-key": SARVAM_API_KEY,
     }
@@ -770,11 +775,36 @@ def speech_to_text_hindi_sarvam(audio_data):
         logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
+def validate_audio_duration(audio_data, min_duration=0.5, max_duration=10.0):
+    """Validate audio duration to filter out noise and incomplete recordings"""
+    try:
+        # Estimate duration: 16-bit mono audio at 44.1kHz (standard WAV)
+        # Each sample is 2 bytes, so duration = bytes / (2 * sample_rate)
+        estimated_duration = len(audio_data) / (2 * 44100)
+
+        if estimated_duration < min_duration:
+            logger.info(f"🔇 AUDIO VALIDATION: Too short ({estimated_duration:.2f}s < {min_duration}s) - likely noise")
+            return False
+        elif estimated_duration > max_duration:
+            logger.info(f"🔇 AUDIO VALIDATION: Too long ({estimated_duration:.2f}s > {max_duration}s) - likely incomplete")
+            return False
+        else:
+            logger.info(f"✅ AUDIO VALIDATION: Duration OK ({estimated_duration:.2f}s)")
+            return True
+
+    except Exception as e:
+        logger.warning(f"⚠️ AUDIO VALIDATION: Could not estimate duration - {str(e)}")
+        return True  # Default to allowing audio if validation fails
 
 def speech_to_text_hindi_groq(audio_data):
     """Convert Hindi speech to text using Groq Whisper-Large-V3"""
     stt_start_time = time.time()
     logger.info("🎙️ GROQ WHISPER STT: Starting transcription...")
+
+    # Validate audio duration before processing
+    if not validate_audio_duration(audio_data):
+        logger.info("❌ GROQ WHISPER STT: Audio rejected due to invalid duration")
+        return None
 
     try:
         # Create a temporary file for the audio data
@@ -788,10 +818,10 @@ def speech_to_text_hindi_groq(audio_data):
             with open(temp_file_path, 'rb') as audio_file:
                 transcription = groq_client.audio.transcriptions.create(
                     file=audio_file,
-                    model="whisper-large-v3", 
+                    model="whisper-large-v3",
                     language="hi",  # Hindi language code
                     response_format="json",
-                    prompt = "वक्ता एक 6 वर्षीय बालक है जो स्कूल, कहानियों, जानवरों आदि जैसे विभिन्न विषयों पर बोलकर अपने हिंदी बोलने के कौशल का अभ्यास कर रहा है।",
+                    prompt="6 साल का बच्चा हिंदी में बोल रहा है।",  # Optimized for child speech
                     temperature=0.0  # For consistent results
                 )
             api_end_time = time.time()
