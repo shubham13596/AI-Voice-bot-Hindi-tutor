@@ -19,27 +19,30 @@
         window.conversationId = conversationId;
         window.isResumingConversation = !!conversationId;
         
+        // Global user data cache to avoid duplicate API calls
+        let userData = null;
+
         // Check if user is authenticated and has child name set
         document.addEventListener('DOMContentLoaded', async function() {
             try {
-                // Check if user is authenticated and get user info
+                // Single API call to get user info
                 const response = await fetch('/api/user');
                 if (!response.ok) {
                     // User not authenticated, redirect to home
                     window.location.href = '/';
                     return;
                 }
-                
-                const user = await response.json();
-                if (!user.child_name) {
+
+                userData = await response.json();
+                if (!userData.child_name) {
                     // User authenticated but no child name, redirect to profile setup
                     window.location.href = '/profile-setup';
                     return;
                 }
-                
+
                 // Store child name in sessionStorage for process_audio.js
-                sessionStorage.setItem('childName', user.child_name);
-                
+                sessionStorage.setItem('childName', userData.child_name);
+
                 // Update page title with child's name and conversation type
                 const typeNames = {
                     'everyday': 'Everyday Life',
@@ -60,13 +63,16 @@
                     'panchatantra_story': '📖'
                 };
                 const typeName = typeNames[conversationType] || 'Conversation';
-                document.title = `${typeName} - ${user.child_name}`;
-                
+                document.title = `${typeName} - ${userData.child_name}`;
+
                 // Update conversation type indicator
                 document.getElementById('conversationTypeName').textContent = typeName;
                 document.getElementById('conversationTypeDesc').textContent = typeDescs[conversationType] || 'General conversation';
                 document.getElementById('conversationIcon').textContent = typeIcons[conversationType] || '💬';
-                
+
+                // Update stars display with cached user data
+                updateStarsDisplay();
+
             } catch (error) {
                 console.error('Error checking user authentication:', error);
                 // On error, redirect to home
@@ -74,24 +80,19 @@
             }
         });
 
-        // Update stars display function
-        async function updateStarsDisplay() {
+        // Update stars display function - now uses cached data
+        function updateStarsDisplay() {
             try {
-                const response = await fetch('/api/user');
-                if (response.ok) {
-                    const user = await response.json();
+                if (userData) {
                     const starsEl = document.getElementById('starsCount');
-                    if (starsEl && user.reward_points !== undefined) {
-                        starsEl.textContent = user.reward_points || 0;
+                    if (starsEl && userData.reward_points !== undefined) {
+                        starsEl.textContent = userData.reward_points || 0;
                     }
                 }
             } catch (error) {
                 console.error('Error updating stars:', error);
             }
         }
-        
-        // Initialize stars display
-        updateStarsDisplay();
     </script>
     
     <style>

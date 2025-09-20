@@ -18,6 +18,11 @@ class User(UserMixin, db.Model):
     # Relationships
     conversations = db.relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
     
+    @property
+    def reward_points(self):
+        """Calculate total reward points from all conversations"""
+        return sum(conv.reward_points for conv in self.conversations)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -25,6 +30,7 @@ class User(UserMixin, db.Model):
             'name': self.name,
             'child_name': self.child_name,
             'profile_picture': self.profile_picture,
+            'reward_points': self.reward_points,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
