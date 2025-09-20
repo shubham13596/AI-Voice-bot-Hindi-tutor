@@ -1271,6 +1271,7 @@ def process_audio_stream():
                 word_buffer = ""
                 accumulated_text = ""
                 word_count = 0
+                first_words_sent = False
 
                 for chunk in response_stream:
                     if chunk.choices[0].delta.content:
@@ -1283,6 +1284,10 @@ def process_audio_stream():
                             # Clean and send the buffered words
                             words_to_send = word_buffer.strip()
                             if words_to_send:
+                                if not first_words_sent:
+                                    first_words_time = time.time()
+                                    logger.info(f"📝 FIRST WORDS: Sending first words chunk in {(first_words_time - request_start_time) * 1000:.1f}ms")
+                                    first_words_sent = True
                                 yield f"data: {json.dumps({'type': 'words', 'content': words_to_send, 'accumulated': accumulated_text})}\n\n"
                             word_buffer = ""
                             word_count = 0
@@ -1323,6 +1328,9 @@ def process_audio_stream():
                     session_data['reward_points'] = session_data.get('reward_points', 0) + new_rewards
 
                 # Send completion with final data
+                completion_time = time.time()
+                logger.info(f"✅ TEXT COMPLETE: Full text ready in {(completion_time - request_start_time) * 1000:.1f}ms, starting TTS...")
+
                 completion_data = {
                     'type': 'complete',
                     'final_text': accumulated_text,

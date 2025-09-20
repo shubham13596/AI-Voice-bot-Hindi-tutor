@@ -1013,6 +1013,9 @@ async function sendAudioToServerStream(audioBlob) {
                         if (data.type === 'words') {
                             // Show white box on FIRST word chunk
                             if (!messageDiv) {
+                                const whiteBoxTime = performance.now();
+                                console.log(`📱 WHITE BOX: Appeared at ${whiteBoxTime.toFixed(1)}ms after page load`);
+
                                 messageDiv = createEmptyMessageDiv('assistant');
                                 textContentDiv = messageDiv.querySelector('.text-content');
                                 conversation.appendChild(messageDiv);
@@ -1060,6 +1063,8 @@ async function sendAudioToServerStream(audioBlob) {
                                 });
                             } else {
                                 // Generate and play TTS immediately
+                                const ttsStartTime = performance.now();
+                                console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
                                 generateAndPlayAudio(data.final_text);
                             }
                         }
