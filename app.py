@@ -310,7 +310,7 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.2,
-            max_tokens=100
+            max_tokens=200
         )
         
         logger.info("Groq API call successful")
@@ -387,7 +387,7 @@ class ResponseEvaluator:
                 messages=[{"role": "system", "content": system_prompt}],
                 response_format={"type": "json_object"},
                 temperature=0.2,
-                max_tokens=100
+                max_tokens=200
             )
             
             return json.loads(response.choices[0].message.content)
@@ -434,7 +434,7 @@ class TalkerModule:
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.5,
-                max_tokens=150
+                max_tokens=200
             )
             
             result = json.loads(response.choices[0].message.content)
@@ -1243,13 +1243,17 @@ def process_audio_stream():
                 # Send initial metadata
                 yield f"data: {json.dumps({'type': 'metadata', 'transcript': transcript, 'evaluation': evaluation})}\n\n"
 
-                # Get system prompt for conversation type
+                # Get system prompt for conversation type (streaming version - plain text)
                 if conversation_type in CONVERSATION_TYPES:
-                    system_prompt_template = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
+                    system_prompt_base = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
                 else:
-                    system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+                    system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
 
-                system_prompt = system_prompt_template.format(strategy="continue_conversation")
+                # Remove JSON format instruction for streaming
+                system_prompt = system_prompt_base.replace(
+                    'Return JSON format: {{"response": "Your Hindi response here"}}',
+                    'Respond directly in Hindi only (no JSON format).'
+                ).format(strategy="continue_conversation")
 
                 messages = [
                     {"role": "system", "content": system_prompt},
@@ -1257,13 +1261,13 @@ def process_audio_stream():
                     {"role": "user", "content": transcript}
                 ]
 
-                # Create streaming response
+                # Create streaming response (no JSON format for streaming)
                 response_stream = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages,
                     stream=True,  # Enable streaming
                     temperature=0.5,
-                    max_tokens=150
+                    max_tokens=200
                 )
 
                 # Word buffering for smooth display (2-3 words at a time)
