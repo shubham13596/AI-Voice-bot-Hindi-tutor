@@ -86,9 +86,10 @@ Thumbs.db
 sessions.json
 
 # Audio files (temporary)
-*.wav
+# Note: applause_v1.wav is allowed for production deployment
 *.mp3
 response.wav
+temp_*.wav
 
 # Logs
 *.log

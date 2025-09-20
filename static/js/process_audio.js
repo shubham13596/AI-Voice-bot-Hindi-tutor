@@ -84,9 +84,6 @@ document.head.appendChild(recordingStyles);
 
 function initializeAudioEffects() {
     const audioEffects = {
-        firstMessage: new Audio('/static/sounds/first-message.mp3'),
-        milestone: new Audio('/static/sounds/milestone.mp3'),
-        reward: new Audio('/static/sounds/reward.mp3'),
         applause: new Audio('/static/applause_v1.wav') // Use applause sound file
     };
     
