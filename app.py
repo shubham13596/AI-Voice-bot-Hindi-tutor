@@ -1181,6 +1181,209 @@ def process_audio():
         logger.exception("Full traceback:")  # Add full traceback logging
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/process_audio_stream', methods=['POST'])
+@login_required
+def process_audio_stream():
+    """Enhanced process_audio with streaming text response for typewriter effect"""
+    request_start_time = time.time()
+    logger.info("🚀 PROCESS AUDIO STREAM: Request started")
+
+    temp_file = None
+    try:
+        # Validate request data
+        if 'audio' not in request.files:
+            logger.error("No audio file in request")
+            return jsonify({'error': 'No audio file'}), 400
+
+        session_id = request.form.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'No session ID provided'}), 400
+
+        session_data = session_store.load_session(session_id)
+        if not session_data:
+            logger.error(f"Invalid session ID: {session_id}")
+            return jsonify({'error': 'Invalid or expired session'}), 400
+
+        # Process audio file (same as original)
+        session_data['sentences_count'] += 1
+        session_store.save_session(session_id, session_data)
+
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            audio_file = request.files['audio']
+            audio_file.save(temp_file.name)
+            with open(temp_file.name, 'rb') as f:
+                transcript = speech_to_text_hindi(f.read())
+
+        if not transcript:
+            return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Get conversation context
+        conversation_type = session_data.get('conversation_type', 'everyday')
+        conversation_history = session_data.get('conversation_history', [])
+
+        # Extract last talker response for evaluation
+        last_talker_response = None
+        for message in reversed(conversation_history):
+            if message.get('role') == 'assistant':
+                last_talker_response = message.get('content')
+                break
+
+        # Run evaluation in parallel (same as original)
+        controller = ConversationController()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            eval_future = executor.submit(
+                controller.evaluator.evaluate_response,
+                transcript,
+                last_talker_response
+            )
+            evaluation = eval_future.result()
+
+        # Streaming response generator
+        def generate_streaming_response():
+            try:
+                # Send initial metadata
+                yield f"data: {json.dumps({'type': 'metadata', 'transcript': transcript, 'evaluation': evaluation})}\n\n"
+
+                # Get system prompt for conversation type
+                if conversation_type in CONVERSATION_TYPES:
+                    system_prompt_template = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
+                else:
+                    system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+
+                system_prompt = system_prompt_template.format(strategy="continue_conversation")
+
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    *conversation_history,
+                    {"role": "user", "content": transcript}
+                ]
+
+                # Create streaming response
+                response_stream = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    stream=True,  # Enable streaming
+                    temperature=0.5,
+                    max_tokens=150
+                )
+
+                # Word buffering for smooth display (2-3 words at a time)
+                word_buffer = ""
+                accumulated_text = ""
+                word_count = 0
+
+                for chunk in response_stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        word_buffer += content
+                        accumulated_text += content
+
+                        # Send buffered words (2-3 words or on punctuation)
+                        if (' ' in word_buffer and word_count >= 2) or any(p in word_buffer for p in '.!?,।'):
+                            # Clean and send the buffered words
+                            words_to_send = word_buffer.strip()
+                            if words_to_send:
+                                yield f"data: {json.dumps({'type': 'words', 'content': words_to_send, 'accumulated': accumulated_text})}\n\n"
+                            word_buffer = ""
+                            word_count = 0
+                        elif ' ' in word_buffer:
+                            word_count += 1
+
+                # Send any remaining buffered content
+                if word_buffer.strip():
+                    yield f"data: {json.dumps({'type': 'words', 'content': word_buffer.strip(), 'accumulated': accumulated_text})}\n\n"
+
+                # Apply affirmation service if needed
+                if evaluation['feedback_type'] == 'green':
+                    session_data['good_response_count'] = session_data.get('good_response_count', 0) + 1
+                    accumulated_text = AffirmationService.add_affirmation_to_response(accumulated_text, session_data)
+                elif evaluation['feedback_type'] == 'amber':
+                    amber_entry = {
+                        'user_response': transcript,
+                        'corrected_response': evaluation['corrected_response'],
+                        'issues': evaluation['issues']
+                    }
+                    session_data.setdefault('amber_responses', []).append(amber_entry)
+
+                # Calculate additional response data
+                should_show_popup = (
+                    session_data['sentences_count'] % 4 == 0 and
+                    session_data['sentences_count'] > 0 and
+                    len(session_data.get('amber_responses', [])) > 0
+                )
+
+                is_milestone = (
+                    evaluation['feedback_type'] == 'green' and
+                    session_data.get('good_response_count', 0) % 4 == 0 and
+                    session_data.get('good_response_count', 0) > 0
+                )
+
+                new_rewards = calculate_rewards(evaluation, session_data.get('good_response_count', 0))
+                if new_rewards > 0:
+                    session_data['reward_points'] = session_data.get('reward_points', 0) + new_rewards
+
+                # Send completion with final data
+                completion_data = {
+                    'type': 'complete',
+                    'final_text': accumulated_text,
+                    'should_show_popup': should_show_popup,
+                    'amber_responses': session_data.get('amber_responses', []) if should_show_popup else [],
+                    'is_milestone': is_milestone,
+                    'good_response_count': session_data.get('good_response_count', 0),
+                    'sentence_count': session_data['sentences_count'],
+                    'reward_points': session_data.get('reward_points', 0),
+                    'new_rewards': new_rewards
+                }
+                yield f"data: {json.dumps(completion_data)}\n\n"
+
+                # Update conversation history and session
+                session_data['conversation_history'].extend([
+                    {"role": "user", "content": transcript},
+                    {"role": "assistant", "content": accumulated_text}
+                ])
+
+                # Update database if conversation exists
+                if 'conversation_id' in session_data:
+                    try:
+                        conversation = Conversation.query.get(session_data['conversation_id'])
+                        if conversation:
+                            conversation.sentences_count = session_data['sentences_count']
+                            conversation.good_response_count = session_data.get('good_response_count', 0)
+                            conversation.reward_points = session_data.get('reward_points', 0)
+                            conversation.conversation_data = session_data['conversation_history']
+                            conversation.amber_data = session_data.get('amber_responses', [])
+                            conversation.updated_at = datetime.utcnow()
+                            db.session.commit()
+                    except Exception as e:
+                        logger.error(f"Failed to update conversation in database: {e}")
+
+                session_store.save_session(session_id, session_data)
+
+            except Exception as e:
+                logger.error(f"Streaming error: {str(e)}")
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            finally:
+                if temp_file:
+                    try:
+                        os.unlink(temp_file.name)
+                    except Exception as e:
+                        logger.error(f"Failed to delete temporary file: {e}")
+
+        return Response(
+            generate_streaming_response(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Process Stream Error: {str(e)}")
+        logger.exception("Full traceback:")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.route('/api/clear_amber_responses', methods=['POST'])
 def clear_amber_responses():
     """Clear amber responses from session after correction popup"""

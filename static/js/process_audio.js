@@ -407,7 +407,7 @@ function showSubtleReward(points) {
     }
 }
 
-// Add CSS for subtle reward animations
+// Add CSS for subtle reward animations and typewriter effect
 const subtleRewardStyles = document.createElement('style');
 subtleRewardStyles.textContent = `
     @keyframes subtleReward {
@@ -420,20 +420,38 @@ subtleRewardStyles.textContent = `
             transform: translateY(-20px);
         }
     }
-    
+
     .reward-glow {
         box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
         transition: box-shadow 0.3s ease;
     }
-    
+
     .highlight {
         background: rgba(34, 197, 94, 0.2);
         transition: background 0.5s ease;
     }
-    
+
     /* Animation for checking state */
     .animate-pulse {
         animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Typewriter effect for streaming text */
+    .typing::after {
+        content: '|';
+        animation: blink 1s infinite;
+        color: #666;
+        margin-left: 2px;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    /* Smooth text appearance */
+    .text-content {
+        transition: all 0.2s ease;
     }
 `;
 document.head.appendChild(subtleRewardStyles);
@@ -544,7 +562,15 @@ async function initializeRecording() {
 
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            await sendAudioToServer(audioBlob);
+
+            // Try streaming version first, fallback to original if needed
+            try {
+                await sendAudioToServerStream(audioBlob);
+            } catch (error) {
+                console.log('Streaming failed, using fallback:', error);
+                await sendAudioToServer(audioBlob);
+            }
+
             audioChunks = [];
         };
 
@@ -930,7 +956,255 @@ function createCorrectionSuggestion(message, corrections, onCorrect, onDismiss) 
 }
 
 
-// Process audio and handle responses
+// Enhanced streaming version with typewriter effect
+async function sendAudioToServerStream(audioBlob) {
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.wav');
+        formData.append('session_id', sessionId);
+
+        // Remove processing message if it exists
+        const processingMessage = document.getElementById('processingMessage');
+        if (processingMessage) {
+            processingMessage.remove();
+        }
+
+        // Create EventSource for streaming
+        const response = await fetch('/api/process_audio_stream', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Handle the streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        let messageDiv = null;
+        let textContentDiv = null;
+        let transcript = '';
+        let evaluation = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.type === 'metadata') {
+                            // Store transcript and evaluation data
+                            transcript = data.transcript;
+                            evaluation = data.evaluation;
+
+                            // Display user message
+                            displayMessage('user', transcript, [], evaluation?.feedback_type);
+                            conversationHistory.push({ role: 'user', content: transcript });
+                        }
+
+                        if (data.type === 'words') {
+                            // Show white box on FIRST word chunk
+                            if (!messageDiv) {
+                                messageDiv = createEmptyMessageDiv('assistant');
+                                textContentDiv = messageDiv.querySelector('.text-content');
+                                conversation.appendChild(messageDiv);
+                                conversation.scrollTop = conversation.scrollHeight;
+                            }
+
+                            // Update text progressively with typewriter effect
+                            textContentDiv.textContent = data.accumulated;
+                            textContentDiv.classList.add('typing');
+                        }
+
+                        if (data.type === 'complete') {
+                            // Remove typing effect
+                            if (textContentDiv) {
+                                textContentDiv.classList.remove('typing');
+                                textContentDiv.textContent = data.final_text;
+                            }
+
+                            // Add to conversation history
+                            conversationHistory.push({ role: 'assistant', content: data.final_text });
+
+                            // Handle celebrations and rewards
+                            if (data.is_milestone && data.new_rewards > 10) {
+                                const childName = sessionStorage.getItem('childName') || 'दोस्त';
+                                showCelebration('milestone',
+                                    `Excellent ${childName}! You've given ${data.good_response_count} great Hindi responses! 🌟`,
+                                    false
+                                );
+                            }
+
+                            if (data.new_rewards > 0 && !data.is_milestone) {
+                                showSubtleReward(data.new_rewards);
+                            }
+
+                            // Update rewards display
+                            updateRewardsDisplay(data.sentence_count, data.reward_points);
+
+                            // Handle correction popup
+                            if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
+                                showCorrectionPopup(data.amber_responses, () => {
+                                    setTimeout(() => {
+                                        // Generate and play TTS after popup closes
+                                        generateAndPlayAudio(data.final_text);
+                                    }, 1000);
+                                });
+                            } else {
+                                // Generate and play TTS immediately
+                                generateAndPlayAudio(data.final_text);
+                            }
+                        }
+
+                        if (data.type === 'error') {
+                            throw new Error(data.message);
+                        }
+
+                    } catch (parseError) {
+                        console.error('Error parsing streaming data:', parseError);
+                    }
+                }
+            }
+        }
+
+        // Reset button state
+        resetRecordingInterface();
+
+    } catch (error) {
+        console.error('Streaming Error:', error);
+
+        // Fallback to original method
+        console.log('Falling back to original sendAudioToServer');
+        return sendAudioToServer(audioBlob);
+    }
+}
+
+// Helper function to create empty message div for progressive text
+function createEmptyMessageDiv(role) {
+    const messageDiv = document.createElement('div');
+
+    let borderClass = '';
+    if (role === 'user') {
+        borderClass = 'border-l-4 border-green-500';
+    }
+
+    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
+        role === 'user'
+            ? 'bg-green-100 ml-auto max-w-[80%]'
+            : 'bg-gray-100 mr-auto max-w-[80%]'
+    }`;
+
+    // Create text content with typing class
+    const textContent = document.createElement('div');
+    textContent.className = 'text-lg mb-2 text-content';
+    textContent.textContent = '';
+    messageDiv.appendChild(textContent);
+
+    // Add buttons container (only for assistant messages)
+    if (role === 'assistant') {
+        const buttonsDiv = createMessageButtons();
+        messageDiv.appendChild(buttonsDiv);
+    }
+
+    return messageDiv;
+}
+
+// Helper function to create message buttons
+function createMessageButtons() {
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'flex justify-end gap-2 mt-2';
+
+    // Create speak button
+    const speakButton = document.createElement('button');
+    speakButton.className = 'p-1 rounded hover:bg-gray-200';
+    speakButton.innerHTML = '🔊';
+    speakButton.onclick = function() {
+        const text = this.closest('.p-4').querySelector('.text-content').textContent;
+        const formData = new FormData();
+        formData.append('text', text);
+        fetch('/api/speak', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.audio) {
+                playAudioResponse(data.audio);
+            }
+        });
+    };
+
+    // Create translate button
+    const translateButton = document.createElement('button');
+    translateButton.className = 'p-1 rounded hover:bg-gray-200';
+    const uniqueId = `translate-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    translateButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="18">
+        <defs>
+            <linearGradient id="${uniqueId}" x1="0%" y1="50%" y2="106.671%">
+                <stop offset="0%" stop-color="#000046"/>
+                <stop offset="100%" stop-color="#1CB5E0"/>
+            </linearGradient>
+        </defs>
+        <path d="M20.55 8.4v1.557h-1.5V18h-2.016v-3.373a2.17 2.17 0 0 1-.643.1c-.258 0-.486-.057-.7-.143v.086c0 1.615-1.216 2.8-3.16 2.8-1.872 0-2.844-1.015-3.2-1.544l1.386-1.272c.3.53.915 1.144 1.844 1.144.758 0 1.2-.458 1.2-1.086 0-.615-.442-.987-1.357-.987h-.772v-1.672h.5c.872 0 1.23-.457 1.23-1.1 0-.558-.386-.944-1-.944-.572 0-.958.272-1.23.715L9.872 9.538c.457-.657 1.358-1.2 2.544-1.2 1.672 0 2.787.957 2.787 2.415 0 .815-.37 1.515-1.043 1.844v.057a1.67 1.67 0 0 1 .486.172h.014c.025.023.054.043.086.057.386.2.786.286 1.143.286.5 0 .872-.1 1.144-.243v-2.96h-1.115V8.4h4.63zM3.03 0h3.045L9.12 10.02H6.832l-.63-2.302h-3.36L2.2 10.02H0L3.03 0zm.73 4.46l-.415 1.457h2.358l-.386-1.4-.757-3.002h-.058c-.17.858-.386 1.672-.743 2.945z"
+            fill="url(#${uniqueId})"
+            fill-rule="evenodd"/>
+    </svg>`;
+
+    translateButton.style.display = 'flex';
+    translateButton.style.alignItems = 'center';
+    translateButton.style.justifyContent = 'center';
+    translateButton.onclick = async function() {
+        try {
+            const text = this.closest('.p-4').querySelector('.text-content').textContent;
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+            const data = await response.json();
+            if (data.translation) {
+                showTranslation(data.translation, translateButton);
+            }
+        } catch (error) {
+            console.error('Translation error:', error);
+        }
+    };
+
+    buttonsDiv.appendChild(speakButton);
+    buttonsDiv.appendChild(translateButton);
+    return buttonsDiv;
+}
+
+// Helper function to generate and play audio
+async function generateAndPlayAudio(text) {
+    try {
+        // Use existing TTS endpoint
+        const formData = new FormData();
+        formData.append('text', text);
+        const response = await fetch('/api/speak', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.audio) {
+            playAudioResponse(data.audio);
+        }
+    } catch (error) {
+        console.error('TTS Error:', error);
+    }
+}
+
+// Process audio and handle responses (Original function - kept as fallback)
 async function sendAudioToServer(audioBlob) {
     try {
         //status.textContent = 'Processing...';
