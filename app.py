@@ -1342,18 +1342,19 @@ def process_audio_stream():
                     {"role": "assistant", "content": accumulated_text}
                 ])
 
-                # Update database if conversation exists
+                # Update database if conversation exists (with proper app context)
                 if 'conversation_id' in session_data:
                     try:
-                        conversation = Conversation.query.get(session_data['conversation_id'])
-                        if conversation:
-                            conversation.sentences_count = session_data['sentences_count']
-                            conversation.good_response_count = session_data.get('good_response_count', 0)
-                            conversation.reward_points = session_data.get('reward_points', 0)
-                            conversation.conversation_data = session_data['conversation_history']
-                            conversation.amber_data = session_data.get('amber_responses', [])
-                            conversation.updated_at = datetime.utcnow()
-                            db.session.commit()
+                        with app.app_context():
+                            conversation = Conversation.query.get(session_data['conversation_id'])
+                            if conversation:
+                                conversation.sentences_count = session_data['sentences_count']
+                                conversation.good_response_count = session_data.get('good_response_count', 0)
+                                conversation.reward_points = session_data.get('reward_points', 0)
+                                conversation.conversation_data = session_data['conversation_history']
+                                conversation.amber_data = session_data.get('amber_responses', [])
+                                conversation.updated_at = datetime.utcnow()
+                                db.session.commit()
                     except Exception as e:
                         logger.error(f"Failed to update conversation in database: {e}")
 
