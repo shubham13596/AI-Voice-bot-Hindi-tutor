@@ -808,15 +808,28 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
         borderClass = feedbackType === 'amber' ? 'border-l-4 border-amber-500' : 'border-l-4 border-green-500';
     }
     
+    // Calculate dynamic width for user messages based on text length
+    let widthClass = 'max-w-[80%]';
+    if (role === 'user') {
+        const textLength = text.length;
+        if (textLength < 20) {
+            widthClass = 'w-fit max-w-[80%]';
+        } else if (textLength < 50) {
+            widthClass = 'w-fit max-w-[70%]';
+        } else {
+            widthClass = 'max-w-[80%]';
+        }
+    }
+
     messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
-        role === 'user' 
-            ? 'bg-green-100 ml-auto max-w-[80%]' // Right-aligned for user messages
-            : 'bg-gray-100 mr-auto max-w-[80%]'   // Left-aligned for assistant messages
+        role === 'user'
+            ? `bg-green-100 ml-auto ${widthClass}` // Right-aligned for user messages with dynamic width
+            : 'bg-gray-100 mr-auto max-w-[80%]'     // Left-aligned for assistant messages
     }`;
 
-    // Create text content with larger font
+    // Create text content with larger font and appropriate alignment
     const textContent = document.createElement('div');
-    textContent.className = 'text-lg mb-2'; // Larger text size
+    textContent.className = `text-lg mb-2 ${role === 'user' ? 'text-right' : ''}`; // Right-aligned text for user messages
     textContent.textContent = text;
     messageDiv.appendChild(textContent);
 
