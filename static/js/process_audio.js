@@ -502,21 +502,20 @@ function scrollToLatestUserMessage() {
 
     if (!latestUserMessage) return;
 
-    // Calculate the scroll position to put user message at top of container
-    const conversationRect = conversation.getBoundingClientRect();
+    // Calculate the scroll position to put user message at very top of viewport
     const messageRect = latestUserMessage.getBoundingClientRect();
-    const currentScrollTop = conversation.scrollTop;
+    const currentScrollY = window.scrollY;
 
-    // Target scroll position: current scroll + difference between message top and container top
-    const targetScrollTop = currentScrollTop + (messageRect.top - conversationRect.top) - 20; // 20px padding from top
+    // Target scroll position: scroll so user message appears just below header (70px from top)
+    const targetScrollY = currentScrollY + messageRect.top - 70;
 
-    // Smooth scroll to the target position
-    conversation.scrollTo({
-        top: targetScrollTop,
+    // Scroll to position user message at top
+    window.scrollTo({
+        top: Math.max(0, targetScrollY), // Ensure we don't scroll to negative values
         behavior: 'smooth'
     });
 
-    console.log(`📍 SCROLL: Positioned latest user message at top of conversation view`);
+    console.log(`📍 SCROLL: Positioned latest user message at top of viewport`);
 }
 
 function initializeMessageForSliding(messageDiv) {
@@ -1142,8 +1141,10 @@ async function sendAudioToServerStream(audioBlob) {
                                 console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
                                 generateAndPlayAudio(data.final_text);
 
-                                // Scroll to position user message at top after user response
-                                scrollToLatestUserMessage();
+                                // Scroll to position user message at top after user response (small delay for DOM update)
+                                setTimeout(() => {
+                                    scrollToLatestUserMessage();
+                                }, 50);
                             }
                         }
 
@@ -1346,8 +1347,10 @@ async function sendAudioToServer(audioBlob) {
 
         displayMessage('user', data.transcript, data.corrections, data.evaluation?.feedback_type);
 
-        // Scroll to position user message at top after user response
-        scrollToLatestUserMessage();
+        // Scroll to position user message at top after user response (small delay for DOM update)
+        setTimeout(() => {
+            scrollToLatestUserMessage();
+        }, 50);
 
         // Check if correction popup should be shown FIRST
         if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
