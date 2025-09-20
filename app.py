@@ -824,7 +824,7 @@ def speech_to_text_hindi_groq(audio_data):
                     language="hi",  # Hindi language code
                     response_format="json",
                     prompt="6 साल का बच्चा हिंदी में बोल रहा है।",  # Optimized for child speech
-                    temperature=0.1  # For consistent results
+                    temperature=0.2  # For consistent results
                 )
             api_end_time = time.time()
             api_latency = (api_end_time - api_start_time) * 1000
@@ -1251,6 +1251,7 @@ def process_audio_stream():
         # Get conversation context
         conversation_type = session_data.get('conversation_type', 'everyday')
         conversation_history = session_data.get('conversation_history', [])
+        child_name = session_data.get('child_name', 'दोस्त')
 
         # Extract last talker response for evaluation
         last_talker_response = None
@@ -1285,7 +1286,7 @@ def process_audio_stream():
                 system_prompt = system_prompt_base.replace(
                     'Return JSON format: {{"response": "Your Hindi response here"}}',
                     'Respond directly in Hindi only (no JSON format).'
-                ).format(strategy="continue_conversation")
+                ).format(strategy="continue_conversation", child_name=child_name)
 
                 messages = [
                     {"role": "system", "content": system_prompt},
