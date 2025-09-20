@@ -16,8 +16,9 @@ def main():
             # Check if we're on Heroku by looking for DATABASE_URL
             database_url = os.environ.get('DATABASE_URL', '')
 
-            if not database_url or 'postgresql' not in database_url:
+            if not database_url or ('postgresql' not in database_url and 'postgres' not in database_url):
                 print("❌ This script is designed for PostgreSQL (Heroku production)")
+                print(f"   Current DATABASE_URL: {database_url[:50]}...")
                 print("   For SQLite development, delete hindi_tutor.db and restart the app")
                 return False
 
