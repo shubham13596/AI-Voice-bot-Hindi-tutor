@@ -177,7 +177,7 @@ CONVERSATION_TYPES = {
             2. Use simple Hindi words
             3. Make it cheerful and inviting
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child.
+            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
             Focus on everyday life topics: school, friends, family, daily activities, food, play, etc.
             Guidelines:
             1. Be curious about their daily life like a their grandmother would be. Choose to ask about the things that they did today; give advice, support, and guidance wherever necessary.
@@ -204,7 +204,7 @@ CONVERSATION_TYPES = {
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': 
             """
-            You are a friendly, caring Hindi female tutor speaking with a 6-year-old child. Your goal is to guide a fun, Hindi-only conversation about animals and nature.
+            You are a friendly, caring Hindi female tutor speaking with a 6-year-old child, named {child_name}. Your goal is to guide a fun, Hindi-only conversation about animals and nature.
             Guidelines:
             1. Continue the natural conversation flow about animals
             2. Keep responses short (max 20 words)
@@ -229,7 +229,7 @@ CONVERSATION_TYPES = {
             3. Make it exciting and engaging
             4. Ask them to contribute ideas for the adventure story
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi storytelling female tutor co-creating an adventure story with a 6-year-old child.
+            'conversation': """You are a friendly Hindi storytelling female tutor co-creating an adventure story with a 6-year-old child, named {child_name}.
             Help them build an exciting adventure story by asking for their input and expanding on their ideas.
             Guidelines:
             1. Continue the story based on their input and ask what happens next
@@ -255,7 +255,7 @@ CONVERSATION_TYPES = {
             - Make it cheerful and engaging.
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': 
-            """You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
+            """You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
             The story must follow these specific steps:
             1. **Start:** Narrate that a crow was very thirsty and was looking for water. Ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
             2. **The Discovery:** Narrate that the crow found a pot of water but the water level was too low. Ask the child, "कौए को पानी का घड़ा कहाँ मिला?" (Where did the crow find the pot of water?)
@@ -310,7 +310,7 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.2,
-            max_tokens=200
+            max_tokens=150
         )
         
         logger.info("Groq API call successful")
@@ -386,8 +386,8 @@ class ResponseEvaluator:
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "system", "content": system_prompt}],
                 response_format={"type": "json_object"},
-                temperature=0.2,
-                max_tokens=200
+                temperature=0.1,
+                max_tokens=150
             )
             
             return json.loads(response.choices[0].message.content)
@@ -407,21 +407,21 @@ class TalkerModule:
     """Handles conversation responses based on evaluation context"""
     
     @staticmethod
-    def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday"):
+    def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday", child_name="दोस्त"):
         """Generate conversation response based on conversation type"""
         try:
-            
+
             # Always use continue_conversation strategy for simplicity and speed
             strategy = "continue_conversation"
-            
+
             # Get the appropriate system prompt for the conversation type
             if conversation_type in CONVERSATION_TYPES:
                 system_prompt_template = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
             else:
                 # Fallback to everyday conversation
                 system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
-            
-            system_prompt = system_prompt_template.format(strategy=strategy)
+
+            system_prompt = system_prompt_template.format(strategy=strategy, child_name=child_name)
             
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -433,8 +433,8 @@ class TalkerModule:
                 model="llama-3.3-70b-versatile",
                 messages=messages,
                 response_format={"type": "json_object"},
-                temperature=0.5,
-                max_tokens=200
+                temperature=0.4,
+                max_tokens=150
             )
             
             result = json.loads(response.choices[0].message.content)
@@ -455,32 +455,34 @@ class ConversationController:
         """Process user response through evaluation and conversation flow"""
         try:
             conversation_type = session_data.get('conversation_type', 'everyday')
-            
+            child_name = session_data.get('child_name', 'दोस्त')
+
             # Extract the last talker response from conversation history
             last_talker_response = None
             conversation_history = session_data.get('conversation_history', [])
-            
+
             # Find the most recent assistant message
             for message in reversed(conversation_history):
                 if message.get('role') == 'assistant':
                     last_talker_response = message.get('content')
                     break
-            
+
             # Run evaluation and conversation response in PARALLEL
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 # Submit both OpenAI API calls simultaneously
                 eval_future = executor.submit(
-                    self.evaluator.evaluate_response, 
+                    self.evaluator.evaluate_response,
                     user_text,
                     last_talker_response
                 )
-                
+
                 conv_future = executor.submit(
                     self.talker.get_response,
                     session_data['conversation_history'],
                     user_text,
                     session_data['sentences_count'],
-                    conversation_type
+                    conversation_type,
+                    child_name
                 )
                 
                 # Wait for both to complete
@@ -775,7 +777,7 @@ def speech_to_text_hindi_sarvam(audio_data):
         logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
-def validate_audio_duration(audio_data, min_duration=0.5, max_duration=10.0):
+def validate_audio_duration(audio_data, min_duration=0.25, max_duration=10.0):
     """Validate audio duration to filter out noise and incomplete recordings"""
     try:
         # Estimate duration: 16-bit mono audio at 44.1kHz (standard WAV)
@@ -822,7 +824,7 @@ def speech_to_text_hindi_groq(audio_data):
                     language="hi",  # Hindi language code
                     response_format="json",
                     prompt="6 साल का बच्चा हिंदी में बोल रहा है।",  # Optimized for child speech
-                    temperature=0.0  # For consistent results
+                    temperature=0.1  # For consistent results
                 )
             api_end_time = time.time()
             api_latency = (api_end_time - api_start_time) * 1000
@@ -1296,8 +1298,8 @@ def process_audio_stream():
                     model="llama-3.3-70b-versatile",
                     messages=messages,
                     stream=True,  # Enable streaming
-                    temperature=0.5,
-                    max_tokens=200
+                    temperature=0.4,
+                    max_tokens=150
                 )
 
                 # Word buffering for smooth display (2-3 words at a time)
