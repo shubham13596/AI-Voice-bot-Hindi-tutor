@@ -252,10 +252,6 @@ CONVERSATION_TYPES = {
             'initial': """
             You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
             Start by narrating that a crow was very thirsty and was looking for water. Then ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
-            Important Rules for your response:
-            - Keep your narrative parts simple and short (max 15 words).
-            - Use very simple Hindi words and sentence structures.
-            - Make it cheerful and engaging.
             Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
             'conversation': 
             """You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
@@ -309,11 +305,11 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
         logger.info(f"Making Groq API call for initial {conversation_type} conversation")
 
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.2,
-            max_tokens=150
+            max_tokens=300
         )
         
         logger.info("Groq API call successful")
@@ -379,18 +375,16 @@ class ResponseEvaluator:
             - 8-10: Complete, grammatically correct = green
             - 1-7: Incomplete, grammar issues = amber
             
-            For the corrected_response, provide a complete sentence in Hindi that:
-            - Is 100% grammatically correct with proper sentence structure.
-            - Properly answers the question or responds to the statement
-            - Is appropriate for a 6-year-old's vocabulary
+            For the corrected_response, provide a short complete sentence in Hindi that:
+            - Is grammatically correct with proper sentence structure and is appropriate for a 6-year-old's vocabulary
             """
             
             response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-20b",
                 messages=[{"role": "system", "content": system_prompt}],
                 response_format={"type": "json_object"},
                 temperature=0.1,
-                max_tokens=150
+                max_tokens=300
             )
             
             return json.loads(response.choices[0].message.content)
@@ -433,11 +427,11 @@ class TalkerModule:
             ]
             
             response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-20b",
                 messages=messages,
                 response_format={"type": "json_object"},
                 temperature=0.4,
-                max_tokens=150
+                max_tokens=300
             )
             
             result = json.loads(response.choices[0].message.content)
@@ -780,7 +774,7 @@ def speech_to_text_hindi_sarvam(audio_data):
         logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
-def validate_audio_duration(audio_data, min_duration=0.25, max_duration=10.0):
+def validate_audio_duration(audio_data, min_duration=0.05, max_duration=15.0):
     """Validate audio duration to filter out noise and incomplete recordings"""
     try:
         # Estimate duration: 16-bit mono audio at 44.1kHz (standard WAV)
@@ -914,14 +908,12 @@ def optimize_audio_for_google_cloud(audio_data):
 google_speech_client = None
 if GOOGLE_CLOUD_API_KEY:
     try:
-        # Configure Google Cloud credentials
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ''  # Will use API key instead
-
-        # Initialize client for connection pooling
+        # Initialize client for connection pooling (SDK handles API key authentication automatically)
         google_speech_client = speech.SpeechClient()
         logger.info("Google Cloud Speech client initialized successfully")
     except Exception as e:
         logger.warning(f"Google Cloud Speech client initialization failed: {e}")
+        logger.info("Will fallback to REST API with API key")
 
 def speech_to_text_hindi_google(audio_data):
     """Convert Hindi speech to text using Google Cloud Speech-to-Text with optimizations"""
@@ -930,13 +922,13 @@ def speech_to_text_hindi_google(audio_data):
 
     try:
         # Validate audio duration (same as other providers)
-        audio_duration = len(audio_data) / (16000 * 2)  # Assuming 16kHz, 16-bit
+        audio_duration = len(audio_data) / (48000 * 2)  # Assuming 16kHz, 16-bit
         if audio_duration < 0.5 or audio_duration > 60:
             logger.info("❌ GOOGLE CLOUD STT: Audio rejected due to invalid duration")
             return None
 
         if not google_speech_client:
-            logger.error("❌ GOOGLE CLOUD STT: Client not initialized")
+            logger.error("❌ GOOGLE CLOUD STT: No API key configured")
             return None
 
         # Apply audio optimizations
@@ -950,7 +942,7 @@ def speech_to_text_hindi_google(audio_data):
         # Configure recognition with optimized settings for Hindi child speech
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            sample_rate_hertz=16000,  # Google's recommended optimal rate
+            sample_rate_hertz=48000,  # Google's recommended optimal rate
             language_code="hi-IN",    # Hindi (India)
             model="latest_long",      # Latest model for better accuracy
             use_enhanced=True,        # Enhanced model if available
@@ -972,9 +964,10 @@ def speech_to_text_hindi_google(audio_data):
         try:
             response = google_speech_client.recognize(config=config, audio=audio)
         except Exception as api_error:
-            # If API key authentication fails, try alternative approach
-            if "authentication" in str(api_error).lower() and GOOGLE_CLOUD_API_KEY:
-                logger.info("🔄 GOOGLE CLOUD STT: Trying REST API with API key...")
+            # If SDK fails (authentication, credentials, etc.), fallback to REST API
+            error_msg = str(api_error).lower()
+            if any(keyword in error_msg for keyword in ["authentication", "credentials", "permission", "forbidden"]):
+                logger.info("🔄 GOOGLE CLOUD STT: SDK authentication failed, trying REST API with API key...")
                 return speech_to_text_hindi_google_rest(optimized_audio, stt_start_time)
             else:
                 raise api_error
@@ -1023,7 +1016,7 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
         payload = {
             "config": {
                 "encoding": "WEBM_OPUS",
-                "sampleRateHertz": 16000,
+                "sampleRateHertz": 48000,
                 "languageCode": "hi-IN",
                 "model": "latest_long",
                 "useEnhanced": True,
@@ -1278,7 +1271,7 @@ def translate_text():
             
         # Use Groq for translation
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[
                 {
                     "role": "system",
@@ -1527,11 +1520,11 @@ def process_audio_stream():
 
                 # Create streaming response (no JSON format for streaming)
                 response_stream = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="openai/gpt-oss-20b",
                     messages=messages,
                     stream=True,  # Enable streaming
                     temperature=0.4,
-                    max_tokens=150
+                    max_tokens=300
                 )
 
                 # Word buffering for smooth display (2-3 words at a time)
