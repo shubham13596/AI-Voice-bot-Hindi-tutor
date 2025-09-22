@@ -483,10 +483,10 @@ subtleRewardStyles.textContent = `
     .thinking-loader {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        margin: 8px 0;
-        max-width: 80%;
-        margin-right: auto;
+        margin: 8px auto;
+        width: fit-content;
     }
 
     .thinking-spinner {
