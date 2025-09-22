@@ -483,18 +483,15 @@ subtleRewardStyles.textContent = `
     .thinking-loader {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 16px;
-        background: #f3f4f6;
-        border-radius: 12px;
+        gap: 8px;
         margin: 8px 0;
         max-width: 80%;
         margin-right: auto;
     }
 
     .thinking-spinner {
-        width: 24px;
-        height: 24px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
         background: conic-gradient(
             from 0deg,
@@ -511,47 +508,36 @@ subtleRewardStyles.textContent = `
     .thinking-spinner::before {
         content: '';
         position: absolute;
-        inset: 3px;
-        background: #f3f4f6;
+        inset: 2px;
+        background: white;
         border-radius: 50%;
     }
 
-    .thinking-spinner::after {
-        content: '💭';
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        animation: thinkingPulse 1.5s ease-in-out infinite;
-    }
-
     .thinking-text {
-        font-size: 16px;
+        font-size: 14px;
         color: #6b7280;
-        font-weight: 500;
+        font-weight: 400;
     }
 
     @keyframes thinkingSpin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-
-    @keyframes thinkingPulse {
-        0%, 100% { transform: scale(1); opacity: 0.8; }
-        50% { transform: scale(1.1); opacity: 1; }
-    }
 `;
 document.head.appendChild(subtleRewardStyles);
 
 // Show thinking loader in conversation area
 function showThinkingLoader() {
+    console.log('🔄 showThinkingLoader called');
+
     // Remove any existing loader
     hideThinkingLoader();
 
     const conversation = document.getElementById('conversation');
-    if (!conversation) return;
+    if (!conversation) {
+        console.error('❌ Conversation element not found');
+        return;
+    }
 
     const loaderDiv = document.createElement('div');
     loaderDiv.id = 'thinkingLoader';
@@ -564,12 +550,15 @@ function showThinkingLoader() {
 
     conversation.appendChild(loaderDiv);
     conversation.scrollTop = conversation.scrollHeight;
+
+    console.log('✅ Thinking loader added to conversation');
 }
 
 // Hide thinking loader
 function hideThinkingLoader() {
     const loader = document.getElementById('thinkingLoader');
     if (loader) {
+        console.log('🗑️ Hiding thinking loader');
         loader.remove();
     }
 }
@@ -1134,9 +1123,6 @@ async function sendAudioToServerStream(audioBlob) {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'audio.wav');
         formData.append('session_id', sessionId);
-
-        // Remove thinking loader if it exists
-        hideThinkingLoader();
 
         // Create EventSource for streaming
         const response = await fetch('/api/process_audio_stream', {
