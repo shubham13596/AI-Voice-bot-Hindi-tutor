@@ -490,8 +490,8 @@ subtleRewardStyles.textContent = `
     }
 
     .thinking-spinner {
-        width: 18px;
-        height: 18px;
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
         background: conic-gradient(
             from 0deg,
@@ -508,13 +508,13 @@ subtleRewardStyles.textContent = `
     .thinking-spinner::before {
         content: '';
         position: absolute;
-        inset: 2px;
+        inset: 2.5px;
         background: white;
         border-radius: 50%;
     }
 
     .thinking-text {
-        font-size: 14px;
+        font-size: 16px;
         color: #6b7280;
         font-weight: 400;
     }
@@ -522,6 +522,27 @@ subtleRewardStyles.textContent = `
     @keyframes thinkingSpin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
+    }
+
+    /* Smooth text flow animation */
+    .text-flow-in {
+        animation: textFlowIn 0.4s ease-out forwards;
+    }
+
+    @keyframes textFlowIn {
+        0% {
+            opacity: 0.3;
+            transform: translateY(2px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Enhanced text content transitions */
+    .text-content {
+        transition: opacity 0.2s ease-out, transform 0.2s ease-out;
     }
 `;
 document.head.appendChild(subtleRewardStyles);
@@ -532,6 +553,12 @@ function showThinkingLoader() {
 
     // Remove any existing loader
     hideThinkingLoader();
+
+    // Hide the record button completely when thinking
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.style.display = 'none';
+    }
 
     const conversation = document.getElementById('conversation');
     if (!conversation) {
@@ -560,6 +587,12 @@ function hideThinkingLoader() {
     if (loader) {
         console.log('🗑️ Hiding thinking loader');
         loader.remove();
+    }
+
+    // Show the record button again when thinking is done
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.style.display = 'flex';
     }
 }
 
@@ -1180,16 +1213,27 @@ async function sendAudioToServerStream(audioBlob) {
                                 conversation.scrollTop = conversation.scrollHeight;
                             }
 
-                            // Update text progressively with typewriter effect
+                            // Update text progressively with smooth flow animation
                             textContentDiv.textContent = data.accumulated;
                             textContentDiv.classList.add('typing');
+
+                            // Add smooth flow animation for new text
+                            textContentDiv.classList.remove('text-flow-in');
+                            // Force reflow to restart animation
+                            textContentDiv.offsetHeight;
+                            textContentDiv.classList.add('text-flow-in');
                         }
 
                         if (data.type === 'complete') {
-                            // Remove typing effect
+                            // Remove typing effect and add final smooth animation
                             if (textContentDiv) {
                                 textContentDiv.classList.remove('typing');
                                 textContentDiv.textContent = data.final_text;
+
+                                // Add smooth flow animation for final text
+                                textContentDiv.classList.remove('text-flow-in');
+                                textContentDiv.offsetHeight; // Force reflow
+                                textContentDiv.classList.add('text-flow-in');
                             }
 
                             // Add to conversation history
