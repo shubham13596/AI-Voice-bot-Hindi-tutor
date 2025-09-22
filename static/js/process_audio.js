@@ -478,8 +478,101 @@ subtleRewardStyles.textContent = `
             transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
     }
+
+    /* Thinking Loader Styles */
+    .thinking-loader {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: #f3f4f6;
+        border-radius: 12px;
+        margin: 8px 0;
+        max-width: 80%;
+        margin-right: auto;
+    }
+
+    .thinking-spinner {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: conic-gradient(
+            from 0deg,
+            #3b82f6 0deg,
+            #8b5cf6 90deg,
+            #ec4899 180deg,
+            #f59e0b 270deg,
+            #3b82f6 360deg
+        );
+        animation: thinkingSpin 2s linear infinite;
+        position: relative;
+    }
+
+    .thinking-spinner::before {
+        content: '';
+        position: absolute;
+        inset: 3px;
+        background: #f3f4f6;
+        border-radius: 50%;
+    }
+
+    .thinking-spinner::after {
+        content: '💭';
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        animation: thinkingPulse 1.5s ease-in-out infinite;
+    }
+
+    .thinking-text {
+        font-size: 16px;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    @keyframes thinkingSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes thinkingPulse {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.1); opacity: 1; }
+    }
 `;
 document.head.appendChild(subtleRewardStyles);
+
+// Show thinking loader in conversation area
+function showThinkingLoader() {
+    // Remove any existing loader
+    hideThinkingLoader();
+
+    const conversation = document.getElementById('conversation');
+    if (!conversation) return;
+
+    const loaderDiv = document.createElement('div');
+    loaderDiv.id = 'thinkingLoader';
+    loaderDiv.className = 'thinking-loader';
+
+    loaderDiv.innerHTML = `
+        <div class="thinking-spinner"></div>
+        <div class="thinking-text">Thinking..</div>
+    `;
+
+    conversation.appendChild(loaderDiv);
+    conversation.scrollTop = conversation.scrollHeight;
+}
+
+// Hide thinking loader
+function hideThinkingLoader() {
+    const loader = document.getElementById('thinkingLoader');
+    if (loader) {
+        loader.remove();
+    }
+}
 
 // Smart conversation scrolling functionality
 function scrollToLatestUserMessage() {
@@ -575,29 +668,24 @@ function toggleRecording() {
         mediaRecorder.stop();
         isRecording = false;
 
-        // Update UI to show processing state
+        // Update UI to show processing state - simplified button state
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
-        elements.recordText.textContent = 'Processing...';
-        elements.recordIcon.textContent = '⏳';
+        elements.recordText.textContent = 'Start Speaking';
+        elements.recordIcon.textContent = '🎤';
 
         // Remove recording indicator
         const indicator = elements.recordButton.querySelector('.recording-indicator');
         if (indicator) {
             indicator.remove();
         }
-        
+
         // Remove conversation area animation
         elements.conversation.style.boxShadow = '';
 
-        // Create a processing message in the conversation
-        const processingDiv = document.createElement('div');
-        processingDiv.id = 'processingMessage';
-        processingDiv.className = 'p-4 text-center text-gray-600 animate-pulse';
-        processingDiv.textContent = 'Your Hindi Tutor is thinking ...';
-        elements.conversation.appendChild(processingDiv);
-        elements.conversation.scrollTop = elements.conversation.scrollHeight;
+        // Create new thinking loader in conversation area (left-aligned like assistant messages)
+        showThinkingLoader();
     }
 }
 
@@ -1047,11 +1135,8 @@ async function sendAudioToServerStream(audioBlob) {
         formData.append('audio', audioBlob, 'audio.wav');
         formData.append('session_id', sessionId);
 
-        // Remove processing message if it exists
-        const processingMessage = document.getElementById('processingMessage');
-        if (processingMessage) {
-            processingMessage.remove();
-        }
+        // Remove thinking loader if it exists
+        hideThinkingLoader();
 
         // Create EventSource for streaming
         const response = await fetch('/api/process_audio_stream', {
@@ -1095,10 +1180,13 @@ async function sendAudioToServerStream(audioBlob) {
                         }
 
                         if (data.type === 'words') {
-                            // Show white box on FIRST word chunk
+                            // Show white box on FIRST word chunk and hide thinking loader
                             if (!messageDiv) {
                                 const whiteBoxTime = performance.now();
                                 console.log(`📱 WHITE BOX: Appeared at ${whiteBoxTime.toFixed(1)}ms after page load`);
+
+                                // Hide thinking loader when response starts
+                                hideThinkingLoader();
 
                                 messageDiv = createEmptyMessageDiv('assistant');
                                 textContentDiv = messageDiv.querySelector('.text-content');
@@ -1329,11 +1417,8 @@ async function sendAudioToServer(audioBlob) {
 
         const data = await response.json();
 
-        // Remove processing message if it exists
-        const processingMessage = document.getElementById('processingMessage');
-        if (processingMessage) {
-            processingMessage.remove();
-        }
+        // Remove thinking loader if it exists
+        hideThinkingLoader();
         
         // Quality-based celebrations only
         if (data.is_milestone && data.new_rewards > 10) {
@@ -1761,11 +1846,8 @@ function resetRecordingInterface() {
         recordIcon.textContent = '🎤';
         status.textContent = 'Ready to listen!';
         
-        // Remove any processing messages
-        const processingMessage = document.getElementById('processingMessage');
-        if (processingMessage) {
-            processingMessage.remove();
-        }
+        // Remove any thinking loader
+        hideThinkingLoader();
         
         // Remove any recording indicators
         const indicator = recordButton.querySelector('.recording-indicator');
