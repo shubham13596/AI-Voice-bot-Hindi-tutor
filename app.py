@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
 import redis
+import numpy as np
+from google.cloud import speech
 from datetime import datetime, timedelta
 import json
 import tempfile
@@ -104,8 +106,9 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+GOOGLE_CLOUD_API_KEY = os.getenv('GOOGLE_CLOUD_API_KEY')
 
-STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, groq)
+STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, groq, google)
 
 # Initialize Groq client
 try:
@@ -853,10 +856,238 @@ def speech_to_text_hindi_groq(audio_data):
         logger.error(f"❌ GROQ WHISPER STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
+# Audio optimization functions for Google Cloud STT
+def trim_audio_silence(audio_data):
+    """
+    Remove silence from beginning and end of audio to reduce processing time
+    """
+    try:
+        # Convert audio data to numpy array for processing
+        audio_array = np.frombuffer(audio_data, dtype=np.uint8)
+
+        # Find first and last non-zero bytes (rough silence detection)
+        # Use a threshold to identify "silence" (low amplitude)
+        silence_threshold = 10
+        non_silence_indices = np.where(audio_array > silence_threshold)[0]
+
+        if len(non_silence_indices) > 0:
+            # Keep small buffer around speech to avoid cutting off words
+            buffer_size = 100
+            start_idx = max(0, non_silence_indices[0] - buffer_size)
+            end_idx = min(len(audio_data), non_silence_indices[-1] + buffer_size)
+
+            trimmed_audio = audio_data[start_idx:end_idx]
+
+            # Log reduction if significant
+            original_size = len(audio_data) / 1024
+            trimmed_size = len(trimmed_audio) / 1024
+            reduction_percent = ((original_size - trimmed_size) / original_size) * 100
+
+            if reduction_percent > 10:  # Only log if significant reduction
+                logger.info(f"🔇 Audio trimmed: {original_size:.1f}KB → {trimmed_size:.1f}KB ({reduction_percent:.1f}% reduction)")
+                return trimmed_audio
+
+        return audio_data
+
+    except Exception as e:
+        logger.warning(f"⚠️ Audio trimming failed, using original: {e}")
+        return audio_data
+
+def optimize_audio_for_google_cloud(audio_data):
+    """
+    Apply optimizations for Google Cloud Speech-to-Text
+    """
+    try:
+        # Apply silence trimming
+        optimized_audio = trim_audio_silence(audio_data)
+
+        # Additional optimizations could be added here
+        # (e.g., audio format conversion, noise reduction)
+
+        return optimized_audio
+
+    except Exception as e:
+        logger.warning(f"⚠️ Audio optimization failed, using original: {e}")
+        return audio_data
+
+# Initialize Google Cloud Speech client with connection pooling
+google_speech_client = None
+if GOOGLE_CLOUD_API_KEY:
+    try:
+        # Configure Google Cloud credentials
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ''  # Will use API key instead
+
+        # Initialize client for connection pooling
+        google_speech_client = speech.SpeechClient()
+        logger.info("Google Cloud Speech client initialized successfully")
+    except Exception as e:
+        logger.warning(f"Google Cloud Speech client initialization failed: {e}")
+
+def speech_to_text_hindi_google(audio_data):
+    """Convert Hindi speech to text using Google Cloud Speech-to-Text with optimizations"""
+    stt_start_time = time.time()
+    logger.info("🎙️ GOOGLE CLOUD STT: Starting transcription...")
+
+    try:
+        # Validate audio duration (same as other providers)
+        audio_duration = len(audio_data) / (16000 * 2)  # Assuming 16kHz, 16-bit
+        if audio_duration < 0.5 or audio_duration > 60:
+            logger.info("❌ GOOGLE CLOUD STT: Audio rejected due to invalid duration")
+            return None
+
+        if not google_speech_client:
+            logger.error("❌ GOOGLE CLOUD STT: Client not initialized")
+            return None
+
+        # Apply audio optimizations
+        preprocessing_start = time.time()
+        optimized_audio = optimize_audio_for_google_cloud(audio_data)
+        preprocessing_time = (time.time() - preprocessing_start) * 1000
+
+        audio_size_kb = len(optimized_audio) / 1024
+        logger.info(f"📁 Optimized audio size: {audio_size_kb:.1f} KB (preprocessing: {preprocessing_time:.1f}ms)")
+
+        # Configure recognition with optimized settings for Hindi child speech
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+            sample_rate_hertz=16000,  # Google's recommended optimal rate
+            language_code="hi-IN",    # Hindi (India)
+            model="latest_long",      # Latest model for better accuracy
+            use_enhanced=True,        # Enhanced model if available
+            enable_automatic_punctuation=True,
+            audio_channel_count=1,
+            # Optimization for child speech
+            speech_contexts=[
+                speech.SpeechContext(
+                    phrases=["स्कूल", "घर", "मां", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा"]
+                )
+            ]
+        )
+
+        # Create audio object
+        audio = speech.RecognitionAudio(content=optimized_audio)
+
+        # Make API request with timing
+        api_start_time = time.time()
+        try:
+            response = google_speech_client.recognize(config=config, audio=audio)
+        except Exception as api_error:
+            # If API key authentication fails, try alternative approach
+            if "authentication" in str(api_error).lower() and GOOGLE_CLOUD_API_KEY:
+                logger.info("🔄 GOOGLE CLOUD STT: Trying REST API with API key...")
+                return speech_to_text_hindi_google_rest(optimized_audio, stt_start_time)
+            else:
+                raise api_error
+
+        api_end_time = time.time()
+        api_response_time = (api_end_time - api_start_time) * 1000
+
+        # Extract transcription
+        transcription = None
+        if response.results:
+            for result in response.results:
+                if result.alternatives:
+                    transcription = result.alternatives[0].transcript
+                    break
+
+        if not transcription:
+            logger.warning("❌ GOOGLE CLOUD STT: No transcription in response")
+            return None
+
+        # Calculate total processing time
+        stt_end_time = time.time()
+        total_latency = (stt_end_time - stt_start_time) * 1000
+
+        # Log performance metrics (same format as other providers)
+        logger.info(f"⚡ API Response Time: {api_response_time:.1f}ms")
+        logger.info(f"✅ GOOGLE CLOUD STT: Success! Total time: {total_latency:.1f}ms")
+        logger.info(f"📊 Audio/Time Ratio: {audio_size_kb/(total_latency/1000):.1f} KB/sec")
+
+        return transcription.strip()
+
+    except Exception as e:
+        stt_end_time = time.time()
+        total_latency = (stt_end_time - stt_start_time) * 1000
+        logger.error(f"❌ GOOGLE CLOUD STT: Failed after {total_latency:.1f}ms - {str(e)}")
+        return None
+
+def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
+    """Fallback REST API implementation for Google Cloud Speech-to-Text"""
+    try:
+        logger.info("🌐 GOOGLE CLOUD STT: Using REST API with API key...")
+
+        # Encode audio as base64
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+
+        # Prepare request payload
+        payload = {
+            "config": {
+                "encoding": "WEBM_OPUS",
+                "sampleRateHertz": 16000,
+                "languageCode": "hi-IN",
+                "model": "latest_long",
+                "useEnhanced": True,
+                "enableAutomaticPunctuation": True,
+                "audioChannelCount": 1
+            },
+            "audio": {
+                "content": audio_base64
+            }
+        }
+
+        # Make REST API request
+        api_start_time = time.time()
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": GOOGLE_CLOUD_API_KEY
+        }
+
+        response = requests.post(
+            "https://speech.googleapis.com/v1/speech:recognize",
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
+
+        api_end_time = time.time()
+        api_response_time = (api_end_time - api_start_time) * 1000
+
+        response.raise_for_status()
+        result = response.json()
+
+        # Extract transcription
+        transcription = None
+        if "results" in result and result["results"]:
+            for res in result["results"]:
+                if "alternatives" in res and res["alternatives"]:
+                    transcription = res["alternatives"][0].get("transcript")
+                    break
+
+        if not transcription:
+            logger.warning("❌ GOOGLE CLOUD STT REST: No transcription in response")
+            return None
+
+        # Calculate total processing time
+        stt_end_time = time.time()
+        total_latency = (stt_end_time - stt_start_time) * 1000
+
+        logger.info(f"⚡ API Response Time: {api_response_time:.1f}ms")
+        logger.info(f"✅ GOOGLE CLOUD STT REST: Success! Total time: {total_latency:.1f}ms")
+
+        return transcription.strip()
+
+    except Exception as e:
+        stt_end_time = time.time()
+        total_latency = (stt_end_time - stt_start_time) * 1000
+        logger.error(f"❌ GOOGLE CLOUD STT REST: Failed after {total_latency:.1f}ms - {str(e)}")
+        return None
+
 def speech_to_text_hindi(audio_data):
     """Convert Hindi speech to text using the configured STT provider"""
     if STT_PROVIDER.lower() == 'groq':
         return speech_to_text_hindi_groq(audio_data)
+    elif STT_PROVIDER.lower() == 'google':
+        return speech_to_text_hindi_google(audio_data)
     else:
         return speech_to_text_hindi_sarvam(audio_data)
 

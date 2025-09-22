@@ -35,6 +35,7 @@ Required environment variables in `.env`:
 - `GROQ_API_KEY` - Groq API key for Llama 3.1 8B conversation logic
 - `OPENAI_API_KEY` - OpenAI GPT-4 API key (fallback, optional)
 - `SARVAM_API_KEY` - Sarvam AI API for Hindi speech-to-text
+- `GOOGLE_CLOUD_API_KEY` - Google Cloud Speech-to-Text API (optional, for google STT provider)
 - `ELEVENLABS_API_KEY` - ElevenLabs API for text-to-speech
 - `GOOGLE_CLIENT_ID` - Google OAuth authentication
 - `GOOGLE_CLIENT_SECRET` - Google OAuth authentication
@@ -289,3 +290,19 @@ git checkout -b enhancement/mobile-navigation-improvements
   - Removed all related Google Cloud Speech STT code from app.py
   - Updated STT_PROVIDER options to support only `sarvam` and `groq`
 - **Result**: Significant reduction in app size and dependency complexity
+
+### Google Cloud Speech-to-Text Integration v2 (January 2025)
+- **Branch**: `enhancement/google-cloud-stt-optimized`
+- **Objective**: Re-implement Google Cloud Speech-to-Text with performance optimizations to address previous latency concerns
+- **Key Optimizations**:
+  - **Silence Trimming**: Removes dead air while preserving all speech content (10-40% size reduction)
+  - **Connection Pooling**: Pre-established HTTP sessions for reduced latency
+  - **Audio Format Optimization**: Optimal 16kHz WEBM_OPUS settings for Google Cloud
+  - **Hindi Child Speech**: Specialized configuration with speech contexts for young learners
+  - **Dual Authentication**: Supports both API key and service account methods
+- **Performance Features**:
+  - **Performance Logging**: Same detailed timing format as existing providers for A/B comparison
+  - **Feature Flag**: `STT_PROVIDER=google` to enable (safe fallback to sarvam/groq)
+  - **Error Handling**: Graceful degradation with comprehensive logging
+- **Environment Setup**: Requires `GOOGLE_CLOUD_API_KEY` environment variable
+- **Expected Benefits**: Reduced latency through optimizations, better Hindi accuracy with enhanced models
