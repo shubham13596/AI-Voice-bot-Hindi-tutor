@@ -84,14 +84,45 @@ document.head.appendChild(recordingStyles);
 
 function initializeAudioEffects() {
     const audioEffects = {
-        firstMessage: new Audio('/static/sounds/first-message.mp3'),
-        milestone: new Audio('/static/sounds/milestone.mp3'),
-        reward: new Audio('/static/sounds/reward.mp3')
+        applause: new Audio('/static/applause_v1.wav') // Use applause sound file
     };
     
     // Preload audio
-    Object.values(audioEffects).forEach(audio => audio.load());
+    Object.values(audioEffects).forEach(audio => {
+        if (audio.load) audio.load(); // Check if it has load method (generated sounds may not)
+    });
     return audioEffects;
+}
+
+// Create applause sound from audio file
+function createApplauseSound() {
+    try {
+        const audio = new Audio('/static/applause_v1.wav');
+        audio.volume = 0.3; // Set volume to 30%
+        
+        return {
+            play: () => {
+                return new Promise((resolve) => {
+                    audio.currentTime = 0; // Reset to beginning
+                    audio.play().then(() => {
+                        // Resolve after audio finishes playing
+                        audio.addEventListener('ended', resolve, { once: true });
+                    }).catch((error) => {
+                        console.warn('Applause sound playback failed:', error);
+                        resolve();
+                    });
+                });
+            }
+        };
+    } catch (error) {
+        console.warn('Applause audio file not available, using fallback');
+        return {
+            play: () => {
+                console.log('🎉 Applause sound would play here!');
+                return Promise.resolve();
+            }
+        };
+    }
 }
 
 // Let's create a function to get these elements
@@ -113,6 +144,7 @@ let conversationHistory = [];
 let isRecording = false;
 let sessionId = null;
 let waveformAnimationFrame;
+let conversationPairs = []; // Track conversation pairs (keeping for potential future use)
 
 // Initialize recording visualization
 /*
@@ -145,7 +177,7 @@ function animateWaveform() {
 
 
 // Show celebration overlay with improved styling
-function showCelebration(type, message) {
+function showCelebration(type, message, playSound = true, useApplause = false) {
     // Create main overlay container
     const overlay = document.createElement('div');
     overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 fade-in';
@@ -185,7 +217,7 @@ function showCelebration(type, message) {
     
     // Add continue button
     const button = document.createElement('button');
-    button.className = 'w-full bg-purple-600 text-white rounded-lg py-2 px-4 hover:bg-purple-700 transition-colors';
+    button.className = 'w-full bg-green-500 text-white rounded-lg py-2 px-4 hover:bg-green-600 transition-colors';
     button.textContent = 'Continue';
     button.onclick = () => {
         overlay.classList.add('fade-out');
@@ -201,10 +233,17 @@ function showCelebration(type, message) {
     // Add to document
     document.body.appendChild(overlay);
     
-    // Play celebration sound
-    const audio = audioEffects[type];
-    if (audio) {
-        audio.play().catch(e => console.log('Audio playback failed:', e));
+    // Play celebration sound only if requested and available
+    if (playSound && audioEffects) {
+        if (useApplause && audioEffects.applause) {
+            // Use applause sound for correction completion celebrations
+            audioEffects.applause.play().catch(e => console.log('Applause sound failed:', e));
+        } else if (audioEffects[type]) {
+            // Use default type-specific sound
+            const audio = audioEffects[type];
+            if (audio.volume !== undefined) audio.volume = 0.3; // Reduce volume if it's a regular audio element
+            audio.play().catch(e => console.log('Audio playback failed:', e));
+        }
     }
     
     // Add necessary styles
@@ -288,27 +327,29 @@ function showCelebration(type, message) {
     
     document.head.appendChild(styles);
     
-    // Auto-remove after 5 seconds if user hasn't clicked continue
+    // Auto-remove after 3 seconds if user hasn't clicked continue (less intrusive)
     setTimeout(() => {
         if (document.body.contains(overlay)) {
             overlay.classList.add('fade-out');
             setTimeout(() => overlay.remove(), 500);
         }
-    }, 5000);
+    }, 3000);
 }
 
 // Update rewards display with animation
 function updateRewardsDisplay(sentenceCount, rewardPoints) {
-    const sentenceElement = document.getElementById('sentenceCount');
-    const pointsElement = document.getElementById('rewardPoints');
-    
-    animateNumberChange(sentenceElement, sentenceCount);
-    animateNumberChange(pointsElement, rewardPoints);
+    // Update stars count in new minimal header
+    const starsCountElement = document.getElementById('starsCount');
+    if (starsCountElement && rewardPoints !== undefined) {
+        animateNumberChange(starsCountElement, rewardPoints);
+    }
 }
 
 // Helper function to animate number changes
 function animateNumberChange(element, newValue) {
-    const currentValue = parseInt(element.textContent);
+    if (!element || newValue === undefined) return;
+    
+    const currentValue = parseInt(element.textContent) || 0;
     const difference = newValue - currentValue;
     
     if (difference === 0) return;
@@ -333,22 +374,271 @@ function animateNumberChange(element, newValue) {
     }, 50);
 }
 
-// Show reward animation
-function showRewardAnimation(points) {
-    const animation = document.createElement('div');
-    animation.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-4xl';
-    animation.textContent = `+${points} Points! 🎉`;
+// Show subtle reward feedback for good responses
+function showSubtleReward(points) {
+    const starsElement = document.getElementById('starsCount');
+    if (!starsElement) return;
     
-    // Add animation styles
-    animation.style.animation = 'reward-popup 1.5s ease-out forwards';
-    document.body.appendChild(animation);
+    // Create a small floating points indicator
+    const floatingPoints = document.createElement('div');
+    floatingPoints.className = 'absolute text-green-500 text-sm font-bold pointer-events-none';
+    floatingPoints.textContent = `+${points}`;
+    floatingPoints.style.cssText = `
+        top: -20px;
+        right: 0;
+        animation: subtleReward 2s ease-out forwards;
+        z-index: 1001;
+    `;
     
-    // Remove after animation
-    setTimeout(() => {
-        animation.remove();
-    }, 1500);
+    // Position relative to stars element
+    const starsContainer = starsElement.parentElement;
+    if (starsContainer) {
+        starsContainer.style.position = 'relative';
+        starsContainer.appendChild(floatingPoints);
+        
+        // Add subtle glow to stars element
+        starsElement.classList.add('reward-glow');
+        setTimeout(() => starsElement.classList.remove('reward-glow'), 1000);
+        
+        // Remove floating element
+        setTimeout(() => floatingPoints.remove(), 2000);
+    }
 }
 
+// Add CSS for subtle reward animations, typewriter effect, and smooth conversation sliding
+const subtleRewardStyles = document.createElement('style');
+subtleRewardStyles.textContent = `
+    @keyframes subtleReward {
+        0% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        100% {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
+
+    .reward-glow {
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        transition: box-shadow 0.3s ease;
+    }
+
+    .highlight {
+        background: rgba(34, 197, 94, 0.2);
+        transition: background 0.5s ease;
+    }
+
+    /* Animation for checking state */
+    .animate-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Typewriter effect for streaming text */
+    .typing::after {
+        content: '|';
+        animation: blink 1s infinite;
+        color: #666;
+        margin-left: 2px;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    /* Smooth text appearance */
+    .text-content {
+        transition: all 0.2s ease;
+    }
+
+    /* Smooth conversation sliding styles */
+    #conversation {
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform;
+    }
+
+    .message-pair {
+        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .message-visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: all;
+    }
+
+    /* Enhanced smooth sliding for mobile */
+    @media (max-width: 768px) {
+        #conversation {
+            transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .message-pair {
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+    }
+
+    /* Thinking Loader Styles */
+    .thinking-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin: 8px auto;
+        width: fit-content;
+    }
+
+    .thinking-spinner {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: conic-gradient(
+            from 0deg,
+            #3b82f6 0deg,
+            #8b5cf6 90deg,
+            #ec4899 180deg,
+            #f59e0b 270deg,
+            #3b82f6 360deg
+        );
+        animation: thinkingSpin 2s linear infinite;
+        position: relative;
+    }
+
+    .thinking-spinner::before {
+        content: '';
+        position: absolute;
+        inset: 2.5px;
+        background: white;
+        border-radius: 50%;
+    }
+
+    .thinking-text {
+        font-size: 16px;
+        color: #6b7280;
+        font-weight: 400;
+    }
+
+    @keyframes thinkingSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Smooth text flow animation */
+    .text-flow-in {
+        animation: textFlowIn 0.4s ease-out forwards;
+    }
+
+    @keyframes textFlowIn {
+        0% {
+            opacity: 0.3;
+            transform: translateY(2px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Enhanced text content transitions */
+    .text-content {
+        transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    }
+`;
+document.head.appendChild(subtleRewardStyles);
+
+// Show thinking loader in conversation area
+function showThinkingLoader() {
+    console.log('🔄 showThinkingLoader called');
+
+    // Remove any existing loader
+    hideThinkingLoader();
+
+    // Hide the record button completely when thinking
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.style.display = 'none';
+    }
+
+    const conversation = document.getElementById('conversation');
+    if (!conversation) {
+        console.error('❌ Conversation element not found');
+        return;
+    }
+
+    const loaderDiv = document.createElement('div');
+    loaderDiv.id = 'thinkingLoader';
+    loaderDiv.className = 'thinking-loader';
+
+    loaderDiv.innerHTML = `
+        <div class="thinking-spinner"></div>
+        <div class="thinking-text">Thinking..</div>
+    `;
+
+    conversation.appendChild(loaderDiv);
+    conversation.scrollTop = conversation.scrollHeight;
+
+    console.log('✅ Thinking loader added to conversation');
+}
+
+// Hide thinking loader
+function hideThinkingLoader() {
+    const loader = document.getElementById('thinkingLoader');
+    if (loader) {
+        console.log('🗑️ Hiding thinking loader');
+        loader.remove();
+    }
+
+    // Show the record button again when thinking is done
+    const recordButton = document.getElementById('recordButton');
+    if (recordButton) {
+        recordButton.style.display = 'flex';
+    }
+}
+
+// Smart conversation scrolling functionality
+function scrollToLatestUserMessage() {
+    const conversation = document.getElementById('conversation');
+    const allMessages = conversation.querySelectorAll('.p-4'); // All message divs
+
+    if (allMessages.length === 0) return;
+
+    // Find the latest user message (they have 'bg-green-100' class)
+    let latestUserMessage = null;
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+        if (allMessages[i].classList.contains('bg-green-100')) {
+            latestUserMessage = allMessages[i];
+            break;
+        }
+    }
+
+    if (!latestUserMessage) return;
+
+    // Calculate the scroll position to put user message at very top of viewport
+    const messageRect = latestUserMessage.getBoundingClientRect();
+    const currentScrollY = window.scrollY;
+
+    // Target scroll position: scroll so user message appears just below header (70px from top)
+    const targetScrollY = currentScrollY + messageRect.top - 70;
+
+    // Scroll to position user message at top
+    window.scrollTo({
+        top: Math.max(0, targetScrollY), // Ensure we don't scroll to negative values
+        behavior: 'smooth'
+    });
+
+    console.log(`📍 SCROLL: Positioned latest user message at top of viewport`);
+}
+
+function initializeMessageForSliding(messageDiv) {
+    // Add classes for smooth transitions
+    messageDiv.classList.add('message-visible');
+
+    // Ensure proper display
+    messageDiv.style.display = '';
+}
+
+// Function removed - replaced with scrollToLatestUserMessage()
 
 // Toggle recording state
 function toggleRecording() {
@@ -400,29 +690,24 @@ function toggleRecording() {
         mediaRecorder.stop();
         isRecording = false;
 
-        // Update UI to show processing state
+        // Update UI to show processing state - simplified button state
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
-        elements.recordText.textContent = 'Processing...';
-        elements.recordIcon.textContent = '⏳';
+        elements.recordText.textContent = 'Start Speaking';
+        elements.recordIcon.textContent = '🎤';
 
         // Remove recording indicator
         const indicator = elements.recordButton.querySelector('.recording-indicator');
         if (indicator) {
             indicator.remove();
         }
-        
+
         // Remove conversation area animation
         elements.conversation.style.boxShadow = '';
 
-        // Create a processing message in the conversation
-        const processingDiv = document.createElement('div');
-        processingDiv.id = 'processingMessage';
-        processingDiv.className = 'p-4 text-center text-gray-600 animate-pulse';
-        processingDiv.textContent = 'Your Hindi Friend is thinking ...';
-        elements.conversation.appendChild(processingDiv);
-        elements.conversation.scrollTop = elements.conversation.scrollHeight;
+        // Create new thinking loader in conversation area (left-aligned like assistant messages)
+        showThinkingLoader();
     }
 }
 
@@ -455,7 +740,15 @@ async function initializeRecording() {
 
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            await sendAudioToServer(audioBlob);
+
+            // Try streaming version first, fallback to original if needed
+            try {
+                await sendAudioToServerStream(audioBlob);
+            } catch (error) {
+                console.log('Streaming failed, using fallback:', error);
+                await sendAudioToServer(audioBlob);
+            }
+
             audioChunks = [];
         };
 
@@ -496,19 +789,42 @@ async function startConversation() {
         // Disable button at the start
         recordButton.disabled = true;
         recordButton.classList.add('opacity-50', 'cursor-not-allowed');
-        status.textContent = 'Starting conversation...';
         
-        // Get child name from sessionStorage
-        const childName = sessionStorage.getItem('childName') || 'दोस्त';
+        // Check if we're resuming a conversation
+        const isResuming = window.isResumingConversation;
+        const conversationId = window.conversationId;
         
-        console.log('Making API call to start conversation');
-        const response = await fetch('/api/start_conversation', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ child_name: childName })
-        });
+        let response;
+        
+        if (isResuming && conversationId) {
+            status.textContent = 'Resuming conversation...';
+            console.log('Making API call to resume conversation', conversationId);
+            
+            response = await fetch('/api/resume_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversation_id: conversationId
+                })
+            });
+        } else {
+            status.textContent = 'Starting conversation...';
+            console.log('Making API call to start conversation');
+            const conversationType = window.conversationType || 'everyday';
+            console.log('Conversation type:', conversationType);
+            
+            response = await fetch('/api/start_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversation_type: conversationType
+                })
+            });
+        }
 
         console.log('API response status:', response.status);
         if (!response.ok) {
@@ -525,29 +841,61 @@ async function startConversation() {
         // Store the session ID
         sessionId = data.session_id;
         
-        // Display initial message
-        if (data.text) {
-            displayMessage('assistant', data.text, null);
+        // Handle resumed conversation differently
+        if (isResuming && data.conversation_history) {
+            // Load existing conversation history
+            conversationHistory = data.conversation_history;
             
-            // Add to conversation history
-            conversationHistory.push({ 
-                role: 'assistant', 
-                content: data.text 
+            // Display all previous messages
+            const conversationDiv = document.getElementById('conversation');
+            conversationDiv.innerHTML = ''; // Clear any existing content
+            
+            data.conversation_history.forEach(msg => {
+                displayMessage(msg.role, msg.content, null);
             });
             
-            // Play initial audio if available
-            if (data.audio) {
-                playAudioResponse(data.audio);
+            // Only display continuation message if provided
+            if (data.text) {
+                displayMessage('assistant', data.text, null);
+                
+                // Add the continuation message to history
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: data.text
+                });
             }
             
-            // Only now enable the button and update status
-            recordButton.disabled = false;
-            recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
-            status.textContent = 'Click the button to start talking!';
-
+            // Update conversation type indicator if available
+            if (data.conversation_type && window.conversationType !== data.conversation_type) {
+                window.conversationType = data.conversation_type;
+                // Update the conversation type display
+                updateConversationTypeDisplay(data.conversation_type);
+            }
+            
         } else {
-            throw new Error('No initial message received');
+            // New conversation - display initial message
+            if (data.text) {
+                displayMessage('assistant', data.text, null);
+                
+                // Add to conversation history
+                conversationHistory.push({ 
+                    role: 'assistant', 
+                    content: data.text 
+                });
+            } else {
+                throw new Error('No initial message received');
+            }
         }
+        
+        // Play initial audio if available
+        if (data.audio) {
+            playAudioResponse(data.audio);
+        }
+        
+        // Enable the button and update status
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        status.textContent = isResuming ? 'Conversation resumed! Click to continue talking.' : 'Click the button to start talking!';
         
     } catch (error) {
         console.error('Error starting conversation:', error);
@@ -558,17 +906,37 @@ async function startConversation() {
 }
 
 // Display message in conversation
-function displayMessage(role, text, corrections = null) {
+function displayMessage(role, text, corrections = null, feedbackType = 'green') {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${
-        role === 'user' 
-            ? 'bg-purple-100 ml-auto max-w-[80%]' // Right-aligned for user messages
-            : 'bg-gray-100 mr-auto max-w-[80%]'   // Left-aligned for assistant messages
+    
+    // Determine border color based on feedback type for user messages
+    let borderClass = '';
+    if (role === 'user') {
+        borderClass = feedbackType === 'amber' ? 'border-l-4 border-amber-500' : 'border-l-4 border-green-500';
+    }
+    
+    // Calculate dynamic width for user messages based on text length
+    let widthClass = 'max-w-[80%]';
+    if (role === 'user') {
+        const textLength = text.length;
+        if (textLength < 20) {
+            widthClass = 'w-fit max-w-[80%]';
+        } else if (textLength < 50) {
+            widthClass = 'w-fit max-w-[70%]';
+        } else {
+            widthClass = 'max-w-[80%]';
+        }
+    }
+
+    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
+        role === 'user'
+            ? `bg-green-100 ml-auto ${widthClass}` // Right-aligned for user messages with dynamic width
+            : 'bg-gray-100 mr-auto max-w-[80%]'     // Left-aligned for assistant messages
     }`;
 
-    // Create text content with larger font
+    // Create text content with larger font and appropriate alignment
     const textContent = document.createElement('div');
-    textContent.className = 'text-lg mb-2'; // Larger text size
+    textContent.className = `text-lg mb-2 ${role === 'user' ? 'text-right' : ''}`; // Right-aligned text for user messages
     textContent.textContent = text;
     messageDiv.appendChild(textContent);
 
@@ -661,6 +1029,9 @@ function displayMessage(role, text, corrections = null) {
     buttonsDiv.appendChild(translateButton);
     messageDiv.appendChild(buttonsDiv);
 
+    // Initialize message for sliding animation
+    initializeMessageForSliding(messageDiv);
+
     // Add message to conversation
     conversation.appendChild(messageDiv);
     conversation.scrollTop = conversation.scrollHeight;
@@ -718,7 +1089,7 @@ function showCorrectionDialog(correctedText) {
                 <h3 class="text-lg font-medium text-center mb-4">सही वाक्य बोलें | Say the correct sentence</h3>
                 <p class="text-center text-gray-700 mb-6">${correctedText}</p>
                 <div class="flex justify-center gap-4">
-                    <button class="start-recording px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700">
+                    <button class="start-recording px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600">
                         🎤 Record
                     </button>
                     <button class="cancel-correction px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
@@ -746,12 +1117,12 @@ function showCorrectionDialog(correctedText) {
 
 function createCorrectionSuggestion(message, corrections, onCorrect, onDismiss) {
     const container = document.createElement('div');
-    container.className = 'mt-2 bg-purple-50 rounded-lg p-3 border border-purple-100 text-sm';
+    container.className = 'mt-2 bg-green-50 rounded-lg p-3 border border-green-100 text-sm';
     
     container.innerHTML = `
         <div class="flex justify-between items-start">
             <div>
-                <div class="font-medium text-purple-900"> Suggestions </div>
+                <div class="font-medium text-green-900"> Suggestions </div>
                 <div class="mt-2 space-y-1 corrections-list"></div>
             </div>
             <button class="dismiss-btn text-gray-400 hover:text-gray-500">✕</button>
@@ -779,7 +1150,280 @@ function createCorrectionSuggestion(message, corrections, onCorrect, onDismiss) 
 }
 
 
-// Process audio and handle responses
+// Enhanced streaming version with typewriter effect
+async function sendAudioToServerStream(audioBlob) {
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.wav');
+        formData.append('session_id', sessionId);
+
+        // Create EventSource for streaming
+        const response = await fetch('/api/process_audio_stream', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Handle the streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        let messageDiv = null;
+        let textContentDiv = null;
+        let transcript = '';
+        let evaluation = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.type === 'metadata') {
+                            // Store transcript and evaluation data
+                            transcript = data.transcript;
+                            evaluation = data.evaluation;
+
+                            // Display user message
+                            displayMessage('user', transcript, [], evaluation?.feedback_type);
+                            conversationHistory.push({ role: 'user', content: transcript });
+                        }
+
+                        if (data.type === 'words') {
+                            // Show white box on FIRST word chunk and hide thinking loader
+                            if (!messageDiv) {
+                                const whiteBoxTime = performance.now();
+                                console.log(`📱 WHITE BOX: Appeared at ${whiteBoxTime.toFixed(1)}ms after page load`);
+
+                                // Hide thinking loader when response starts
+                                hideThinkingLoader();
+
+                                messageDiv = createEmptyMessageDiv('assistant');
+                                textContentDiv = messageDiv.querySelector('.text-content');
+                                conversation.appendChild(messageDiv);
+                                conversation.scrollTop = conversation.scrollHeight;
+                            }
+
+                            // Update text progressively with smooth flow animation
+                            textContentDiv.textContent = data.accumulated;
+                            textContentDiv.classList.add('typing');
+
+                            // Add smooth flow animation for new text
+                            textContentDiv.classList.remove('text-flow-in');
+                            // Force reflow to restart animation
+                            textContentDiv.offsetHeight;
+                            textContentDiv.classList.add('text-flow-in');
+                        }
+
+                        if (data.type === 'complete') {
+                            // Remove typing effect and add final smooth animation
+                            if (textContentDiv) {
+                                textContentDiv.classList.remove('typing');
+                                textContentDiv.textContent = data.final_text;
+
+                                // Add smooth flow animation for final text
+                                textContentDiv.classList.remove('text-flow-in');
+                                textContentDiv.offsetHeight; // Force reflow
+                                textContentDiv.classList.add('text-flow-in');
+                            }
+
+                            // Add to conversation history
+                            conversationHistory.push({ role: 'assistant', content: data.final_text });
+
+                            // Check for function calls in structured conversations
+                            if (data.function_call) {
+                                console.log('Function call detected:', data.function_call);
+                                handleFunctionCall(data.function_call);
+                                return; // Don't continue with normal flow
+                            }
+
+                            // Handle celebrations and rewards
+                            if (data.is_milestone && data.new_rewards > 10) {
+                                const childName = sessionStorage.getItem('childName') || 'दोस्त';
+                                showCelebration('milestone',
+                                    `Excellent ${childName}! You've given ${data.good_response_count} great Hindi responses! 🌟`,
+                                    false
+                                );
+                            }
+
+                            if (data.new_rewards > 0 && !data.is_milestone) {
+                                showSubtleReward(data.new_rewards);
+                            }
+
+                            // Update rewards display
+                            updateRewardsDisplay(data.sentence_count, data.reward_points);
+
+                            // Handle correction popup
+                            if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
+                                showCorrectionPopup(data.amber_responses, () => {
+                                    setTimeout(() => {
+                                        // Generate and play TTS after popup closes
+                                        generateAndPlayAudio(data.final_text);
+                                    }, 1000);
+                                });
+                            } else {
+                                // Generate and play TTS immediately
+                                const ttsStartTime = performance.now();
+                                console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
+                                generateAndPlayAudio(data.final_text);
+
+                                // Scroll to position user message at top after user response (small delay for DOM update)
+                                setTimeout(() => {
+                                    scrollToLatestUserMessage();
+                                }, 50);
+                            }
+                        }
+
+                        if (data.type === 'error') {
+                            throw new Error(data.message);
+                        }
+
+                    } catch (parseError) {
+                        console.error('Error parsing streaming data:', parseError);
+                    }
+                }
+            }
+        }
+
+        // Reset button state
+        resetRecordingInterface();
+
+    } catch (error) {
+        console.error('Streaming Error:', error);
+
+        // Fallback to original method
+        console.log('Falling back to original sendAudioToServer');
+        return sendAudioToServer(audioBlob);
+    }
+}
+
+// Helper function to create empty message div for progressive text
+function createEmptyMessageDiv(role) {
+    const messageDiv = document.createElement('div');
+
+    let borderClass = '';
+    if (role === 'user') {
+        borderClass = 'border-l-4 border-green-500';
+    }
+
+    messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
+        role === 'user'
+            ? 'bg-green-100 ml-auto max-w-[80%]'
+            : 'bg-gray-100 mr-auto max-w-[80%]'
+    }`;
+
+    // Create text content with typing class
+    const textContent = document.createElement('div');
+    textContent.className = 'text-lg mb-2 text-content';
+    textContent.textContent = '';
+    messageDiv.appendChild(textContent);
+
+    // Add buttons container (only for assistant messages)
+    if (role === 'assistant') {
+        const buttonsDiv = createMessageButtons();
+        messageDiv.appendChild(buttonsDiv);
+    }
+
+    return messageDiv;
+}
+
+// Helper function to create message buttons
+function createMessageButtons() {
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'flex justify-end gap-2 mt-2';
+
+    // Create speak button
+    const speakButton = document.createElement('button');
+    speakButton.className = 'p-1 rounded hover:bg-gray-200';
+    speakButton.innerHTML = '🔊';
+    speakButton.onclick = function() {
+        const text = this.closest('.p-4').querySelector('.text-content').textContent;
+        const formData = new FormData();
+        formData.append('text', text);
+        fetch('/api/speak', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.audio) {
+                playAudioResponse(data.audio);
+            }
+        });
+    };
+
+    // Create translate button
+    const translateButton = document.createElement('button');
+    translateButton.className = 'p-1 rounded hover:bg-gray-200';
+    const uniqueId = `translate-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    translateButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="18">
+        <defs>
+            <linearGradient id="${uniqueId}" x1="0%" y1="50%" y2="106.671%">
+                <stop offset="0%" stop-color="#000046"/>
+                <stop offset="100%" stop-color="#1CB5E0"/>
+            </linearGradient>
+        </defs>
+        <path d="M20.55 8.4v1.557h-1.5V18h-2.016v-3.373a2.17 2.17 0 0 1-.643.1c-.258 0-.486-.057-.7-.143v.086c0 1.615-1.216 2.8-3.16 2.8-1.872 0-2.844-1.015-3.2-1.544l1.386-1.272c.3.53.915 1.144 1.844 1.144.758 0 1.2-.458 1.2-1.086 0-.615-.442-.987-1.357-.987h-.772v-1.672h.5c.872 0 1.23-.457 1.23-1.1 0-.558-.386-.944-1-.944-.572 0-.958.272-1.23.715L9.872 9.538c.457-.657 1.358-1.2 2.544-1.2 1.672 0 2.787.957 2.787 2.415 0 .815-.37 1.515-1.043 1.844v.057a1.67 1.67 0 0 1 .486.172h.014c.025.023.054.043.086.057.386.2.786.286 1.143.286.5 0 .872-.1 1.144-.243v-2.96h-1.115V8.4h4.63zM3.03 0h3.045L9.12 10.02H6.832l-.63-2.302h-3.36L2.2 10.02H0L3.03 0zm.73 4.46l-.415 1.457h2.358l-.386-1.4-.757-3.002h-.058c-.17.858-.386 1.672-.743 2.945z"
+            fill="url(#${uniqueId})"
+            fill-rule="evenodd"/>
+    </svg>`;
+
+    translateButton.style.display = 'flex';
+    translateButton.style.alignItems = 'center';
+    translateButton.style.justifyContent = 'center';
+    translateButton.onclick = async function() {
+        try {
+            const text = this.closest('.p-4').querySelector('.text-content').textContent;
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+            const data = await response.json();
+            if (data.translation) {
+                showTranslation(data.translation, translateButton);
+            }
+        } catch (error) {
+            console.error('Translation error:', error);
+        }
+    };
+
+    buttonsDiv.appendChild(speakButton);
+    buttonsDiv.appendChild(translateButton);
+    return buttonsDiv;
+}
+
+// Helper function to generate and play audio
+async function generateAndPlayAudio(text) {
+    try {
+        // Use existing TTS endpoint
+        const formData = new FormData();
+        formData.append('text', text);
+        const response = await fetch('/api/speak', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.audio) {
+            playAudioResponse(data.audio);
+        }
+    } catch (error) {
+        console.error('TTS Error:', error);
+    }
+}
+
+// Process audio and handle responses (Original function - kept as fallback)
 async function sendAudioToServer(audioBlob) {
     try {
         //status.textContent = 'Processing...';
@@ -810,23 +1454,21 @@ async function sendAudioToServer(audioBlob) {
 
         const data = await response.json();
 
-        // Remove processing message if it exists
-        const processingMessage = document.getElementById('processingMessage');
-        if (processingMessage) {
-            processingMessage.remove();
-        }
+        // Remove thinking loader if it exists
+        hideThinkingLoader();
         
-        // First message celebration
-        if (conversationHistory.length === 1) {
+        // Quality-based celebrations only
+        if (data.is_milestone && data.new_rewards > 10) {
             const childName = sessionStorage.getItem('childName') || 'दोस्त';
-            showCelebration('firstMessage', `Amazing start ${childName}! Keep going! 🌟`);
+            showCelebration('milestone', 
+                `Excellent ${childName}! You've given ${data.good_response_count} great Hindi responses! 🌟`, 
+                false // No sound
+            );
         }
         
-        // Milestone celebrations
-        if (data.sentence_count % 2 === 0 && data.sentence_count > 0) {
-            showCelebration('milestone', 
-                `Fantastic! You've spoken ${data.sentence_count} sentences in Hindi! Captain America is proud of you! 🎉`
-            );
+        // Subtle reward feedback for good responses
+        if (data.new_rewards > 0 && !data.is_milestone) {
+            showSubtleReward(data.new_rewards);
         }
         
         // Update conversation
@@ -835,11 +1477,38 @@ async function sendAudioToServer(audioBlob) {
             { role: 'assistant', content: data.text }
         );
 
-        displayMessage('user', data.transcript, data.corrections);
-        displayMessage('assistant', data.text, []);
-        
-        updateRewardsDisplay(data.sentence_count, data.reward_points);
-        playAudioResponse(data.audio);
+        // Check for function calls in structured conversations
+        if (data.function_call) {
+            console.log('Function call detected:', data.function_call);
+            handleFunctionCall(data.function_call);
+            return; // Don't continue with normal flow
+        }
+
+        displayMessage('user', data.transcript, data.corrections, data.evaluation?.feedback_type);
+
+        // Scroll to position user message at top after user response (small delay for DOM update)
+        setTimeout(() => {
+            scrollToLatestUserMessage();
+        }, 50);
+
+        // Check if correction popup should be shown FIRST
+        if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
+            // Hold the talker response and show correction popup first
+            showCorrectionPopup(data.amber_responses, () => {
+                // This callback runs after popup closes
+                setTimeout(() => {
+                    // Display assistant message and play audio after 1-second delay
+                    displayMessage('assistant', data.text, []);
+                    updateRewardsDisplay(data.sentence_count, data.reward_points);
+                    playAudioResponse(data.audio);
+                }, 4500);
+            });
+        } else {
+            // No correction popup, proceed normally
+            displayMessage('assistant', data.text, []);
+            updateRewardsDisplay(data.sentence_count, data.reward_points);
+            playAudioResponse(data.audio);
+        }
 
         // Reset button state
         const recordButton = document.getElementById('recordButton');
@@ -895,8 +1564,407 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Show correction popup for amber responses
+function showCorrectionPopup(amberResponses, onCloseCallback = null) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+    
+    const popup = document.createElement('div');
+    popup.className = 'bg-white rounded-lg p-6 mx-4 max-w-md w-full';
+    
+    let currentIndex = 0;
+    
+    function renderCorrectionItem(index) {
+        const item = amberResponses[index];
+        popup.innerHTML = `
+            <div class="text-center mb-4">
+                <h3 class="text-lg font-bold text-green-600">Let's improve your Hindi!</h3>
+                <p class="text-sm text-gray-600">Complete all corrections to earn badges 🏆</p>
+            </div>
+            
+            <div class="mb-6">
+                <div class="text-sm text-gray-500 mb-2">Your original response:</div>
+                <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4">
+                    ${item.user_response}
+                </div>
+                
+                <div class="text-sm text-gray-500 mb-2">Correct response should be:</div>
+                <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium">
+                    ${item.corrected_response}
+                </div>
+                
+                <!-- User's current spoken words display area -->
+                <div id="spokenWordsArea" class="hidden mb-4">
+                    <div class="text-sm text-gray-500 mb-2">What you just said:</div>
+                    <div id="spokenWords" class="bg-blue-50 p-3 rounded border-l-4 border-blue-300 font-medium">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mb-4">
+                <button id="recordCorrectionBtn" class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto">
+                    <span id="recordCorrectionIcon">🎤</span>
+                    <span id="recordCorrectionText">Record Correct Response</span>
+                </button>
+            </div>
+            
+            <div class="flex justify-between text-sm text-gray-500">
+                <span>${index + 1} of ${amberResponses.length}</span>
+                <button id="skipCorrectionBtn" class="text-gray-400 hover:text-gray-600">Skip for now</button>
+            </div>
+        `;
+        
+        // Add event listeners
+        const recordBtn = popup.querySelector('#recordCorrectionBtn');
+        const skipBtn = popup.querySelector('#skipCorrectionBtn');
+        
+        recordBtn.addEventListener('click', () => {
+            recordCorrection(item.corrected_response, () => {
+                if (index + 1 < amberResponses.length) {
+                    renderCorrectionItem(index + 1);
+                } else {
+                    closeCorrectionPopup();
+                }
+            });
+        });
+        
+        skipBtn.addEventListener('click', () => {
+            if (index + 1 < amberResponses.length) {
+                renderCorrectionItem(index + 1);
+            } else {
+                closeCorrectionPopup();
+            }
+        });
+    }
+    
+    function closeCorrectionPopup() {
+        overlay.classList.add('fade-out');
+        setTimeout(() => {
+            overlay.remove();
+
+            // Execute the callback after popup is closed
+            if (onCloseCallback) {
+                onCloseCallback();
+            }
+        }, 300);
+
+        // Award bonus points for completion
+        awardCorrectionBonus();
+
+        // Play soft clapping sound to celebrate completion
+        if (audioEffects && audioEffects.applause) {
+            audioEffects.applause.play().catch(e => console.log('Applause sound failed:', e));
+        }
+
+        // Show completion message with Captain America shield and clapping sound
+        showCelebration('milestone', 'Great work on improving your Hindi! You have scored 50 additional stars! Keep practicing! 🌟', true, true);
+
+        // Clear amber responses from session
+        clearAmberResponses();
+
+        // Reset main recording interface to ready state
+        resetRecordingInterface();
+    }
+    
+    renderCorrectionItem(0);
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+}
+
+// Global variables for correction recording state
+let correctionRecorder = null;
+let isCorrectionRecording = false;
+
+// Record correction attempt with proper UI state management
+async function recordCorrection(targetText, onSuccess) {
+    const recordBtn = document.getElementById('recordCorrectionBtn');
+    const recordIcon = document.getElementById('recordCorrectionIcon');
+    const recordText = document.getElementById('recordCorrectionText');
+    const spokenWordsArea = document.getElementById('spokenWordsArea');
+    const spokenWords = document.getElementById('spokenWords');
+    
+    // Handle button click based on current state
+    if (!isCorrectionRecording) {
+        // START RECORDING STATE
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            correctionRecorder = new MediaRecorder(stream);
+            const tempAudioChunks = [];
+            
+            // Update UI to recording state
+            isCorrectionRecording = true;
+            recordIcon.textContent = '⏹️';
+            recordText.textContent = 'Stop Recording';
+            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            
+            // Hide previous spoken words
+            spokenWordsArea.classList.add('hidden');
+            
+            correctionRecorder.ondataavailable = (event) => {
+                tempAudioChunks.push(event.data);
+            };
+            
+            correctionRecorder.onstop = async () => {
+                // CHECKING STATE
+                recordIcon.textContent = '🔄';
+                recordText.textContent = 'Your Hindi tutor is checking...';
+                recordBtn.className = 'bg-blue-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto animate-pulse';
+                recordBtn.disabled = true;
+                
+                const audioBlob = new Blob(tempAudioChunks, { type: 'audio/wav' });
+                
+                try {
+                    // Use STT-only endpoint for corrections
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'audio.wav');
+                    
+                    const response = await fetch('/api/correction_stt', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    const userText = data.transcript?.toLowerCase().trim() || '';
+                    const targetTextNormalized = targetText.toLowerCase().trim();
+
+                    // DEBUG: Log the comparison values
+                    console.log('=== SIMILARITY DEBUG ===');
+                    console.log('User text:', JSON.stringify(userText));
+                    console.log('Target text:', JSON.stringify(targetTextNormalized));
+                    console.log('User words:', userText.split(' ').filter(w => w.length > 0));
+                    console.log('Target words:', targetTextNormalized.split(' ').filter(w => w.length > 0));
+
+                    // Show what user said
+                    if (userText) {
+                        spokenWords.textContent = userText;
+                        spokenWordsArea.classList.remove('hidden');
+                    }
+
+                    // Simple text matching
+                    const similarity = calculateSimilarity(userText, targetTextNormalized);
+                    console.log('Calculated similarity:', similarity);
+                    console.log('Threshold check (>0.7):', similarity > 0.7);
+                    console.log('========================');
+                    
+                    if (similarity > 0.7) { // 70% similarity threshold
+                        // SUCCESS STATE
+                        recordIcon.textContent = '✅';
+                        recordText.textContent = 'You got this right; let\'s move on';
+                        recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 mx-auto';
+                        recordBtn.disabled = true;
+                        setTimeout(onSuccess, 2000);
+                    } else {
+                        // TRY AGAIN STATE
+                        recordIcon.textContent = '🔄';
+                        recordText.textContent = 'Try Again';
+                        recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
+                        recordBtn.disabled = false;
+                        isCorrectionRecording = false; // Allow user to record again
+                        
+                        // Reset to initial state after 3 seconds if user doesn't click
+                        setTimeout(() => {
+                            if (!isCorrectionRecording) {
+                                recordIcon.textContent = '🎤';
+                                recordText.textContent = 'Record Correct Response';
+                                recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
+                            }
+                        }, 3000);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing correction:', error);
+                    // ERROR STATE
+                    recordIcon.textContent = '🔄';
+                    recordText.textContent = 'Try Again';
+                    recordBtn.className = 'bg-orange-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-orange-600 transition-colors mx-auto';
+                    recordBtn.disabled = false;
+                    isCorrectionRecording = false;
+                } finally {
+                    // Stop and cleanup correction recorder
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            };
+            
+            correctionRecorder.start();
+            
+            // Auto-stop after 10 seconds
+            setTimeout(() => {
+                if (correctionRecorder && correctionRecorder.state === 'recording') {
+                    correctionRecorder.stop();
+                    isCorrectionRecording = false;
+                }
+            }, 10000);
+            
+        } catch (error) {
+            console.error('Error starting correction recording:', error);
+            recordIcon.textContent = '❌';
+            recordText.textContent = 'Microphone Error - Try Again';
+            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            setTimeout(() => {
+                recordIcon.textContent = '🎤';
+                recordText.textContent = 'Record Correct Response';
+                recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
+            }, 3000);
+        }
+        
+    } else {
+        // STOP RECORDING
+        if (correctionRecorder && correctionRecorder.state === 'recording') {
+            correctionRecorder.stop();
+            isCorrectionRecording = false;
+        }
+    }
+}
+
+// Simple text similarity calculation
+function calculateSimilarity(text1, text2) {
+    const words1 = text1.split(' ').filter(w => w.length > 0);
+    const words2 = text2.split(' ').filter(w => w.length > 0);
+    
+    let matches = 0;
+    const maxWords = Math.max(words1.length, words2.length);
+    
+    words1.forEach(word => {
+        if (words2.includes(word)) {
+            matches++;
+        }
+    });
+    
+    return matches / maxWords;
+}
+
+// Award bonus points for completing correction popup
+async function awardCorrectionBonus() {
+    try {
+        const bonusPoints = 50; // Generous bonus for completing corrections
+        
+        // Update stars display immediately
+        const starsElement = document.getElementById('starsCount');
+        if (starsElement) {
+            const currentPoints = parseInt(starsElement.textContent) || 0;
+            animateNumberChange(starsElement, currentPoints + bonusPoints);
+            
+            // Show bonus feedback
+            showSubtleReward(bonusPoints);
+        }
+        
+        // Optionally sync with server (you could add an endpoint for this)
+        // For now, the bonus is just visual feedback
+        
+    } catch (error) {
+        console.error('Error awarding correction bonus:', error);
+    }
+}
+
+// Clear amber responses from session
+async function clearAmberResponses() {
+    try {
+        await fetch('/api/clear_amber_responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ session_id: sessionId })
+        });
+    } catch (error) {
+        console.error('Error clearing amber responses:', error);
+    }
+}
+
+// Reset recording interface to ready state
+function resetRecordingInterface() {
+    const recordButton = document.getElementById('recordButton');
+    const recordText = document.getElementById('recordText');
+    const recordIcon = document.getElementById('recordIcon');
+    const status = document.getElementById('status');
+    
+    if (recordButton && recordText && recordIcon && status) {
+        // Ensure recording is not active
+        isRecording = false;
+        
+        // Reset button state
+        recordButton.disabled = false;
+        recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
+        recordButton.classList.add('bg-green-500');
+        recordText.textContent = 'Start Speaking';
+        recordIcon.textContent = '🎤';
+        status.textContent = 'Ready to listen!';
+        
+        // Remove any thinking loader
+        hideThinkingLoader();
+        
+        // Remove any recording indicators
+        const indicator = recordButton.querySelector('.recording-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+}
+
+// Helper function to update conversation type display
+function updateConversationTypeDisplay(conversationType) {
+    const typeNames = {
+        'everyday': 'Everyday Life',
+        'cartoons': 'Favorite Cartoons',
+        'adventure_story': 'Adventure Story',
+        'mystery_story': 'Mystery Story',
+        'everyday_structured': 'Structured Everyday Life'
+    };
+    const typeDescs = {
+        'everyday': 'Talk about daily activities and school',
+        'cartoons': 'Chat about favorite cartoon characters',
+        'adventure_story': 'Create exciting adventure stories together',
+        'mystery_story': 'Solve fun mysteries and detective stories',
+        'everyday_structured': 'Guided conversations with specific objectives'
+    };
+    const typeIcons = {
+        'everyday': '🏠',
+        'cartoons': '🎭',
+        'adventure_story': '🗺️',
+        'mystery_story': '🔍',
+        'everyday_structured': '📋'
+    };
+    
+    // Update conversation type indicator
+    const nameEl = document.getElementById('conversationTypeName');
+    const descEl = document.getElementById('conversationTypeDesc');
+    const iconEl = document.getElementById('conversationIcon');
+    
+    if (nameEl) nameEl.textContent = typeNames[conversationType] || 'Conversation';
+    if (descEl) descEl.textContent = typeDescs[conversationType] || 'General conversation';
+    if (iconEl) iconEl.textContent = typeIcons[conversationType] || '💬';
+}
+
+// Handle function calls from structured conversations
+function handleFunctionCall(functionCall) {
+    console.log('Handling function call:', functionCall);
+
+    if (functionCall.action === 'redirect' && functionCall.page === 'completion_celebration') {
+        // Show completion celebration
+        setTimeout(() => {
+            window.location.href = '/completion_celebration';
+        }, 2000); // Give 2 seconds to read the final message
+    }
+}
+
+// Add refresh button for errors
+function addRefreshButton() {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh Page';
+    refreshBtn.className = 'mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600';
+    refreshBtn.onclick = () => window.location.reload();
+    
+    const status = document.getElementById('status');
+    if (status && status.parentNode) {
+        status.parentNode.appendChild(refreshBtn);
+    }
+}
+
 // Error handling for audio playback
 window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
-    status.textContent = 'Error: Something went wrong. Please try again.';
+    const status = document.getElementById('status');
+    if (status) {
+        status.textContent = 'Error: Something went wrong. Please try again.';
+    }
 });

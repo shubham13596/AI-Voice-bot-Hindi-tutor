@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard - Your Hindi Tutor</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        // Dashboard page initialization
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+                
+                const user = await response.json();
+                if (!user.child_name) {
+                    window.location.href = '/profile-setup';
+                    return;
+                }
+                
+                // Update page title and user info
+                document.title = `Activity Dashboard - ${user.child_name}`;
+                const childNameEl = document.getElementById('childName');
+                if (childNameEl) {
+                    childNameEl.textContent = user.child_name + "'s";
+                }
+                
+                // Initialize dashboard data
+                await loadDashboardData();
+                
+            } catch (error) {
+                console.error('Error checking user authentication:', error);
+                window.location.href = '/';
+            }
+        });
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            min-height: 100vh;
+            padding-top: 4rem;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        /* Header styles */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4rem;
+            background: linear-gradient(to right, #22c55e, #16a34a);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 0.5rem;
+        }
+
+        .header-container {
+            height: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+        }
+
+        .app-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+
+        .nav-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Profile dropdown */
+        .profile-dropdown {
+            position: relative;
+        }
+
+        .profile-button {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.3s;
+        }
+
+        .profile-button:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            z-index: 1001;
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .dropdown-user-name {
+            font-weight: 600;
+            color: #166534;
+            margin-bottom: 0.25rem;
+        }
+
+        .dropdown-user-email {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            text-align: left;
+            color: #374151;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f3f4f6;
+        }
+
+        .dropdown-item.danger {
+            color: #dc2626;
+        }
+
+        .dropdown-item.danger:hover {
+            background-color: #fef2f2;
+        }
+
+        /* Dashboard layout - works with mobile design system */
+        .dashboard-container {
+            background: var(--card-white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--space-lg);
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #166534;
+            margin-bottom: 0.5rem;
+        }
+
+        .dashboard-subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+
+        /* Week toggle */
+        .week-toggle {
+            background: white;
+            border-radius: 1rem;
+            padding: 0.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: center;
+        }
+
+        .toggle-button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #6b7280;
+        }
+
+        .toggle-button.active {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #166534;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .stat-comparison {
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .stat-comparison.positive {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .stat-comparison.negative {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .stat-comparison.neutral {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Back button styles */
+        .back-button-container {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+        }
+
+        .back-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+            font-size: 0.9rem;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .back-button svg {
+            transition: transform 0.3s;
+        }
+
+        .back-button:hover svg {
+            transform: translateX(-2px);
+        }
+
+        /* Loading and error states */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+
+        .error {
+            text-align: center;
+            padding: 3rem;
+            color: #dc2626;
+            background: #fef2f2;
+            border-radius: 1rem;
+            margin: 1rem 0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 0.5rem;
+            }
+
+            .app-title {
+                font-size: 1rem;
+            }
+
+            .nav-link {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.9rem;
+            }
+
+            .profile-button {
+                padding: 0.4rem 0.8rem;
+            }
+
+            .dropdown-menu {
+                right: -0.5rem;
+            }
+
+            .mobile-main-content {
+                padding: var(--space-md);
+            }
+
+            .dashboard-title {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .toggle-button {
+                padding: 0.6rem 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- No top bar for dashboard as per requirements -->
+        
+        <!-- Back button -->
+        <div class="back-button-container">
+            <button onclick="window.location.href='/conversation-select'" class="back-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+                Back
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="mobile-main-content dashboard-content">
+            <div class="dashboard-container">
+                <div class="dashboard-header">
+                    <h1 class="dashboard-title">Learning Progress</h1>
+                    <p class="dashboard-subtitle">Track <span id="childName">your child's</span> Hindi conversation journey</p>
+                </div>
+
+        <div class="week-toggle">
+            <button id="thisWeekBtn" class="toggle-button active">This Week</button>
+            <button id="lastWeekBtn" class="toggle-button">Last Week</button>
+        </div>
+
+        <div id="loadingState" class="loading">
+            <div>📊 Loading your progress...</div>
+        </div>
+
+        <div id="errorState" class="error" style="display: none;">
+            <div>❌ Failed to load dashboard data. Please try refreshing the page.</div>
+        </div>
+
+        <div id="statsContainer" class="stats-grid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-icon">💬</div>
+                <div class="stat-number" id="sentenceCount">0</div>
+                <div class="stat-label">Sentences Spoken</div>
+                <div id="sentenceComparison" class="stat-comparison neutral">—</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-number" id="activeDays">0</div>
+                <div class="stat-label">Active Days</div>
+                <div id="daysComparison" class="stat-comparison neutral">—</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-number" id="totalPoints">0</div>
+                <div class="stat-label">Total Points</div>
+                <div id="pointsComparison" class="stat-comparison neutral">—</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentWeek = 'this';
+        
+        const thisWeekBtn = document.getElementById('thisWeekBtn');
+        const lastWeekBtn = document.getElementById('lastWeekBtn');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const statsContainer = document.getElementById('statsContainer');
+
+        // Week toggle functionality
+        thisWeekBtn.addEventListener('click', () => switchWeek('this'));
+        lastWeekBtn.addEventListener('click', () => switchWeek('last'));
+
+        function switchWeek(week) {
+            currentWeek = week;
+            
+            // Update button states
+            thisWeekBtn.classList.toggle('active', week === 'this');
+            lastWeekBtn.classList.toggle('active', week === 'last');
+            
+            // Load data for selected week
+            loadDashboardData();
+        }
+
+        async function loadDashboardData() {
+            try {
+                showLoading();
+                
+                const weekParam = currentWeek === 'this' ? '0' : '1';
+                const response = await fetch(`/api/dashboard?week=${weekParam}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch dashboard data');
+                }
+                
+                const result = await response.json();
+                if (result.success) {
+                    displayStats(result.data);
+                    
+                    // Load comparison data only if viewing this week
+                    if (currentWeek === 'this') {
+                        loadComparisonData();
+                    } else {
+                        // Clear comparison data when viewing last week
+                        clearComparison();
+                    }
+                } else {
+                    throw new Error('API returned error');
+                }
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showError();
+            }
+        }
+
+        async function loadComparisonData() {
+            try {
+                const response = await fetch('/api/dashboard/comparison');
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        displayComparison(result.data.improvements);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading comparison data:', error);
+            }
+        }
+
+        function displayStats(data) {
+            document.getElementById('sentenceCount').textContent = data.total_sentences || 0;
+            document.getElementById('activeDays').textContent = data.active_days || 0;
+            document.getElementById('totalPoints').textContent = data.total_points || 0;
+            
+            showStats();
+        }
+
+        function displayComparison(comparison) {
+            updateComparisonElement('sentenceComparison', comparison.sentences);
+            updateComparisonElement('daysComparison', comparison.active_days);
+            updateComparisonElement('pointsComparison', comparison.points);
+        }
+
+        function clearComparison() {
+            // Hide comparison elements for "This Week" view
+            const comparisonElements = [
+                'sentenceComparison', 
+                'daysComparison', 
+                'pointsComparison'
+            ];
+            
+            comparisonElements.forEach(elementId => {
+                const element = document.getElementById(elementId);
+                element.style.display = 'none';
+            });
+        }
+
+        function updateComparisonElement(elementId, change) {
+            const element = document.getElementById(elementId);
+            
+            // Show the element when displaying comparison data
+            element.style.display = 'block';
+            
+            if (change > 0) {
+                element.textContent = `+${change} from last week`;
+                element.className = 'stat-comparison positive';
+            } else if (change < 0) {
+                element.textContent = `${change} from last week`;
+                element.className = 'stat-comparison negative';
+            } else {
+                element.textContent = 'Same as last week';
+                element.className = 'stat-comparison neutral';
+            }
+        }
+
+        function showLoading() {
+            loadingState.style.display = 'block';
+            errorState.style.display = 'none';
+            statsContainer.style.display = 'none';
+        }
+
+        function showError() {
+            loadingState.style.display = 'none';
+            errorState.style.display = 'block';
+            statsContainer.style.display = 'none';
+        }
+
+        function showStats() {
+            loadingState.style.display = 'none';
+            errorState.style.display = 'none';
+            statsContainer.style.display = 'grid';
+        }
+
+        // Profile dropdown is now handled by mobile navigation component
+
+        // Load initial data when page loads - called from DOM ready above
+        // (removed duplicate loading to prevent issues)
+    </script>
+        
+            </div> <!-- Close dashboard-container -->
+        </main> <!-- Close mobile-main-content -->
+        
+        <!-- Bottom Navigation will be inserted here by JavaScript -->
+    </div> <!-- Close app-container -->
+</body>
+</html>

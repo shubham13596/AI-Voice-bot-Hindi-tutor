@@ -3,23 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>आपका हिंदी मित्र - Your Hindi Friend</title>
+    <title>आपका हिंदी मित्र - Your Hindi Tutor</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
-        // Check if child name exists in sessionStorage, redirect to landing if not
-        document.addEventListener('DOMContentLoaded', function() {
-            const childName = sessionStorage.getItem('childName');
-            if (!childName) {
-                // Redirect to landing page if no name is set
+        // Get conversation parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const conversationType = urlParams.get('type') || 'everyday';
+        const conversationId = urlParams.get('id') || null;
+        
+        // Make conversation parameters available globally
+        window.conversationType = conversationType;
+        window.conversationId = conversationId;
+        window.isResumingConversation = !!conversationId;
+        
+        // Global user data cache to avoid duplicate API calls
+        let userData = null;
+
+        // Check if user is authenticated and has child name set
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Single API call to get user info
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    // User not authenticated, redirect to home
+                    window.location.href = '/';
+                    return;
+                }
+
+                userData = await response.json();
+                if (!userData.child_name) {
+                    // User authenticated but no child name, redirect to profile setup
+                    window.location.href = '/profile-setup';
+                    return;
+                }
+
+                // Store child name in sessionStorage for process_audio.js
+                sessionStorage.setItem('childName', userData.child_name);
+
+                // Update page title with child's name and conversation type
+                const typeNames = {
+                    'everyday': 'Everyday Life',
+                    'animals_nature': 'Favorite animals, wildlife',
+                    'adventure_story': 'Adventure Story',
+                    'panchatantra_story': 'Indian fables'
+                };
+                const typeDescs = {
+                    'everyday': 'Talk about daily activities and school',
+                    'animals_nature': 'Chat about favorite animals, wildlife',
+                    'adventure_story': 'Create exciting adventure stories together',
+                    'panchatantra_story': 'Co-create an Indian fable'
+                };
+                const typeIcons = {
+                    'everyday': '🏠',
+                    'animals_nature': '🦊',
+                    'adventure_story': '🗺️',
+                    'panchatantra_story': '📖'
+                };
+                const typeName = typeNames[conversationType] || 'Conversation';
+                document.title = `${typeName} - ${userData.child_name}`;
+
+                // Update conversation type indicator
+                document.getElementById('conversationTypeName').textContent = typeName;
+                document.getElementById('conversationTypeDesc').textContent = typeDescs[conversationType] || 'General conversation';
+                document.getElementById('conversationIcon').textContent = typeIcons[conversationType] || '💬';
+
+                // Update stars display with cached user data
+                updateStarsDisplay();
+
+            } catch (error) {
+                console.error('Error checking user authentication:', error);
+                // On error, redirect to home
                 window.location.href = '/';
-                return;
             }
-            // Update page title with child's name
-            document.title = `Your Hindi Friend - ${childName}`;
         });
+
+        // Update stars display function - now uses cached data
+        function updateStarsDisplay() {
+            try {
+                if (userData) {
+                    const starsEl = document.getElementById('starsCount');
+                    if (starsEl && userData.reward_points !== undefined) {
+                        starsEl.textContent = userData.reward_points || 0;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating stars:', error);
+            }
+        }
     </script>
     
     <style>
@@ -33,49 +106,87 @@
         body {
             background-color: #f3f4f6;
             min-height: 100vh;
-            padding-top: 4rem; /* Space for fixed header */
+            padding-top: 60px; /* Space for fixed header */
         }
 
-        /* Header styles */
-        .rewards-header {
+        /* Minimal Header styles */
+        .conversation-header {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 4rem;
-            background: linear-gradient(to right, #7c3aed, #6d28d9);
-            color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
             z-index: 1000;
-            padding: 0.5rem;
-        }
-
-        .header-container {
-            height: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0 1rem;
         }
-
-        .app-title {
-            font-size: 1.25rem;
-            font-weight: bold;
-            white-space: nowrap;
+        
+        .back-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: none;
+            color: #1f2937;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            text-decoration: none;
         }
-
-        .rewards-container {
+        
+        .back-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .back-arrow {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .header-right {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-
-        .reward-box {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 0.5rem;
+        
+        .stars-display {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
             padding: 0.25rem 0.5rem;
-            min-width: 60px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 20px;
+        }
+        
+        .star-icon {
+            font-size: 1.2rem;
+            color: #ffd700;
+        }
+        
+        .stars-count {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            min-width: 20px;
             text-align: center;
+        }
+        
+        .profile-avatar-simple {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #22c55e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
         }
 
         /* Main content container */
@@ -96,41 +207,54 @@
         }
 
         /* Responsive adjustments */
-        @media (max-width: 390px) {
-            .reward-box {
-                min-width: 50px;
-                font-size: 0.875rem;
+        @media (max-width: 768px) {
+            .conversation-header {
+                padding: 0 0.5rem;
             }
-
-            .app-title {
-                font-size: 1rem;
-            }
-
+            
             .content-card {
                 padding: 1rem;
+            }
+            
+            .header-right {
+                gap: 0.25rem;
             }
         }
     </style>
 </head>
 <body>
-    <header class="rewards-header">
-        <div class="header-container">
-            <div class="app-title">Your Hindi Friend</div>
-            <div class="rewards-container">
-                <div class="reward-box sentences-count">
-                    <span class="reward-label">Sentences</span>
-                    <div class="reward-value" id="sentenceCount">0</div>
-                </div>
-                <div class="reward-box points-count">
-                    <div class="star-icon">⭐</div>
-                    <div class="reward-value" id="rewardPoints">0</div>
-                </div>
+    <header class="conversation-header">
+        <a href="/conversation-select" class="back-button">
+            <span class="back-arrow">←</span>
+        </a>
+        
+        <div class="header-right">
+            <div class="stars-display">
+                <span class="star-icon">⭐</span>
+                <span class="stars-count" id="starsCount">0</span>
+            </div>
+            <div class="profile-avatar-simple">
+                🐶
             </div>
         </div>
     </header>
 
     <main class="main-container">
         <div class="content-card">
+            <!-- Conversation Type Indicator -->
+            <div id="conversationTypeIndicator" class="mb-4 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-3">
+                <div class="flex items-center gap-3">
+                    <span id="conversationIcon" class="text-2xl">🏠</span>
+                    <div>
+                        <div id="conversationTypeName" class="font-semibold text-green-800">Everyday Life</div>
+                        <div id="conversationTypeDesc" class="text-sm text-green-600">Talk about daily activities and school</div>
+                    </div>
+                </div>
+                <a href="/conversation-select" class="text-green-600 hover:text-green-800 text-sm font-medium transition-colors">
+                    Change Topic →
+                </a>
+            </div>
+            
             <div id="status" class="text-center text-lg font-medium text-gray-600 mb-6">
                 Initializing...
             </div>
@@ -139,7 +263,7 @@
             </div>
             <div class="flex justify-center">
                 <button id="recordButton" 
-                        class="bg-purple-600 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-purple-700 transition-colors disabled:opacity-50">
+                        class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50">
                     <span id="recordIcon">🎤</span>
                     <span id="recordText">Start Speaking</span>
                 </button>
