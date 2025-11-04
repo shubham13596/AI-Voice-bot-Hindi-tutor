@@ -58,4 +58,4 @@ For questions about the project or development process, feel free to reach out!
 
 ---
 
-*Built with love for preserving heritage languages across generations* ❤️
+*Built with love for heritage languages across generations* ❤️
