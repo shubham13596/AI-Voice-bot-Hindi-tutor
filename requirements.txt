@@ -14,4 +14,5 @@ Authlib==1.2.0
 SQLAlchemy==1.4.22
 psycopg2-binary==2.9.9
 google-cloud-speech==2.21.0
+numpy==1.24.3
 
