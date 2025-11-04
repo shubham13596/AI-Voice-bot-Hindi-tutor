@@ -108,6 +108,20 @@ DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
 GOOGLE_CLOUD_API_KEY = os.getenv('GOOGLE_CLOUD_API_KEY')
 
+# Setup Google Cloud credentials from environment variable
+GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS')
+if GOOGLE_CREDENTIALS_JSON:
+    try:
+        # Write credentials to a temporary file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(GOOGLE_CREDENTIALS_JSON)
+            credentials_path = f.name
+        # Set the environment variable for Google Cloud SDK
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
+        logger.info(f"Google Cloud credentials configured from environment variable")
+    except Exception as e:
+        logger.error(f"Failed to configure Google Cloud credentials: {e}")
+
 STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, groq, google)
 
 # Initialize Groq client
