@@ -970,7 +970,12 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     speakButton.className = 'p-1 rounded hover:bg-gray-200';
     speakButton.innerHTML = '🔊'; // Speaker emoji
     speakButton.onclick = () => {
-    
+        // Validate text is not empty
+        if (!text || !text.trim()) {
+            console.warn('No text to speak - text content is empty');
+            return;
+        }
+
         // Use the existing TTS system to speak the text
         const formData = new FormData();
         formData.append('text', text);
@@ -983,6 +988,9 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
             if (data.audio) {
                 playAudioResponse(data.audio);
             }
+        })
+        .catch(error => {
+            console.error('Error in speak button:', error);
         });
     };
 
@@ -1346,7 +1354,11 @@ function createMessageButtons() {
     speakButton.className = 'p-1 rounded hover:bg-gray-200';
     speakButton.innerHTML = '🔊';
     speakButton.onclick = function() {
-        const text = this.closest('.p-4').querySelector('.text-content').textContent;
+        const text = this.closest('.p-4').querySelector('.text-content').textContent.trim();
+        if (!text) {
+            console.warn('No text to speak - text content is empty');
+            return;
+        }
         const formData = new FormData();
         formData.append('text', text);
         fetch('/api/speak', {
@@ -1358,6 +1370,9 @@ function createMessageButtons() {
             if (data.audio) {
                 playAudioResponse(data.audio);
             }
+        })
+        .catch(error => {
+            console.error('Error in speak button:', error);
         });
     };
 
@@ -1904,25 +1919,37 @@ function resetRecordingInterface() {
 // Helper function to update conversation type display
 function updateConversationTypeDisplay(conversationType) {
     const typeNames = {
+        'about_me': 'About Me',
+        'my_family': 'My Family',
         'everyday': 'Everyday Life',
-        'cartoons': 'Favorite Cartoons',
+        'my_toys': 'My Toys',
+        'food_i_like': 'Food I Like',
+        'superheroes': 'Superheroes',
+        'animals_nature': 'Animals and Nature',
         'adventure_story': 'Adventure Story',
-        'mystery_story': 'Mystery Story',
-        'everyday_structured': 'Structured Everyday Life'
+        'panchatantra_story': 'Panchatantra Story'
     };
     const typeDescs = {
+        'about_me': 'Talk about yourself - your name, age, and favorite things',
+        'my_family': 'Talk about your family - parents, siblings, and pets',
         'everyday': 'Talk about daily activities and school',
-        'cartoons': 'Chat about favorite cartoon characters',
+        'my_toys': 'Talk about your favorite toys and what you play with',
+        'food_i_like': 'Talk about your favorite foods, snacks, and treats',
+        'superheroes': 'Talk about your favorite superheroes and superpowers',
+        'animals_nature': 'Chat about your favorite animals, pets, and wildlife',
         'adventure_story': 'Create exciting adventure stories together',
-        'mystery_story': 'Solve fun mysteries and detective stories',
-        'everyday_structured': 'Guided conversations with specific objectives'
+        'panchatantra_story': 'Build the famous "Thirsty Crow" story together'
     };
     const typeIcons = {
+        'about_me': '🙋',
+        'my_family': '👨‍👩‍👧‍👦',
         'everyday': '🏠',
-        'cartoons': '🎭',
+        'my_toys': '🧸',
+        'food_i_like': '🍽️',
+        'superheroes': '🦸',
+        'animals_nature': '🦊',
         'adventure_story': '🗺️',
-        'mystery_story': '🔍',
-        'everyday_structured': '📋'
+        'panchatantra_story': '📖'
     };
     
     // Update conversation type indicator
