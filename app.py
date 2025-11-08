@@ -161,7 +161,7 @@ CONVERSATION_TYPES = {
     },
     'about_me': {
         'name': 'About Me',
-        'description': 'Talk about yourself - your name, age, and favorite things',
+        'description': 'Talk about yourself - your age, school, class and favorite things',
         'system_prompts': {
             'initial': """
             You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
@@ -180,7 +180,7 @@ CONVERSATION_TYPES = {
             3. Ensure your Hindi response is grammatically correct
             4. If child responds in English, naturally model the correct Hindi without criticizing
             5. Be enthusiastic and encouraging
-            6. Topics to cover: name, age, favorite color, birthday month. You can talk about more topics about the child
+            6. Topics to cover: age, school, class, favorite color, birthday month. You can talk about more topics about the child
             Return JSON format: {{"response": "Your Hindi response here"}}"""
         },
         'icon': '👤',

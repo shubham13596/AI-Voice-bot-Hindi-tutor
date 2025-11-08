@@ -1259,7 +1259,7 @@ async function sendAudioToServerStream(audioBlob) {
                                 const childName = sessionStorage.getItem('childName') || 'दोस्त';
                                 showCelebration('milestone',
                                     `Excellent ${childName}! You've given ${data.good_response_count} great Hindi responses! 🌟`,
-                                    false
+                                    true  // Enable applause sound for milestone celebrations
                                 );
                             }
 
