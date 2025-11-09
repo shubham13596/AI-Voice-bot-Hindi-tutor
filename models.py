@@ -39,7 +39,7 @@ class Conversation(db.Model):
     """Conversation model to track user sessions and analytics"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    session_id = db.Column(db.String(200), nullable=False, index=True)
+    session_id = db.Column(db.String(500), nullable=False, index=True)
     
     # Session metadata
     conversation_type = db.Column(db.String(50), default='everyday', nullable=False)
@@ -173,7 +173,7 @@ class PageView(db.Model):
     """Track page visits for analytics funnel analysis"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Nullable for anonymous users
-    session_id = db.Column(db.String(200), nullable=False, index=True)  # Browser session ID
+    session_id = db.Column(db.String(500), nullable=False, index=True)  # Browser session ID
     page = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'landing', 'conversation-select', 'conversation'
     url_path = db.Column(db.String(500), nullable=False)  # Full URL path
     referrer = db.Column(db.String(500), nullable=True)  # HTTP referrer
@@ -196,7 +196,7 @@ class UserAction(db.Model):
     """Track specific user actions for conversion analysis"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Nullable for anonymous users
-    session_id = db.Column(db.String(200), nullable=False, index=True)
+    session_id = db.Column(db.String(500), nullable=False, index=True)
     action = db.Column(db.String(100), nullable=False, index=True)  # e.g., 'gmail_login_click', 'conversation_start'
     page = db.Column(db.String(100), nullable=False)  # Page where action occurred
     action_metadata = db.Column(db.Text, nullable=True)  # JSON for additional action data
