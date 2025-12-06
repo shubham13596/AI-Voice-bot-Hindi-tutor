@@ -97,3 +97,12 @@ logs/
 
 # Heroku
 .slugignore
+
+# Archive
+archive/
+
+# Backup
+*.backup
+
+# Google Cloud credentials
+gen-lang-client-0271709496-02ec8316ef59.json

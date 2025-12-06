@@ -380,6 +380,7 @@ CONVERSATION_TYPES = {
 # Sarvam AI API endpoints
 SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
+
 # Initialize ElevenLabs client
 eleven_labs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
@@ -420,13 +421,13 @@ def get_initial_conversation(child_name="दोस्त", conversation_type="ev
         return "नमस्ते! कैसा है आपका दिन?"  # Fallback greeting
 
 
-#def show_completion_page():
-#    """Function to be called when structured conversation is complete"""
-#    return {
-#        "action": "redirect",
-#        "page": "completion_celebration",
-#        "message": "बहुत बढ़िया! तुमने सभी सवालों के जवाब दिए!"
-#    }
+def show_completion_page():
+    """Function to be called when structured conversation is complete"""
+    return {
+        "action": "redirect",
+        "page": "completion_celebration",
+        "message": "बहुत बढ़िया! तुमने सभी सवालों के जवाब दिए!"
+    }
 
 
 def calculate_rewards(evaluation_result, good_response_count):
@@ -448,7 +449,7 @@ class ResponseEvaluator:
     
     @staticmethod
     def evaluate_response(user_text, last_talker_response=None):
-        """Evaluate user response and return score + analysis"""
+        """Evaluate user response and return corrected answer"""
         try:
             
             # Build system prompt with context from last talker response
@@ -465,7 +466,7 @@ class ResponseEvaluator:
             system_prompt = f"""
             You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
             1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
-            3. Dont' evaluaate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type can be green.
+            3. Dont' evaluate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type should be green.
             
             {context_section}
             
@@ -480,8 +481,8 @@ class ResponseEvaluator:
             }}
             
             Score guide:
-            - 8-10: Complete, grammatically correct = green
-            - 1-7: Incomplete, grammar issues = amber
+            - 7-10: Complete, grammatically correct = green
+            - 1-6: Incomplete, grammar issues = amber
             
             For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-year-old's vocabulary
             """
@@ -535,11 +536,11 @@ class TalkerModule:
             ]
             
             response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=0.2,
-                max_tokens=400,
+                model = "llama-3.3-70b-versatile",
+                messages = messages,
+                response_format = {"type": "json_object"},
+                temperature = 0.2,
+                max_tokens = 400,
                 tool_choice = "none"
             )
             
@@ -823,64 +824,6 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
         print(f"TTS Error: {str(e)}")
         return None
 
-def speech_to_text_hindi_sarvam(audio_data):
-    """Convert Hindi speech to text using Sarvam AI"""
-    stt_start_time = time.time()
-    logger.info("🎙️ SARVAM STT: Starting transcription...")
-
-    # Validate audio duration before processing
-    if not validate_audio_duration(audio_data):
-        logger.info("❌ SARVAM STT: Audio rejected due to invalid duration")
-        return None
-
-    headers = {
-        "api-subscription-key": SARVAM_API_KEY,
-    }
-
-    # Create form data
-    files = {
-            'file': ('audio.wav', audio_data, 'audio/wav')
-        }
-    
-    # Form data parameters
-    data = {
-            'language_code': 'hi-IN',
-            'model': 'saarika:v2.5',
-            'with_timestamps': False
-        }
-    
-    try:
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                api_start_time = time.time()
-                response = requests.post(SARVAM_STT_URL, headers=headers, files=files, data=data)
-                api_end_time = time.time()
-                api_latency = (api_end_time - api_start_time) * 1000
-                logger.info(f"🌐 SARVAM API: Response received in {api_latency:.1f}ms")
-                
-                response.raise_for_status()
-                result = response.json()
-                transcript = result.get("transcript")
-                
-                stt_end_time = time.time()
-                total_latency = (stt_end_time - stt_start_time) * 1000
-                logger.info(f"✅ SARVAM STT: Success! Total time: {total_latency:.1f}ms")
-                logger.info(f"📝 TRANSCRIPT: '{transcript}'")
-                
-                return transcript
-                
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise
-                logger.warning(f"❌ Sarvam STT attempt {attempt + 1} failed: {e}")
-                time.sleep(0.1 * (attempt + 1))
-
-    except Exception as e:
-        stt_end_time = time.time()
-        total_latency = (stt_end_time - stt_start_time) * 1000
-        logger.error(f"❌ SARVAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
-        return None
 
 def validate_audio_duration(audio_data, min_duration=0.05, max_duration=15.0):
     """Validate audio duration to filter out noise and incomplete recordings"""
@@ -903,60 +846,6 @@ def validate_audio_duration(audio_data, min_duration=0.05, max_duration=15.0):
         logger.warning(f"⚠️ AUDIO VALIDATION: Could not estimate duration - {str(e)}")
         return True  # Default to allowing audio if validation fails
 
-def speech_to_text_hindi_groq(audio_data):
-    """Convert Hindi speech to text using Groq Whisper-Large-V3"""
-    stt_start_time = time.time()
-    logger.info("🎙️ GROQ WHISPER STT: Starting transcription...")
-
-    # Validate audio duration before processing
-    if not validate_audio_duration(audio_data):
-        logger.info("❌ GROQ WHISPER STT: Audio rejected due to invalid duration")
-        return None
-
-    try:
-        # Create a temporary file for the audio data
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            temp_file.write(audio_data)
-            temp_file_path = temp_file.name
-
-        try:
-            # Use Groq Whisper API for transcription
-            api_start_time = time.time()
-            with open(temp_file_path, 'rb') as audio_file:
-                transcription = groq_client.audio.transcriptions.create(
-                    file=audio_file,
-                    model="whisper-large-v3",
-                    language="hi",  # Hindi language code
-                    response_format="json",
-                    prompt="6 साल का बच्चा हिंदी में बोल रहा है।",  # Optimized for child speech
-                    temperature=0.2  # For consistent results
-                )
-            api_end_time = time.time()
-            api_latency = (api_end_time - api_start_time) * 1000
-            logger.info(f"🌐 GROQ API: Response received in {api_latency:.1f}ms")
-
-            # Extract transcript text
-            transcript = transcription.text.strip()
-
-            stt_end_time = time.time()
-            total_latency = (stt_end_time - stt_start_time) * 1000
-            logger.info(f"✅ GROQ WHISPER STT: Success! Total time: {total_latency:.1f}ms")
-            logger.info(f"📝 TRANSCRIPT: '{transcript}'")
-
-            return transcript
-
-        finally:
-            # Clean up temporary file
-            try:
-                os.unlink(temp_file_path)
-            except:
-                pass
-
-    except Exception as e:
-        stt_end_time = time.time()
-        total_latency = (stt_end_time - stt_start_time) * 1000
-        logger.error(f"❌ GROQ WHISPER STT: Failed after {total_latency:.1f}ms - {str(e)}")
-        return None
 
 # Audio optimization functions for Google Cloud STT
 def trim_audio_silence(audio_data):
@@ -1003,7 +892,7 @@ def optimize_audio_for_google_cloud(audio_data):
         # Apply silence trimming
         optimized_audio = trim_audio_silence(audio_data)
 
-        # Additional optimizations could be added here
+        # Additional optimizations to be added here
         # (e.g., audio format conversion, noise reduction)
 
         return optimized_audio
@@ -1031,7 +920,7 @@ def speech_to_text_hindi_google(audio_data):
     try:
         # Validate audio duration (same as other providers)
         audio_duration = len(audio_data) / (48000 * 2)  # Assuming 16kHz, 16-bit
-        if audio_duration < 0.05 or audio_duration > 60:
+        if audio_duration < 0.05 or audio_duration > 30:
             logger.info("❌ GOOGLE CLOUD STT: Audio rejected due to invalid duration")
             return None
 
@@ -1049,13 +938,13 @@ def speech_to_text_hindi_google(audio_data):
 
         # Configure recognition with optimized settings for Hindi child speech
         config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            sample_rate_hertz=48000,  # Google's recommended optimal rate
-            language_code="hi-IN",    # Hindi (India)
-            model="latest_long",      # Latest model for better accuracy
-            use_enhanced=True,        # Enhanced model if available
-            enable_automatic_punctuation=True,
-            audio_channel_count=1,
+            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+            sample_rate_hertz = 48000,  # Google's recommended optimal rate
+            language_code = "hi-IN",    # Hindi (India)
+            model = "latest_long",      # Latest model for better accuracy
+            use_enhanced = True,        # Enhanced model if available
+            enable_automatic_punctuation = True,
+            audio_channel_count = 1,
             # Optimization for child speech
             speech_contexts=[
                 speech.SpeechContext(
@@ -1191,71 +1080,6 @@ def speech_to_text_hindi(audio_data):
         return speech_to_text_hindi_google(audio_data)
     else:
         return speech_to_text_hindi_sarvam(audio_data)
-
-# COMMENTED OUT FOR SARVAM USAGE  
-# def speech_to_text_hindi_deepgram(audio_data):
-#     """Convert Hindi speech to text using Deepgram AI"""
-#     stt_start_time = time.time()
-#     logger.info("🎙️ DEEPGRAM STT: Starting transcription...")
-#     
-#     headers = {
-#         "Authorization": f"Token {DEEPGRAM_API_KEY}",
-#         "Content-Type": "audio/wav"
-#     }
-#     
-#     # Query parameters for Deepgram
-#     params = {
-#         "language": "hi",
-#         "model": "nova-2",
-#         "smart_format": "true",
-#         "punctuate": "true"
-#     }
-#     
-#     try:
-#         max_retries = 3
-#         for attempt in range(max_retries):
-#             try:
-#                 api_start_time = time.time()
-#                 response = requests.post(
-#                     "https://api.deepgram.com/v1/listen",
-#                     headers=headers,
-#                     params=params,
-#                     data=audio_data
-#                 )
-#                 api_end_time = time.time()
-#                 api_latency = (api_end_time - api_start_time) * 1000
-#                 logger.info(f"🌐 DEEPGRAM API: Response received in {api_latency:.1f}ms")
-#                 
-#                 response.raise_for_status()
-#                 result = response.json()
-#                 
-#                 # Extract transcript from Deepgram response
-#                 if "results" in result and "channels" in result["results"]:
-#                     channels = result["results"]["channels"]
-#                     if channels and "alternatives" in channels[0]:
-#                         alternatives = channels[0]["alternatives"]
-#                         if alternatives:
-#                             transcript = alternatives[0].get("transcript")
-#                             stt_end_time = time.time()
-#                             total_latency = (stt_end_time - stt_start_time) * 1000
-#                             logger.info(f"✅ DEEPGRAM STT: Success! Total time: {total_latency:.1f}ms")
-#                             logger.info(f"📝 TRANSCRIPT: '{transcript}'")
-#                             return transcript
-#                 
-#                 logger.warning("⚠️ DEEPGRAM: No transcript found in response")
-#                 return None
-#                 
-#             except Exception as e:
-#                 if attempt == max_retries - 1:
-#                     raise
-#                 logger.warning(f"❌ Deepgram STT attempt {attempt + 1} failed: {e}")
-#                 time.sleep(0.1 * (attempt + 1))
-#
-#     except Exception as e:
-#         stt_end_time = time.time()
-#         total_latency = (stt_end_time - stt_start_time) * 1000
-#         logger.error(f"❌ DEEPGRAM STT: Failed after {total_latency:.1f}ms - {str(e)}")
-#         return None
 
 @app.route('/')
 def home():
@@ -1407,6 +1231,7 @@ def translate_text():
         return jsonify({'error': str(e)}), 500
 
 
+# process_audio() is only a fallback to process_audio_stream()
 @app.route('/api/process_audio', methods=['POST'])
 @login_required
 def process_audio():
