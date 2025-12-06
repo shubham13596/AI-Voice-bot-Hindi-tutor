@@ -2,11 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Your Hindi Speaking Tutor</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hindi for Connection, Not Just Vocabulary | Hindi Tutor</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;600;700&family=Poppins:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'terracotta': '#E07A5F',
+                        'mustard': '#F2CC8F',
+                        'teal': '#81B29A',
+                        'cream': '#FAF9F6',
+                        'indigo': '#3D405B',
+                    },
+                    fontFamily: {
+                        'headline': ['Eczar', 'serif'],
+                        'body': ['Poppins', 'sans-serif'],
+                        'hindi': ['Noto Sans Devanagari', 'Eczar', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
         * {
             margin: 0;
@@ -15,351 +41,633 @@
         }
 
         body {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            min-height: 100vh;
+            background: #FAF9F6;
+            font-family: 'Poppins', sans-serif;
+            color: #3D405B;
+            line-height: 1.6;
+        }
+
+        /* Image Placeholder Styles */
+        .image-placeholder {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border: 2px dashed #d1d5db;
+            border-radius: 1rem;
             display: flex;
             flex-direction: column;
-            padding: 1rem 1rem 0 1rem;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .landing-container {
-            background: white;
-            border-radius: 2rem;
-            padding: 3rem 2rem;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #166534;
-            margin-bottom: 0.5rem;
-            line-height: 1.2;
-        }
-
-        .subtitle {
-            font-size: 1.25rem;
             color: #6b7280;
-            margin-bottom: 3rem;
-        }
-
-        .value-props {
-            text-align: left;
-            margin-bottom: 3rem;
-        }
-
-        .value-prop {
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-align: center;
             padding: 1rem;
-            background: #f8fafc;
-            border-radius: 1rem;
-            border-left: 4px solid #22c55e;
+            position: relative;
+            overflow: hidden;
         }
 
-        .value-prop-icon {
-            font-size: 1.5rem;
-            margin-top: 0.25rem;
+        .image-placeholder::before {
+            content: '🖼️';
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.3;
         }
 
-        .value-prop-text {
-            color: #374151;
-            line-height: 1.5;
-        }
-
-        .oauth-button {
-            width: 100%;
+        .placeholder-info {
             background: white;
-            color: #374151;
-            padding: 1rem 2rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 1rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
         }
 
-        .oauth-button:hover {
-            border-color: #22c55e;
-            background: #f8fafc;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .google-icon {
-            width: 20px;
-            height: 20px;
-        }
-
-        .divider {
-            margin: 2rem 0;
-            display: flex;
-            align-items: center;
-            color: #9ca3af;
-            font-size: 0.9rem;
-        }
-
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: #e5e7eb;
-        }
-
-        .divider span {
-            padding: 0 1rem;
-        }
-
-        .demo-button {
-            width: 100%;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: white;
-            padding: 1rem 2rem;
-            border: none;
-            border-radius: 1rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .demo-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-        }
-
-        /* Footer Styles */
-        .footer {
-            background: #22c55e;
-            color: white;
-            padding: 3rem 0 2rem 0;
-            margin-top: 2rem;
-        }
-
-        .footer-container {
+        /* Section Spacing */
+        .section {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 5rem 2rem;
         }
 
-        .footer-grid {
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            gap: 4rem;
-            align-items: start;
+        .section-narrow {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 5rem 2rem;
         }
 
-        .footer-logo {
+        /* Hero Specific */
+        .hero {
+            min-height: 90vh;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 1.5rem;
-            font-weight: bold;
+        }
+
+        /* CTA Button */
+        .cta-primary {
+            background: #E07A5F;
             color: white;
-            text-decoration: none;
-        }
-
-        .footer-logo:hover {
-            color: #dcfce7;
-        }
-
-        .footer-section {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .footer-section h3 {
-            font-size: 1.1rem;
+            padding: 1.25rem 3rem;
+            border-radius: 9999px;
+            font-size: 1.125rem;
             font-weight: 600;
-            margin-bottom: 1rem;
-            color: white;
-        }
-
-        .footer-section ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .footer-section li {
-            margin-bottom: 0.5rem;
-        }
-
-        .footer-section a {
-            color: #dcfce7;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
             text-decoration: none;
-            font-size: 0.95rem;
-            transition: color 0.2s;
+            box-shadow: 0 4px 14px rgba(224, 122, 95, 0.3);
         }
 
-        .footer-section a:hover {
-            color: white;
+        .cta-primary:hover {
+            background: #d66b50;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(224, 122, 95, 0.4);
         }
 
-        .footer-sections {
+        /* Topic Cards */
+        .topic-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            border: 1px solid #f3f4f6;
+        }
+
+        .topic-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        /* FAQ Accordion */
+        .faq-item {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1.5rem 0;
+        }
+
+        .faq-question {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #3D405B;
+            cursor: pointer;
             display: flex;
-            gap: 3rem;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .footer-bottom {
-            border-top: 1px solid #16a34a;
-            margin-top: 2rem;
-            padding-top: 1rem;
-            text-align: center;
-            color: #dcfce7;
-            font-size: 0.9rem;
+        .faq-answer {
+            margin-top: 1rem;
+            color: #6b7280;
+            line-height: 1.7;
         }
 
+        /* Mobile Responsiveness */
         @media (max-width: 768px) {
-            .footer-grid {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-                text-align: center;
+            .section, .section-narrow {
+                padding: 3rem 1.5rem;
             }
 
-            .footer-sections {
-                flex-direction: column;
-                gap: 2rem;
-                align-items: center;
+            .hero {
+                min-height: auto;
+                padding-top: 2rem;
             }
 
-            .footer-section {
-                align-items: center;
-                text-align: center;
+            .cta-primary {
+                padding: 1rem 2rem;
+                font-size: 1rem;
             }
 
-            .footer-container {
-                padding: 0 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .landing-container {
-                padding: 2rem 1.5rem;
-            }
-            
-            .title {
-                font-size: 2rem;
-            }
-            
-            .subtitle {
-                font-size: 1.1rem;
+            h1 {
+                font-size: 2rem !important;
             }
 
-            .footer {
-                padding: 2rem 0 1.5rem 0;
-            }
-
-            .footer-sections {
-                gap: 1.5rem;
+            h2 {
+                font-size: 1.75rem !important;
             }
         }
     </style>
 </head>
 <body>
-    <div class="main-content">
-        <div class="landing-container">
-            <h1 class="title">Your Hindi Speaking Tutor</h1>
-            <p class="subtitle">Now Hindi speaking is more fun</p>
-            
-            <div class="value-props">
-                <div class="value-prop">
-                    <div class="value-prop-icon">🎉</div>
-                    <div class="value-prop-text">
-                        <strong>Fun Learning:</strong> Makes Hindi speaking enjoyable and engaging for kids aged 5-9 years, encouraging regular practice
-                    </div>
+    <!-- NAVIGATION -->
+    <nav class="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🎭</span>
+                    <span class="font-headline font-bold text-xl text-indigo">Hindi Tutor</span>
                 </div>
-                
-                <div class="value-prop">
-                    <div class="value-prop-icon">📝</div>
-                    <div class="value-prop-text">
-                        <strong>Grammar Correction:</strong> Helps improve grammatical correctness and sentence completeness in Hindi
-                    </div>
-                </div>
-                
-                <div class="value-prop">
-                    <div class="value-prop-icon">🗣️</div>
-                    <div class="value-prop-text">
-                        <strong>Speaking Practice:</strong> Provides interactive conversation practice to boost confidence in Hindi communication
-                    </div>
+                <div class="flex gap-4">
+                    <a href="/login" class="text-indigo hover:text-terracotta transition-colors font-medium">Login</a>
+                    <a href="/login" class="bg-terracotta text-white px-6 py-2 rounded-full hover:bg-opacity-90 transition-all font-medium">
+                        Try Free
+                    </a>
                 </div>
             </div>
-            
-            <!-- OAuth Login Section -->
-            <a href="/login" class="oauth-button" id="gmail-login-btn">
-                <svg class="google-icon" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Continue with Google
-            </a>
+        </div>
+    </nav>
 
-            <div class="divider">
-                <span>Start learning Hindi today!</span>
+    <!-- SECTION 1: HERO -->
+    <section class="hero section">
+        <div class="grid md:grid-cols-2 gap-12 items-center w-full">
+            <!-- Left: Content -->
+            <div>
+                <h1 class="font-headline text-5xl md:text-6xl font-bold text-indigo mb-6 leading-tight">
+                    Hindi for connection,<br>
+                    not just vocabulary
+                </h1>
+                <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                    Help your child have real conversations with grandparents, understand festivals, and feel connected to where they come from.
+                </p>
+
+                <!-- CTA Button (Continue with Google) -->
+                <a href="/login" class="cta-primary">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Start Now
+                </a>
+
+                <p class="mt-4 text-sm text-gray-500">
+                    Ages 5-10 • Free to try
+                </p>
             </div>
-            
-            <p style="color: #6b7280; font-size: 0.9rem; margin-top: 1rem;">
-                Sign in to save your progress and track your child's Hindi learning journey
+
+            <!-- Right: Hero Image -->
+            <div class="relative">
+                <!-- IMAGE PLACEHOLDER: Child on video call with grandmother
+                     Recommended dimensions: 600x500px (6:5 aspect ratio)
+                     Style: Warm illustration, child and grandmother both smiling, engaged in conversation
+                     Indian aesthetic, warm colors (terracotta, mustard, cream tones)
+                     File name: hero-child-grandparent-call.png or .jpg -->
+                <div class="image-placeholder w-full aspect-[6/5] mx-auto max-w-[600px]">
+                    <div class="placeholder-info">
+                        <strong>Hero Illustration</strong><br>
+                        600×500px • Child video calling with grandmother<br>
+                        Warm, illustrated style • Both smiling & engaged
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: THE PROBLEM (Founder Story) -->
+    <section class="section-narrow bg-gradient-to-br from-mustard/10 to-teal/10 rounded-3xl">
+        <div class="text-center max-w-3xl mx-auto">
+            <blockquote class="text-2xl md:text-3xl font-headline text-indigo mb-6 leading-relaxed">
+                "My nephew could count to ten in Hindi.<br>
+                But when Dadi asked <span class="font-hindi">'क्या खाया?'</span>, he froze."
+            </blockquote>
+            <p class="text-xl text-gray-600 mb-2">
+                That's why I built this.
+            </p>
+            <p class="text-lg text-gray-500">
+                — Shubham, Founder
             </p>
         </div>
-    </div>
+    </section>
 
-    <!-- Footer Section -->
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-grid">
-                <!-- Logo -->
-                <a href="/" class="footer-logo">
-                    🎭 Hindi Tutor
-                </a>
-                
-                <!-- Footer Sections -->
-                <div class="footer-sections">
-                    <div class="footer-section">
-                        <h3>About us</h3>
-                        <ul>
-                            <li><a href="/mission">Mission</a></li>
-                            <li><a href="/contact">Contact us</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="footer-section">
-                        <h3>Privacy and terms</h3>
-                        <ul>
-                            <li><a href="/privacy">Privacy and Terms</a></li>
-                        </ul>
+    <!-- SECTION 3: THE SOLUTION (How It Works) -->
+    <section class="section">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold text-indigo mb-4">
+                Practice conversations, not flashcards
+            </h2>
+        </div>
+
+        <!-- Screenshot/Illustration of Conversation Screen -->
+        <div class="mb-16">
+            <!-- IMAGE PLACEHOLDER: Conversation screen showing tutor-child interaction
+                 Recommended dimensions: 1000x600px (5:3 aspect ratio)
+                 Style: App screenshot or illustrated mockup showing conversation interface
+                 Shows tutor asking "कैसी हो बेटा?" with response options visible
+                 Clean, friendly UI design
+                 File name: conversation-screen-mockup.png -->
+            <div class="image-placeholder w-full aspect-[5/3] mx-auto max-w-[1000px]">
+                <div class="placeholder-info">
+                    <strong>Conversation Screen</strong><br>
+                    1000×600px • App interface showing AI tutor conversation<br>
+                    Screenshot or mockup • "कैसी हो बेटा?" question visible
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto mb-12">
+            <p class="text-xl text-center text-gray-600 leading-relaxed">
+                Your child has a real conversation with an AI tutor who adapts to their level,
+                gently guides them, and never makes them feel wrong.
+            </p>
+        </div>
+
+        <!-- Feature Grid -->
+        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div class="flex gap-4 items-start">
+                <div class="text-4xl">🎙️</div>
+                <div>
+                    <h3 class="font-semibold text-xl mb-2">They speak (not type)</h3>
+                    <p class="text-gray-600">Natural voice conversations, just like talking to a real person</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 items-start">
+                <div class="text-4xl">💬</div>
+                <div>
+                    <h3 class="font-semibold text-xl mb-2">Tutor responds naturally</h3>
+                    <p class="text-gray-600">AI adapts to your child's level and keeps the conversation flowing</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 items-start">
+                <div class="text-4xl">💡</div>
+                <div>
+                    <h3 class="font-semibold text-xl mb-2">Hints if they're stuck</h3>
+                    <p class="text-gray-600">Gentle guidance when needed, never harsh corrections</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 items-start">
+                <div class="text-4xl">🎯</div>
+                <div>
+                    <h3 class="font-semibold text-xl mb-2">Real scenarios</h3>
+                    <p class="text-gray-600">Based on actual situations they'll encounter with family</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: THE DIFFERENTIATOR -->
+    <section class="section bg-gradient-to-br from-teal/5 to-mustard/5">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold text-indigo mb-4">
+                Not just Hindi. Connection.
+            </h2>
+        </div>
+
+        <!-- Diwali/Family Scene Illustration -->
+        <div class="mb-16">
+            <!-- IMAGE PLACEHOLDER: Warm family scene with Diwali diyas
+                 Recommended dimensions: 1000x600px (5:3 aspect ratio)
+                 Style: Warm illustrated scene of family gathering, Diwali diyas glowing
+                 Child listening to elder telling story, warm colors
+                 Indian cultural elements visible but not overwhelming
+                 File name: family-diwali-scene.png -->
+            <div class="image-placeholder w-full aspect-[5/3] mx-auto max-w-[1000px]">
+                <div class="placeholder-info">
+                    <strong>Family Connection Scene</strong><br>
+                    1000×600px • Warm Diwali gathering illustration<br>
+                    Family scene • Diyas, storytelling • Warm colors
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto">
+            <p class="text-2xl text-center font-headline text-indigo mb-12">
+                Every conversation teaches more than words.
+            </p>
+
+            <div class="space-y-6 text-lg text-gray-700">
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">✨</span>
+                    <p>Why we light diyas on Diwali</p>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">👨‍👩‍👧‍👦</span>
+                    <p>What "Bua" and "Mausi" mean (and why English doesn't have these words)</p>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">📖</span>
+                    <p>Panchatantra stories your grandparents heard</p>
+                </div>
+                <div class="flex items-start gap-4">
+                    <span class="text-2xl">📞</span>
+                    <p>How to actually talk to Dadi on a video call</p>
+                </div>
+            </div>
+
+            <div class="mt-16 text-center">
+                <p class="text-2xl font-headline text-indigo">
+                    This isn't Duolingo with Hindi words.<br>
+                    <span class="text-terracotta">This is preparing them to feel Indian.</span>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 5: TOPICS PREVIEW -->
+    <section class="section">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold text-indigo mb-4">
+                Conversations they'll actually have
+            </h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <!-- Topic 1: My Home & Family -->
+            <div class="topic-card">
+                <!-- IMAGE PLACEHOLDER: Home/Family icon or illustration
+                     Recommended dimensions: 400x300px (4:3 aspect ratio)
+                     Style: Simple, warm illustration of a home or family
+                     File name: topic-home-family.png -->
+                <div class="image-placeholder w-full aspect-[4/3] mb-6">
+                    <div class="placeholder-info">
+                        <strong>Home & Family</strong><br>
+                        400×300px • Home illustration
                     </div>
                 </div>
-                
-                <!-- Empty space for grid alignment -->
-                <div></div>
+
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">मेरा घर</h3>
+                <h4 class="font-semibold text-xl mb-3">My Home & Family</h4>
+                <p class="text-gray-600 mb-4">
+                    Learn Dadi, Nani, Chacha, and why Hindi family words are special
+                </p>
             </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2024 Hindi Tutor. All rights reserved. Built with ❤️ for preserving heritage languages.</p>
+
+            <!-- Topic 2: Talking to Grandparents -->
+            <div class="topic-card">
+                <!-- IMAGE PLACEHOLDER: Phone/video call icon or illustration
+                     Recommended dimensions: 400x300px (4:3 aspect ratio)
+                     Style: Simple illustration of phone or video call
+                     File name: topic-talking-grandparents.png -->
+                <div class="image-placeholder w-full aspect-[4/3] mb-6">
+                    <div class="placeholder-info">
+                        <strong>Talking to Grandparents</strong><br>
+                        400×300px • Phone/video call illustration
+                    </div>
+                </div>
+
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">दादी से बात</h3>
+                <h4 class="font-semibold text-xl mb-3">Talking to Grandparents</h4>
+                <p class="text-gray-600 mb-4">
+                    Practice the video call so it's not just "hi" and awkward silence
+                </p>
+            </div>
+
+            <!-- Topic 3: Festivals -->
+            <div class="topic-card">
+                <!-- IMAGE PLACEHOLDER: Diya or festival icon/illustration
+                     Recommended dimensions: 400x300px (4:3 aspect ratio)
+                     Style: Simple illustration of diya or rangoli
+                     File name: topic-festivals.png -->
+                <div class="image-placeholder w-full aspect-[4/3] mb-6">
+                    <div class="placeholder-info">
+                        <strong>Festivals</strong><br>
+                        400×300px • Diya/festival illustration
+                    </div>
+                </div>
+
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">त्योहार</h3>
+                <h4 class="font-semibold text-xl mb-3">Festivals</h4>
+                <p class="text-gray-600 mb-4">
+                    Diwali, Holi, Rakhi—what they mean and why we celebrate
+                </p>
+            </div>
+
+            <!-- Topic 4: Stories -->
+            <div class="topic-card">
+                <!-- IMAGE PLACEHOLDER: Book or story icon/illustration
+                     Recommended dimensions: 400x300px (4:3 aspect ratio)
+                     Style: Simple illustration of book or storytelling
+                     File name: topic-stories.png -->
+                <div class="image-placeholder w-full aspect-[4/3] mb-6">
+                    <div class="placeholder-info">
+                        <strong>Stories</strong><br>
+                        400×300px • Book/storytelling illustration
+                    </div>
+                </div>
+
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">कहानियाँ</h3>
+                <h4 class="font-semibold text-xl mb-3">Stories</h4>
+                <p class="text-gray-600 mb-4">
+                    Panchatantra tales your grandparents grew up with
+                </p>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <a href="/login" class="text-terracotta font-semibold text-lg hover:underline">
+                See all topics →
+            </a>
+        </div>
+    </section>
+
+    <!-- SECTION 6: HOW IT WORKS (Practical) -->
+    <section class="section-narrow bg-white rounded-3xl shadow-sm border border-gray-100">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold text-indigo mb-4">
+                Get started in 2 minutes
+            </h2>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8 mb-12">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-terracotta/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl font-bold text-terracotta">1</span>
+                </div>
+                <h3 class="font-semibold text-xl mb-3">Create a free account</h3>
+                <p class="text-gray-600">
+                    Add your child's name and family details so it feels personal
+                </p>
+            </div>
+
+            <div class="text-center">
+                <div class="w-16 h-16 bg-terracotta/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl font-bold text-terracotta">2</span>
+                </div>
+                <h3 class="font-semibold text-xl mb-3">Pick a topic together</h3>
+                <p class="text-gray-600">
+                    Start with "Talking to Grandparents"—our most popular
+                </p>
+            </div>
+
+            <div class="text-center">
+                <div class="w-16 h-16 bg-terracotta/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl font-bold text-terracotta">3</span>
+                </div>
+                <h3 class="font-semibold text-xl mb-3">They start talking</h3>
+                <p class="text-gray-600">
+                    5-10 minute conversations, real practice
+                </p>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <a href="/login" class="cta-primary">
+                Start Free Trial
+            </a>
+            <p class="mt-4 text-gray-500">
+                Works on phone, tablet, or computer • Ages 5-10
+            </p>
+        </div>
+    </section>
+
+    <!-- SECTION 7: FAQ -->
+    <section class="section-narrow">
+        <div class="text-center mb-16">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold text-indigo mb-4">
+                Questions parents ask
+            </h2>
+        </div>
+
+        <div class="max-w-3xl mx-auto">
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>What age is this for?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    5-10 years old. The AI adapts to your child's level—simpler for younger kids,
+                    more challenging for older ones.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>My child barely knows any Hindi. Is that okay?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    Perfect, actually. We start simple and build up. The tutor is patient and gives hints
+                    when they're stuck.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>Is this just for Hindu families?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    No—Hindi is spoken by families of all backgrounds. While we have content on festivals
+                    like Diwali and Holi, the core is about language and conversation.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>How is this different from Duolingo?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    Duolingo teaches vocabulary. We teach conversation. Your child speaks out loud, has real
+                    back-and-forth dialogues, and practices scenarios like talking to grandparents—not
+                    translating "the cat is blue."
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>Do I need to sit with my child?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    For 5-6 year olds, yes—they might need help getting started. 7-10 year olds can often
+                    use it independently once they know how it works.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 8: FINAL CTA -->
+    <section class="section bg-gradient-to-br from-terracotta to-terracotta/80 text-white rounded-3xl">
+        <div class="text-center max-w-3xl mx-auto">
+            <h2 class="font-headline text-4xl md:text-5xl font-bold mb-6">
+                The next video call could be different
+            </h2>
+            <p class="text-xl mb-10 opacity-95">
+                Imagine your child actually chatting with Dadi—not just waving awkwardly.
+            </p>
+
+            <a href="/login" class="inline-flex items-center gap-3 bg-white text-terracotta px-8 py-4 rounded-full text-lg font-semibold hover:bg-cream transition-all shadow-lg">
+                <svg class="w-6 h-6" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Start Now
+            </a>
+
+            <p class="mt-6 text-sm opacity-90">Free to try • No credit card required</p>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-indigo text-white py-16">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid md:grid-cols-4 gap-12 mb-12">
+                <!-- Logo & Tagline -->
+                <div class="md:col-span-2">
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-3xl">🎭</span>
+                        <span class="font-headline font-bold text-2xl">Hindi Tutor</span>
+                    </div>
+                    <p class="text-white/80 text-lg">
+                        Made with ❤️ for preserving heritage languages
+                    </p>
+                </div>
+
+                <!-- About Us -->
+                <div>
+                    <h3 class="font-semibold text-lg mb-4">About us</h3>
+                    <ul class="space-y-2">
+                        <li><a href="/mission" class="text-white/80 hover:text-white transition-colors">Mission</a></li>
+                        <li><a href="/contact" class="text-white/80 hover:text-white transition-colors">Contact us</a></li>
+                    </ul>
+                </div>
+
+                <!-- Privacy & Terms -->
+                <div>
+                    <h3 class="font-semibold text-lg mb-4">Privacy and terms</h3>
+                    <ul class="space-y-2">
+                        <li><a href="/privacy" class="text-white/80 hover:text-white transition-colors">Privacy and Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-white/20 pt-8 text-center text-white/70">
+                <p>&copy; 2024 Hindi Tutor. All rights reserved.</p>
             </div>
         </div>
     </footer>
@@ -382,17 +690,35 @@
             });
         }
 
-        // Track Gmail login button click
+        // Track CTA clicks
         document.addEventListener('DOMContentLoaded', function() {
-            const gmailBtn = document.getElementById('gmail-login-btn');
-            if (gmailBtn) {
-                gmailBtn.addEventListener('click', function() {
-                    trackAction('gmail_login_click', 'landing', {
-                        button_text: 'Continue with Google',
+            const ctaButtons = document.querySelectorAll('.cta-primary, a[href="/login"]');
+            ctaButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    trackAction('cta_click', 'landing', {
+                        button_text: this.textContent.trim(),
+                        button_location: this.closest('section')?.className || 'unknown',
                         timestamp: new Date().toISOString()
                     });
                 });
-            }
+            });
+
+            // Simple FAQ accordion (optional - can make interactive)
+            const faqQuestions = document.querySelectorAll('.faq-question');
+            faqQuestions.forEach(question => {
+                question.addEventListener('click', function() {
+                    const answer = this.nextElementSibling;
+                    const icon = this.querySelector('span:last-child');
+
+                    if (answer.style.display === 'block') {
+                        answer.style.display = 'none';
+                        icon.textContent = '+';
+                    } else {
+                        answer.style.display = 'block';
+                        icon.textContent = '−';
+                    }
+                });
+            });
         });
     </script>
 </body>
