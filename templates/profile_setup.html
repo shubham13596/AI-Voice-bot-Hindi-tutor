@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Profile Setup - Your Hindi Tutor</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <style>
         * {
             margin: 0;
@@ -61,30 +61,73 @@
             font-weight: 500;
         }
 
-        .name-section {
-            margin-bottom: 2rem;
+        .form-section {
+            margin-bottom: 1.5rem;
         }
 
-        .name-label {
+        .form-label {
             display: block;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
             color: #374151;
             margin-bottom: 0.5rem;
             text-align: left;
         }
 
-        .name-input {
+        .form-input {
             width: 100%;
             padding: 1rem;
             border: 2px solid #e5e7eb;
             border-radius: 1rem;
-            font-size: 1.1rem;
+            font-size: 1rem;
             transition: border-color 0.3s;
             outline: none;
         }
 
-        .name-input:focus {
+        .form-input:focus {
+            border-color: #22c55e;
+        }
+
+        /* Gender radio buttons */
+        .gender-options {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .gender-option {
+            flex: 1;
+            position: relative;
+        }
+
+        .gender-radio {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .gender-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .gender-radio:checked + .gender-label {
+            border-color: #22c55e;
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .gender-label:hover {
             border-color: #22c55e;
         }
 
@@ -101,6 +144,7 @@
             transition: all 0.3s;
             opacity: 0.5;
             pointer-events: none;
+            margin-top: 1rem;
         }
 
         .continue-button.active {
@@ -118,6 +162,7 @@
             font-size: 0.9rem;
             margin-top: 0.5rem;
             display: none;
+            text-align: left;
         }
 
         .logout-link {
@@ -136,9 +181,13 @@
             .setup-container {
                 padding: 2rem 1.5rem;
             }
-            
+
             .title {
                 font-size: 1.75rem;
+            }
+
+            .gender-options {
+                flex-direction: column;
             }
         }
     </style>
@@ -147,25 +196,73 @@
     <div class="setup-container">
         <h1 class="title">Almost Ready!</h1>
         <p class="subtitle">Let's set up your child's Hindi learning profile</p>
-        
+
         <div class="welcome-section">
             <p class="welcome-text">
                 Welcome! 🎉 We're excited to help your child learn Hindi through fun conversations.
             </p>
         </div>
-        
-        <div class="name-section">
-            <label for="childName" class="name-label">What's your child's name?</label>
-            <input type="text" 
-                   id="childName" 
-                   class="name-input" 
-                   placeholder="Enter your child's name"
-                   autocomplete="given-name">
-            <div id="errorMessage" class="error-message">
-                Please enter your child's name
+
+        <form id="profileForm">
+            <!-- Child Name -->
+            <div class="form-section">
+                <label for="childName" class="form-label">What's your child's name?</label>
+                <input type="text"
+                       id="childName"
+                       class="form-input"
+                       placeholder="Enter your child's name"
+                       autocomplete="given-name">
+                <div id="nameError" class="error-message">
+                    Please enter your child's name
+                </div>
             </div>
-        </div>
-        
+
+            <!-- Child Age -->
+            <div class="form-section">
+                <label for="childAge" class="form-label">How old is your child?</label>
+                <input type="number"
+                       id="childAge"
+                       class="form-input"
+                       placeholder="Enter age (4-10)"
+                       min="1"
+                       max="18"
+                       autocomplete="off">
+                <div id="ageError" class="error-message">
+                    Please enter a valid age (4-10 years)
+                </div>
+            </div>
+
+            <!-- Child Gender -->
+            <div class="form-section">
+                <label class="form-label">Child's gender</label>
+                <div class="gender-options">
+                    <div class="gender-option">
+                        <input type="radio"
+                               id="genderMale"
+                               name="childGender"
+                               value="male"
+                               class="gender-radio">
+                        <label for="genderMale" class="gender-label">
+                            👦 Male
+                        </label>
+                    </div>
+                    <div class="gender-option">
+                        <input type="radio"
+                               id="genderFemale"
+                               name="childGender"
+                               value="female"
+                               class="gender-radio">
+                        <label for="genderFemale" class="gender-label">
+                            👧 Female
+                        </label>
+                    </div>
+                </div>
+                <div id="genderError" class="error-message">
+                    Please select a gender
+                </div>
+            </div>
+        </form>
+
         <button id="continueButton" class="continue-button">
             Start Learning Hindi
         </button>
@@ -175,28 +272,88 @@
 
     <script>
         const childNameInput = document.getElementById('childName');
+        const childAgeInput = document.getElementById('childAge');
+        const genderRadios = document.querySelectorAll('input[name="childGender"]');
         const continueButton = document.getElementById('continueButton');
-        const errorMessage = document.getElementById('errorMessage');
 
-        // Enable button when name is entered
-        childNameInput.addEventListener('input', function() {
-            const name = this.value.trim();
-            if (name) {
+        const nameError = document.getElementById('nameError');
+        const ageError = document.getElementById('ageError');
+        const genderError = document.getElementById('genderError');
+
+        // Validation function
+        function validateForm() {
+            const name = childNameInput.value.trim();
+            const age = childAgeInput.value;
+            const genderSelected = Array.from(genderRadios).some(radio => radio.checked);
+
+            const isValid = name && age && genderSelected;
+
+            if (isValid) {
                 continueButton.classList.add('active');
-                errorMessage.style.display = 'none';
             } else {
                 continueButton.classList.remove('active');
             }
+
+            return isValid;
+        }
+
+        // Add event listeners to all inputs
+        childNameInput.addEventListener('input', function() {
+            if (this.value.trim()) {
+                nameError.style.display = 'none';
+            }
+            validateForm();
+        });
+
+        childAgeInput.addEventListener('input', function() {
+            const age = parseInt(this.value);
+            if (age >= 1 && age <= 18) {
+                ageError.style.display = 'none';
+            }
+            validateForm();
+        });
+
+        genderRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                genderError.style.display = 'none';
+                validateForm();
+            });
         });
 
         // Handle form submission
         continueButton.addEventListener('click', async function() {
             const childName = childNameInput.value.trim();
-            
+            const childAge = childAgeInput.value;
+            const selectedGender = Array.from(genderRadios).find(radio => radio.checked);
+
+            // Hide all errors first
+            nameError.style.display = 'none';
+            ageError.style.display = 'none';
+            genderError.style.display = 'none';
+
+            // Validate all fields
+            let hasError = false;
+
             if (!childName) {
-                errorMessage.textContent = 'Please enter your child\'s name';
-                errorMessage.style.display = 'block';
-                childNameInput.focus();
+                nameError.textContent = 'Please enter your child\'s name';
+                nameError.style.display = 'block';
+                hasError = true;
+            }
+
+            const age = parseInt(childAge);
+            if (!childAge || isNaN(age) || age < 4 || age > 10) {
+                ageError.textContent = 'Please enter a valid age (4-10 years)';
+                ageError.style.display = 'block';
+                hasError = true;
+            }
+
+            if (!selectedGender) {
+                genderError.textContent = 'Please select a gender';
+                genderError.style.display = 'block';
+                hasError = true;
+            }
+
+            if (hasError) {
                 return;
             }
 
@@ -210,7 +367,11 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ child_name: childName })
+                    body: JSON.stringify({
+                        child_name: childName,
+                        child_age: age,
+                        child_gender: selectedGender.value
+                    })
                 });
 
                 const data = await response.json();
@@ -220,13 +381,13 @@
                     window.location.href = '/conversation-select';
                 } else {
                     // Show error
-                    errorMessage.textContent = data.error || 'Failed to save child name';
-                    errorMessage.style.display = 'block';
+                    nameError.textContent = data.error || 'Failed to save profile';
+                    nameError.style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error:', error);
-                errorMessage.textContent = 'Something went wrong. Please try again.';
-                errorMessage.style.display = 'block';
+                nameError.textContent = 'Something went wrong. Please try again.';
+                nameError.style.display = 'block';
             } finally {
                 // Re-enable button
                 continueButton.disabled = false;
@@ -236,12 +397,20 @@
 
         // Handle Enter key
         childNameInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && this.value.trim()) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                childAgeInput.focus();
+            }
+        });
+
+        childAgeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && validateForm()) {
+                e.preventDefault();
                 continueButton.click();
             }
         });
 
-        // Auto-focus on input
+        // Auto-focus on name input
         childNameInput.focus();
     </script>
 </body>

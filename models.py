@@ -11,10 +11,12 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     name = db.Column(db.String(1000), nullable=False)
     child_name = db.Column(db.String(100), nullable=True)
+    child_age = db.Column(db.Integer, nullable=True)
+    child_gender = db.Column(db.String(10), nullable=True)
     profile_picture = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     conversations = db.relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
     
@@ -29,6 +31,8 @@ class User(UserMixin, db.Model):
             'email': self.email,
             'name': self.name,
             'child_name': self.child_name,
+            'child_age': self.child_age,
+            'child_gender': self.child_gender,
             'profile_picture': self.profile_picture,
             'reward_points': self.reward_points,
             'created_at': self.created_at.isoformat(),

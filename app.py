@@ -21,6 +21,7 @@ import tempfile
 import time
 import concurrent.futures
 import random
+from conversation_config import CONVERSATION_TYPES
 
 # Import our models and auth
 from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics
@@ -132,248 +133,44 @@ except Exception as e:
     logger.error(f"Failed to initialize Groq client: {e}")
     raise
 
-# Conversation type configurations
-CONVERSATION_TYPES = {
-    'everyday': {
-        'name': 'Everyday Life',
-        'description': 'Daily activities, school, friends, and routine conversations',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a polite, warm greeting and ask if they went to school today or what they did today in Hindi.
-            Guidelines:
-            1. Keep it short
-            2. Use simple Hindi words for someone learning in the first grade
-            3. Make it cheerful and inviting
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Focus on everyday life topics: school, friends, family, daily activities, food, play, etc.
-            Guidelines:
-            1. This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges. 
-            2. Be curious about their daily life like a their grandmother would be. Choose to ask about the things that they did today; give advice, support, and guidance wherever necessary.
-            3. Keep responses short (max 5-8 words)
-            4. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
-            5. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer. If they say 'school', ask 'स्कूल में क्या किया?'."
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🏠',
-        'tag': 'Easy'
-    },
-    'about_me': {
-        'name': 'About Me',
-        'description': 'Talk about yourself - your age, school, class and favorite things',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a warm greeting for the child
-            Guidelines:
-            1. Keep it short and simple
-            2. Use simple Hindi words
-            3. Make it cheerful and friendly
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Have a natural conversation about the child - their age, favorite color, and birthday.
-            This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges.
-            Guidelines:
-            1. Ask one question at a time about them
-            2. Keep responses short (max 10 words)
-            3. Ensure your Hindi response is grammatically correct
-            4. If child responds in English, naturally model the correct Hindi without criticizing
-            5. Be enthusiastic and encouraging
-            6. Topics to cover: age, school, class, favorite color, birthday month. You can talk about more topics about the child
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '👤',
-        'tag': 'Easy'
-    },
-    'my_family': {
-        'name': 'My Family',
-        'description': 'Talk about your family - parents, siblings, and pets',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a warm polit greeting and ask about their family in Hindi.
-            Guidelines:
-            1. Keep it short and warm
-            2. Use simple Hindi words
-            3. Make it inviting and comfortable
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Have a natural conversation about their family - parents, siblings, pets, and family activities.
-            This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges.
-            Guidelines:
-            1. Ask about siblings, parents, pets, what they do together
-            2. Keep responses short (max 10 words)
-            3. Ensure your Hindi response is grammatically correct
-            4. If child responds in English, naturally model the correct Hindi without criticizing
-            5. Be warm and interested like a caring grandmother
-            6. Use present tense primarily
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '👨‍👩‍👧‍👦',
-        'tag': 'Easy'
-    },
-    'my_toys': {
-        'name': 'My Toys',
-        'description': 'Talk about your favorite toys and what you play with',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a polite, warm greeting and ask about their favorite toy in Hindi.
-            Guidelines:
-            1. Keep it short and exciting
-            2. Use simple Hindi words for someone learning in the first grade
-            3. Make it playful and fun
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Have a natural conversation about their toys - favorite toy, what they play with, who they play with.
-            This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges.
-            Guidelines:
-            1. Ask about their toys, what they play, who they play with
-            2. Keep responses short (max 10 words)
-            3. Ensure your Hindi response is grammatically correct
-            4. If child responds in English, naturally model the correct Hindi without criticizing
-            5. Be enthusiastic and playful
-            6. Use present tense primarily
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🧸',
-        'tag': 'Fun'
-    },
-    'food_i_like': {
-        'name': 'Food I Like',
-        'description': 'Talk about your favorite foods, snacks, and treats',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a warm greeting and ask about their favorite food in Hindi.
-            Guidelines:
-            1. Keep it short and appetizing
-            2. Use simple Hindi words
-            3. Make it fun and relatable
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Have a natural conversation about food - favorite foods, snacks, ice cream, fruits.
-            This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges.
-            Guidelines:
-            1. Ask about favorite food, snacks, ice cream flavors, fruits they like
-            2. Keep responses short (max 10 words)
-            3. Ensure your Hindi response is grammatically correct
-            4. Be enthusiastic and encouraging
-            5. Use present tense primarily
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🍕',
-        'tag': 'Fun'
-    },
-    'superheroes': {
-        'name': 'Superheroes',
-        'description': 'Talk about your favorite superheroes and superpowers',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create an exciting greeting and ask about their favorite superhero or what superpower they would want in Hindi.
-            Guidelines:
-            1. Keep it short and exciting
-            2. Use simple Hindi words
-            3. Make it energetic and fun
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi female tutor speaking with a 6-year-old child, named {child_name}.
-            Have a natural conversation about superheroes - favorite superhero, superpowers they'd want, what they'd do.
-            This is a 10-exchange conversation, so guide it to completion after approximately 10 back-and-forth exchanges.
-            Guidelines:
-            1. Ask about favorite superhero, what powers they'd want, what they'd do with powers
-            2. Keep responses short (max 10 words)
-            3. Ensure your Hindi response is grammatically correct
-            4. Be enthusiastic and imaginative
-            5. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🦸',
-        'tag': 'Creative'
-    },
-    'animals_nature': {
-        'name': 'Animals and Nature',
-        'description': 'Conversations about pets, zoo animals, and wildlife',
-        'system_prompts': {
-            'initial': """
-            You are a friendly Hindi female tutor starting a conversation with a 6-year-old child, named {child_name}.
-            Create a warm greeting and ask about their favorite animal in Hindi.
-            Guidelines:
-            1. Keep it short
-            2. Use simple Hindi words
-            3. Make it cheerful and inviting
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': 
-            """
-            You are a friendly, caring Hindi female tutor speaking with a 6-year-old child, named {child_name}. Your goal is to guide a fun, Hindi-only conversation about animals and nature.
-            Guidelines:
-            1. Continue the natural conversation flow about animals
-            2. Keep responses short (max 20 words)
-            3. Ensure your Hindi response is grammatically correct and follows the correct sentence structure.
-            4. Gently encourage them to give a longer, complete answer. For example, Ask a follow-up question to the child's single-word answer.
-            5. Basis the response of the kid, ask relevant follow-up questions. Make it fun and interesting for the kid.
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🦊', 
-        'tag': 'Fun'
-    },
-    'adventure_story': {
-        'name': 'Adventure Story',
-        'description': 'Create exciting adventure stories together in simple Hindi',
-        'system_prompts': {
-            'initial': """You are a friendly Hindi storytelling female tutor starting an adventure story with a 6-year-old child, named {child_name}.
-            Begin by suggesting we create an adventure story together in Hindi, and ask them to choose a main character or setting.
-            You will co-create an adventure story where they contribute ideas and you guide the narrative.
-            Guidelines:
-            1. Keep it very short (max 10 words)
-            2. Use simple Hindi words
-            3. Make it exciting and engaging
-            4. Ask them to contribute ideas for the adventure story
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': """You are a friendly Hindi storytelling female tutor co-creating an adventure story with a 6-year-old child, named {child_name}.
-            Help them build an exciting adventure story by asking for their input and expanding on their ideas.
-            Guidelines:
-            1. Continue the story based on their input and ask what happens next
-            2. Keep responses short (max 20 words)
-            3. Use simple Hindi vocabulary suitable for children
-            4. Make the story exciting with simple adventures (finding treasure, helping animals, exploring places)
-            5. Always ask for their input: "What should happen next?" or "Who should they meet?"
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '🗺️',
-        'tag': 'Creative'
-    },
-    'panchatantra_story': {
-        'name': 'Co-create the "Thirsty Crow" Panchatantra Story',
-        'description': 'Create the classic story of "The Thirsty Crow" together in simple Hindi',
-        'system_prompts': {
-            'initial': """
-            You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
-            Start by narrating that a crow was very thirsty and was looking for water. Then ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
-            Return response in JSON format: {{"response": "Your Hindi greeting here"}}""",
-            'conversation': 
-            """You are a friendly, patient, and encouraging Hindi female tutor for a 6-year-old child, named {child_name}. Your task is to co-create the story of 'The Thirsty Crow' with the child. The child does not know the story. You must provide the main narrative points and then ask the child a question to move the story forward. Your goal is to help the child form complete sentences in Hindi.
-            The story must follow these specific steps:
-            1. **Start:** Narrate that a crow was very thirsty and was looking for water. Ask the child, "कौआ कहाँ था और क्या कर रहा था?" (Where was the crow and what was he doing?)
-            2. **The Discovery:** Narrate that the crow found a pot of water but the water level was too low. Ask the child, "कौए को पानी का घड़ा कहाँ मिला?" (Where did the crow find the pot of water?)
-            3. **The Problem:** Narrate that the crow's beak couldn't reach the water. Ask the child, "कौए ने पानी पीने के लिए क्या किया?" (What did the crow do to drink the water?)
-            4. **The Solution:** Narrate that the crow saw pebbles nearby and started picking them up. Ask the child, "उसने उन पत्थरों को कहाँ डाला?" (Where did he put those stones?)
-            5. **The Result:** Narrate that the water level rose and the crow drank it. Ask the child, "पानी पीने के बाद कौए ने क्या कहा?" (What did the crow say after drinking the water?)
-            6. **The Moral:** Narrate the final lesson of the story. Ask the child, "इस कहानी से तुमने क्या सीखा?" (What did you learn from this story?)
 
-            Important Rules for all your responses:
-            - Keep your narrative parts simple and short (max 10 words).
-            - Wait for the child's response before moving to the next step.
-            - Use very simple Hindi words and sentence structures.
-            - Reinforce the child's correct answer by repeating it in a full, grammatically correct sentence. For example, if the child says "glass mein," you say "हाँ! उसने पत्थर ग्लास में डाले।" (Yes! He put the stones in the glass.)
-            - Encourage the child with positive phrases like "बहुत बढ़िया" (very good), "शाबाश" (bravo), or "वाह" (wow).
-            - Guide the child to say a full sentence. If they give a single-word answer, repeat the sentence for them to practice.
-            - The entire story, from start to finish, must be based on the provided plot points of 'The Thirsty Crow'.
-            Return JSON format: {{"response": "Your Hindi response here"}}"""
-        },
-        'icon': '📖',
-        'tag': 'Indian fables'
+# Module metadata with Hindi names, English names, taglines, and colors
+MODULES = {
+    'main_aur_meri_baatein': {
+        'name_hindi': 'मैं और मेरी बातें ',
+        'name_english': 'Me and My World',
+        'tagline': 'Because every conversation starts with "me"',
+        'color': '#EEF4FA'
+    },
+    'mera_parivaar': {
+        'name_hindi': 'मेरा परिवार ',
+        'name_english': 'My Family',
+        'tagline': 'Because Hindi has words for family that English doesn\'t',
+        'color': '#FDEEE9'
+    },
+    'khana_peena': {
+        'name_hindi': 'खाना-पीना',
+        'name_english': 'Food & Eating',
+        'tagline': 'Because food is how we carry culture across oceans',
+        'color': '#F0F5F1'
+    },
+    'tyohaar': {
+        'name_hindi': 'त्योहार',
+        'name_english': 'Festivals & Celebrations',
+        'tagline': 'Celebrate the joy and colors of our culture',
+        'color': '#FEF3E2'
+    },
+    'bahar_ki_duniya': {
+        'name_hindi': 'बाहर की दुनिया',
+        'name_english': 'The World Outside',
+        'tagline': 'From peacocks to monsoons - the world in Hindi',
+        'color': '#E8F5F0'
+    },
+    'kahaniyan': {
+        'name_hindi': 'कहानियाँ',
+        'name_english': 'Stories & Tales',
+        'tagline': 'Timeless wisdom wrapped in enchanting tales',
+        'color': '#F5F3F9'
     }
 }
 
@@ -391,15 +188,25 @@ port = int(os.getenv('PORT', 5001))
 user_sessions = {}
 
 
-def get_initial_conversation(child_name="दोस्त", conversation_type="everyday"):
+def get_initial_conversation(child_name="दोस्त", child_age=6, child_gender="neutral", conversation_type="everyday"):
     """Generate initial conversation starter based on conversation type"""
     try:
         # Get the appropriate system prompt for the conversation type
         if conversation_type in CONVERSATION_TYPES:
-            system_prompt = CONVERSATION_TYPES[conversation_type]['system_prompts']['initial'].format(child_name=child_name)
+            system_prompt = CONVERSATION_TYPES[conversation_type]['system_prompts']['initial'].format(
+                child_name=child_name,
+                child_age=child_age,
+                child_gender=child_gender,
+                exchange_number=1
+            )
         else:
             # Fallback to everyday conversation
-            system_prompt = CONVERSATION_TYPES['everyday']['system_prompts']['initial'].format(child_name=child_name)
+            system_prompt = CONVERSATION_TYPES['everyday']['system_prompts']['initial'].format(
+                child_name=child_name,
+                child_age=child_age,
+                child_gender=child_gender,
+                exchange_number=1
+            )
 
         logger.info(f"Making Groq API call for initial {conversation_type} conversation")
 
@@ -513,7 +320,7 @@ class TalkerModule:
     """Handles conversation responses based on evaluation context"""
     
     @staticmethod
-    def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday", child_name="दोस्त"):
+    def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday", child_name="दोस्त", child_age=6, child_gender="neutral"):
         """Generate conversation response based on conversation type"""
         try:
 
@@ -527,7 +334,13 @@ class TalkerModule:
                 # Fallback to everyday conversation
                 system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
 
-            system_prompt = system_prompt_template.format(strategy=strategy, child_name=child_name)
+            system_prompt = system_prompt_template.format(
+                strategy=strategy,
+                child_name=child_name,
+                child_gender=child_gender,
+                child_age=child_age,
+                exchange_number=sentence_count
+            )
             
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -543,10 +356,10 @@ class TalkerModule:
                 max_tokens = 400,
                 tool_choice = "none"
             )
-            
+
             result = json.loads(response.choices[0].message.content)
 
-            return result["response"]
+            return result  # Return full object with response, hints, should_end
             
         except Exception as e:
             logger.error(f"Error in talker response: {str(e)}")
@@ -564,6 +377,8 @@ class ConversationController:
         try:
             conversation_type = session_data.get('conversation_type', 'everyday')
             child_name = session_data.get('child_name', 'दोस्त')
+            child_age = session_data.get('child_age', 6)
+            child_gender = session_data.get('child_gender', 'Male')
 
             # Extract the last talker response from conversation history
             last_talker_response = None
@@ -590,12 +405,24 @@ class ConversationController:
                     user_text,
                     session_data['sentences_count'],
                     conversation_type,
-                    child_name
+                    child_name,
+                    child_age,
+                    child_gender
                 )
                 
                 # Wait for both to complete
                 evaluation = eval_future.result()
                 conversation_response = conv_future.result()
+
+            # Check if conversation should end
+            should_end = conversation_response.get('should_end', False) if isinstance(conversation_response, dict) else False
+
+            # If conversation should end, return completion page
+            if should_end:
+                return show_completion_page()
+
+            # Extract just the text response for backwards compatibility
+            response_text = conversation_response.get('response') if isinstance(conversation_response, dict) else conversation_response
 
             # Track good responses and handle amber responses
             if evaluation['feedback_type'] == 'green':
@@ -607,28 +434,29 @@ class ConversationController:
                     'issues': evaluation['issues']
                 }
                 session_data.setdefault('amber_responses', []).append(amber_entry)
-            
+
             # Check if correction popup should trigger (every 4 interactions, and we have amber responses)
             should_show_popup = (
                 session_data['sentences_count'] % 4 == 0 and
                 session_data['sentences_count'] > 0 and
                 len(session_data.get('amber_responses', [])) > 0
             )
-            
+
             # Calculate milestone status for celebration
             is_milestone = (
-                evaluation['feedback_type'] == 'green' and 
+                evaluation['feedback_type'] == 'green' and
                 session_data['good_response_count'] % 4 == 0 and
                 session_data['good_response_count'] > 0
             )
-            
+
             result = {
-                'response': conversation_response,
+                'response': response_text,
                 'evaluation': evaluation,
                 'should_show_popup': should_show_popup,
                 'amber_responses': session_data.get('amber_responses', []) if should_show_popup else [],
                 'is_milestone': is_milestone,
-                'good_response_count': session_data.get('good_response_count', 0)
+                'good_response_count': session_data.get('good_response_count', 0),
+                'should_end': should_end
             }
 
             return result
@@ -707,10 +535,12 @@ def start_conversation():
         if conversation_type not in CONVERSATION_TYPES:
             conversation_type = 'everyday'
         
-        # Use the authenticated user's child name
+        # Use the authenticated user's child data
         child_name = current_user.child_name or 'दोस्त'
-        
-        initial_message = get_initial_conversation(child_name, conversation_type)
+        child_age = current_user.child_age or 6
+        child_gender = current_user.child_gender or 'neutral'
+
+        initial_message = get_initial_conversation(child_name, child_age, child_gender, conversation_type)
         
         logger.info("Converting text to speech")
         audio_response = text_to_speech_hindi(initial_message)
@@ -745,6 +575,9 @@ def start_conversation():
             'good_response_count': 0,
             'reward_points': 0,
             'conversation_type': conversation_type,
+            'child_name': child_name,
+            'child_age': child_age,
+            'child_gender': child_gender,
             'amber_responses': [],
             'created_at': datetime.now().isoformat()
         }
@@ -941,10 +774,15 @@ def speech_to_text_hindi_google(audio_data):
             encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
             sample_rate_hertz = 48000,  # Google's recommended optimal rate
             language_code = "hi-IN",    # Hindi (India)
+            # Alternative languages for code-switching
+            alternative_language_codes=["en-IN", "en-US"],
             model = "latest_long",      # Latest model for better accuracy
             use_enhanced = True,        # Enhanced model if available
             enable_automatic_punctuation = True,
             audio_channel_count = 1,
+            # This helps with mixed language
+            enable_spoken_punctuation=False,
+            enable_spoken_emojis=False,
             # Optimization for child speech
             speech_contexts=[
                 speech.SpeechContext(
@@ -1105,11 +943,25 @@ def conversation_select():
     """Conversation type selection page - requires authentication and profile setup"""
     if not current_user.child_name:
         return redirect(url_for('profile_setup'))
-    
+
     # Track conversation-select page visit
     track_page_view('conversation-select', request.path)
-    
-    return render_template('conversation_select.html')
+
+    # Organize topics by module
+    modules_data = {}
+    for topic_key, topic_data in CONVERSATION_TYPES.items():
+        module_key = topic_data.get('module')
+        if module_key not in modules_data:
+            modules_data[module_key] = {
+                'metadata': MODULES[module_key],
+                'topics': []
+            }
+        modules_data[module_key]['topics'].append({
+            'key': topic_key,
+            **topic_data
+        })
+
+    return render_template('conversation_select.html', modules=modules_data, module_order=['main_aur_meri_baatein', 'mera_parivaar', 'khana_peena', 'tyohaar', 'bahar_ki_duniya', 'kahaniyan'])
 
 @app.route('/conversation')
 @login_required
@@ -1417,6 +1269,8 @@ def process_audio_stream():
         conversation_type = session_data.get('conversation_type', 'everyday')
         conversation_history = session_data.get('conversation_history', [])
         child_name = session_data.get('child_name', 'दोस्त')
+        child_age = session_data.get('child_age', 6)
+        child_gender = session_data.get('child_gender', 'neutral')
 
         # Extract last talker response for evaluation
         last_talker_response = None
@@ -1449,9 +1303,15 @@ def process_audio_stream():
 
                 # Remove JSON format instruction for streaming
                 system_prompt = system_prompt_base.replace(
-                    'Return JSON format: {{"response": "Your Hindi response here"}}',
-                    'Respond directly in Hindi only (no JSON format).'
-                ).format(strategy="continue_conversation", child_name=child_name)
+                    'Return a JSON object with this exact structure:\n{\n  "response": "Your Devanagari Hindi response here",\n  "hints": ["हिंट],\n  "should_end": false,\n}\n\nFields:\n- "response": Your conversational response in Devanagari Hindi only (max 15 words)\n- "hints": A possible response the child could say next (in Devanagari)\n- "should_end": Set to true ONLY when conversation should naturally conclude',
+                    'Respond directly in Devanagari Hindi only (no JSON format). Keep your response under 15 words.'
+                ).format(
+                    strategy="continue_conversation",
+                    child_name=child_name,
+                    child_gender=child_gender,
+                    child_age=child_age,
+                    exchange_number=session_data['sentences_count']
+                )
 
                 messages = [
                     {"role": "system", "content": system_prompt},

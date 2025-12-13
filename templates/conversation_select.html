@@ -4,19 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Choose Conversation - Your Hindi Tutor</title>
-    
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="/static/css/mobile-design-system.css">
+    <link rel="stylesheet" href="/static/css/conversation-select-modules.css">
     <script src="/static/js/mobile-navigation.js" defer></script>
-    
+
     <style>
-        /* Header layout fixes */
-        .mobile-top-bar {
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            padding: 0.5rem 1rem !important;
-        }
-        
         /* History toggle button */
         .history-toggle-btn {
             display: flex;
@@ -32,19 +30,19 @@
             font-weight: 500;
             flex-shrink: 0;
         }
-        
+
         .history-toggle-btn:hover {
             background: rgba(0, 0, 0, 0.05);
         }
-        
+
         .hamburger-icon {
             font-size: 1.2rem;
         }
-        
+
         .history-text {
             font-size: 0.9rem;
         }
-        
+
         /* Sidebar overlay */
         .sidebar-overlay {
             position: fixed;
@@ -58,12 +56,12 @@
             visibility: hidden;
             transition: opacity 0.3s, visibility 0.3s;
         }
-        
+
         .sidebar-overlay.active {
             opacity: 1;
             visibility: visible;
         }
-        
+
         /* History sidebar */
         .history-sidebar {
             position: fixed;
@@ -80,11 +78,11 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .history-sidebar.active {
             transform: translateX(0);
         }
-        
+
         /* Sidebar header */
         .sidebar-header {
             display: flex;
@@ -95,13 +93,13 @@
             background: var(--primary-green);
             color: white;
         }
-        
+
         .sidebar-header h3 {
             margin: 0;
             font-size: 1.1rem;
             font-weight: 600;
         }
-        
+
         .close-sidebar-btn {
             background: none;
             border: none;
@@ -112,18 +110,18 @@
             border-radius: 0.25rem;
             transition: background-color 0.2s;
         }
-        
+
         .close-sidebar-btn:hover {
             background: rgba(255, 255, 255, 0.1);
         }
-        
+
         /* Sidebar content */
         .sidebar-content {
             flex: 1;
             overflow-y: auto;
             padding: 1rem;
         }
-        
+
         /* Loading state */
         .history-loading {
             display: flex;
@@ -132,7 +130,7 @@
             padding: 2rem 1rem;
             color: #6b7280;
         }
-        
+
         .loading-spinner {
             width: 32px;
             height: 32px;
@@ -142,19 +140,19 @@
             animation: spin 1s linear infinite;
             margin-bottom: 1rem;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         /* History list */
         .history-list {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
         }
-        
+
         /* History item */
         .history-item {
             background: #f9fafb;
@@ -164,81 +162,81 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         .history-item:hover {
             background: #f3f4f6;
             border-color: var(--primary-green);
             transform: translateY(-1px);
         }
-        
+
         .history-item-header {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             margin-bottom: 0.5rem;
         }
-        
+
         .history-item-icon {
             font-size: 1.2rem;
         }
-        
+
         .history-item-title {
             font-weight: 600;
             color: #1f2937;
             font-size: 0.9rem;
         }
-        
+
         .history-item-date {
             font-size: 0.75rem;
             color: #6b7280;
             margin-left: auto;
         }
-        
+
         .history-item-preview {
             font-size: 0.8rem;
             color: #6b7280;
             margin-bottom: 0.5rem;
             line-height: 1.3;
         }
-        
+
         .history-item-stats {
             display: flex;
             gap: 1rem;
             font-size: 0.75rem;
             color: #6b7280;
         }
-        
+
         .history-stat {
             display: flex;
             align-items: center;
             gap: 0.25rem;
         }
-        
+
         /* Empty state */
         .history-empty {
             text-align: center;
             padding: 2rem 1rem;
             color: #6b7280;
         }
-        
+
         .history-empty p {
             margin: 0.5rem 0;
         }
-        
+
         /* Mobile adjustments */
         @media (max-width: 768px) {
             .history-sidebar {
                 width: 280px;
             }
-            
+
             .history-text {
                 display: none;
             }
-            
+
             .sidebar-content {
                 padding: 0.75rem;
             }
-            
+
             .history-item {
                 padding: 0.75rem;
             }
@@ -254,10 +252,10 @@
                 <span class="hamburger-icon">☰</span>
                 <span class="history-text">History</span>
             </button>
-            
+
             <!-- Profile avatar will be inserted here by JavaScript -->
         </header>
-        
+
         <!-- Conversation History Sidebar -->
         <div id="historySidebar" class="history-sidebar">
             <div class="sidebar-header">
@@ -276,119 +274,62 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Sidebar overlay -->
         <div id="sidebarOverlay" class="sidebar-overlay"></div>
-        
+
         <!-- Main Content -->
         <main class="mobile-main-content">
             <div class="mobile-card">
                 <div class="text-center mb-lg">
-                    <h1 class="font-bold text-primary" style="font-size: 2.5rem; margin-bottom: 0.5rem;">Choose Your Adventure!</h1>
-                    <p class="text-medium" style="font-size: 1.2rem;">What would you like to talk about today?</p>
+                    <h1 class="page-title">Choose Your Adventure!</h1>
+                    <p class="page-subtitle">What would you like to talk about today?</p>
                 </div>
-                
-                <div class="child-greeting mb-xl" style="background: #f0fdf4; border-radius: 1rem; padding: 1.5rem; border-left: 4px solid var(--primary-green);">
-                    <div class="font-semibold text-primary" style="font-size: 1.3rem;">नमस्ते <span id="childName">...</span>! 👋</div>
-                    <div class="text-medium mt-xs" style="font-size: 1.1rem;">Let's practice Hindi together through fun conversations!</div>
+
+                <div class="child-greeting mb-xl">
+                    <div class="greeting-text">नमस्ते <span id="childName">...</span>! 👋</div>
+                    <div class="greeting-subtext">Let's practice Hindi together through fun conversations!</div>
                 </div>
-                
-                <div class="conversation-options-grid">
 
-                    <!-- 1. About Me -->
-                    <a href="/conversation?type=about_me" class="conversation-option-card fade-in-up" data-type="about_me" style="animation-delay: 0s;">
-                        <div class="option-tag">Personal</div>
-                        <div class="option-icon">🙋</div>
-                        <div class="option-title">About Me</div>
-                        <div class="option-description">
-                            Talk about yourself - your name, age, and favorite things!
+                <!-- Modules Container -->
+                <div class="modules-container">
+                    {% for module_key in module_order %}
+                        {% set module = modules[module_key] %}
+                        <div class="module-card" style="--module-color: {{ module.metadata.color }}">
+                            <!-- Module Header -->
+                            <div class="module-header">
+                                <div class="module-header__content">
+                                    <h2 class="module-header__title-hindi">{{ module.metadata.name_hindi }}</h2>
+                                    <p class="module-header__title-english">{{ module.metadata.name_english }}</p>
+                                    <p class="module-header__tagline">{{ module.metadata.tagline }}</p>
+                                </div>
+                                <div class="module-header__illustration">
+                                    <!-- Placeholder for illustration - you'll add this later -->
+                                    <div class="illustration-placeholder"></div>
+                                </div>
+                            </div>
+
+                            <!-- Topics List -->
+                            <div class="topics-list">
+                                {% for topic in module.topics %}
+                                    <a href="/conversation?type={{ topic.key }}" class="topic-card" data-type="{{ topic.key }}">
+                                        <div class="topic-icon">{{ topic.icon }}</div>
+                                        <div class="topic-content">
+                                            <h3 class="topic-title">{{ topic.name }}</h3>
+                                            <p class="topic-description">{{ topic.description }}</p>
+                                        </div>
+                                        <div class="topic-action">
+                                            <button class="topic-btn">Start →</button>
+                                        </div>
+                                    </a>
+                                {% endfor %}
+                            </div>
                         </div>
-                    </a>
-
-                    <!-- 2. My Family -->
-                    <a href="/conversation?type=my_family" class="conversation-option-card fade-in-up" data-type="my_family" style="animation-delay: 0.1s;">
-                        <div class="option-tag">Personal</div>
-                        <div class="option-icon">👨‍👩‍👧‍👦</div>
-                        <div class="option-title">My Family</div>
-                        <div class="option-description">
-                            Talk about your family - parents, siblings, and pets!
-                        </div>
-                    </a>
-
-                    <!-- 3. Everyday Life -->
-                    <a href="/conversation?type=everyday" class="conversation-option-card fade-in-up" data-type="everyday" style="animation-delay: 0.2s;">
-                        <div class="option-tag">Easy</div>
-                        <div class="option-icon">🏠</div>
-                        <div class="option-title">Everyday Life</div>
-                        <div class="option-description">
-                            Talk about your day, school, friends, and daily activities!
-                        </div>
-                    </a>
-
-                    <!-- 4. My Toys -->
-                    <a href="/conversation?type=my_toys" class="conversation-option-card fade-in-up" data-type="my_toys" style="animation-delay: 0.3s;">
-                        <div class="option-tag">Fun</div>
-                        <div class="option-icon">🧸</div>
-                        <div class="option-title">My Toys</div>
-                        <div class="option-description">
-                            Talk about your favorite toys and what you play with!
-                        </div>
-                    </a>
-
-                    <!-- 5. Food I Like -->
-                    <a href="/conversation?type=food_i_like" class="conversation-option-card fade-in-up" data-type="food_i_like" style="animation-delay: 0.4s;">
-                        <div class="option-tag">Fun</div>
-                        <div class="option-icon">🍽️</div>
-                        <div class="option-title">Food I Like</div>
-                        <div class="option-description">
-                            Talk about your favorite foods, snacks, and treats!
-                        </div>
-                    </a>
-
-                    <!-- 6. Superheroes -->
-                    <a href="/conversation?type=superheroes" class="conversation-option-card fade-in-up" data-type="superheroes" style="animation-delay: 0.5s;">
-                        <div class="option-tag">Fun</div>
-                        <div class="option-icon">🦸</div>
-                        <div class="option-title">Superheroes</div>
-                        <div class="option-description">
-                            Talk about your favorite superheroes and superpowers!
-                        </div>
-                    </a>
-
-                    <!-- 7. Animals and Nature -->
-                    <a href="/conversation?type=animals_nature" class="conversation-option-card fade-in-up" data-type="animals_nature" style="animation-delay: 0.6s;">
-                        <div class="option-tag">Fun</div>
-                        <div class="option-icon">🦊</div>
-                        <div class="option-title">Animals and Nature</div>
-                        <div class="option-description">
-                            Chat about your favorite animals, pets, and wildlife!
-                        </div>
-                    </a>
-
-                    <!-- 8. Adventure Story -->
-                    <a href="/conversation?type=adventure_story" class="conversation-option-card fade-in-up" data-type="adventure_story" style="animation-delay: 0.7s;">
-                        <div class="option-tag">Creative</div>
-                        <div class="option-icon">🗺️</div>
-                        <div class="option-title">Adventure Story</div>
-                        <div class="option-description">
-                            Create exciting adventure stories together in simple Hindi!
-                        </div>
-                    </a>
-
-                    <!-- 9. Panchatantra Story -->
-                    <a href="/conversation?type=panchatantra_story" class="conversation-option-card fade-in-up" data-type="panchatantra_story" style="animation-delay: 0.8s;">
-                        <div class="option-tag">Indian Fables</div>
-                        <div class="option-icon">📖</div>
-                        <div class="option-title">Panchatantra Story</div>
-                        <div class="option-description">
-                            Build the famous "Thirsty Crow" story together!
-                        </div>
-                    </a>
-
+                    {% endfor %}
                 </div>
             </div>
         </main>
-        
+
         <!-- Bottom Navigation will be inserted here by JavaScript -->
     </div>
 
@@ -402,25 +343,25 @@
                     window.location.href = '/';
                     return;
                 }
-                
+
                 const user = await response.json();
                 if (!user.child_name) {
                     window.location.href = '/profile-setup';
                     return;
                 }
-                
+
                 // Update child name in greeting
                 const childNameEl = document.getElementById('childName');
                 if (childNameEl) {
                     childNameEl.textContent = user.child_name;
                 }
-                
+
                 // Store child name in sessionStorage for process_audio.js
                 sessionStorage.setItem('childName', user.child_name);
-                
+
                 // Update page title
                 document.title = `Choose Conversation - ${user.child_name}`;
-                
+
             } catch (error) {
                 console.error('Error loading user info:', error);
                 window.location.href = '/';
@@ -429,22 +370,24 @@
 
         // Add click tracking for analytics
         document.addEventListener('click', function(e) {
-            const conversationCard = e.target.closest('.conversation-option-card');
-            if (conversationCard) {
-                const type = conversationCard.getAttribute('data-type');
-                
+            const topicCard = e.target.closest('.topic-card');
+            if (topicCard) {
+                const type = topicCard.getAttribute('data-type');
+
                 // Track the selection (you can add analytics here)
                 console.log(`Selected conversation type: ${type}`);
-                
+
                 // Add loading state
-                conversationCard.style.opacity = '0.8';
-                conversationCard.style.transform = 'translateY(2px)';
-                
+                topicCard.style.opacity = '0.8';
+                topicCard.style.transform = 'translateY(2px)';
+
                 // Add transition effect
-                MobilePageUtils.showPageTransition();
+                if (typeof MobilePageUtils !== 'undefined') {
+                    MobilePageUtils.showPageTransition();
+                }
             }
         });
-        
+
         // History sidebar functionality
         const historyToggle = document.getElementById('historyToggle');
         const historySidebar = document.getElementById('historySidebar');
@@ -453,55 +396,55 @@
         const historyLoading = document.getElementById('historyLoading');
         const historyList = document.getElementById('historyList');
         const historyEmpty = document.getElementById('historyEmpty');
-        
+
         let conversationHistory = [];
         let historyLoaded = false;
-        
+
         // Toggle sidebar
         historyToggle.addEventListener('click', function() {
             openHistorySidebar();
         });
-        
+
         // Close sidebar
         closeSidebar.addEventListener('click', function() {
             closeHistorySidebar();
         });
-        
+
         // Close sidebar when overlay is clicked
         sidebarOverlay.addEventListener('click', function() {
             closeHistorySidebar();
         });
-        
+
         // Close sidebar on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && historySidebar.classList.contains('active')) {
                 closeHistorySidebar();
             }
         });
-        
+
         function openHistorySidebar() {
             historySidebar.classList.add('active');
             sidebarOverlay.classList.add('active');
             document.body.style.overflow = 'hidden';
-            
+
             // Load conversation history if not already loaded
             if (!historyLoaded) {
                 loadConversationHistory();
             }
         }
-        
+
         function closeHistorySidebar() {
             historySidebar.classList.remove('active');
             sidebarOverlay.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         async function loadConversationHistory() {
             try {
                 historyLoading.style.display = 'block';
                 historyList.style.display = 'none';
                 historyEmpty.style.display = 'none';
-                
+
                 const response = await fetch('/api/conversation-history', {
                     method: 'GET',
                     credentials: 'same-origin',
@@ -509,23 +452,23 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                
+
                 console.log('Conversation history response status:', response.status);
-                
+
                 // Handle authentication failures
                 if (response.status === 302 || response.status === 401) {
                     console.log('User not authenticated, redirecting to login');
                     window.location.href = '/';
                     return;
                 }
-                
+
                 if (!response.ok) {
                     throw new Error(`Failed to load conversation history: ${response.status} ${response.statusText}`);
                 }
-                
+
                 const data = await response.json();
                 console.log('Conversation history data:', data);
-                
+
                 if (data.success) {
                     conversationHistory = data.conversations;
                     renderConversationHistory();
@@ -533,40 +476,40 @@
                 } else {
                     throw new Error('API returned error');
                 }
-                
+
             } catch (error) {
                 console.error('Error loading conversation history:', error);
                 historyLoading.innerHTML = '<p style="color: #dc2626; text-align: center;">Failed to load conversations</p>';
             }
         }
-        
+
         function renderConversationHistory() {
             historyLoading.style.display = 'none';
-            
+
             if (conversationHistory.length === 0) {
                 historyEmpty.style.display = 'block';
                 historyList.style.display = 'none';
                 return;
             }
-            
+
             historyList.style.display = 'block';
             historyEmpty.style.display = 'none';
-            
+
             // Clear existing items
             historyList.innerHTML = '';
-            
+
             // Render conversation items
             conversationHistory.forEach(conversation => {
                 const historyItem = createHistoryItem(conversation);
                 historyList.appendChild(historyItem);
             });
         }
-        
+
         function createHistoryItem(conversation) {
             const item = document.createElement('div');
             item.className = 'history-item';
             item.setAttribute('data-conversation-id', conversation.id);
-            
+
             // Format date in user's local timezone
             const date = new Date(conversation.created_at);
             const formattedDate = date.toLocaleDateString(undefined, {
@@ -575,7 +518,7 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
-            
+
             item.innerHTML = `
                 <div class="history-item-header">
                     <span class="history-item-icon">${conversation.type_icon}</span>
@@ -594,15 +537,15 @@
                     </div>
                 </div>
             `;
-            
+
             // Add click handler to resume conversation
             item.addEventListener('click', function() {
                 resumeConversation(conversation.id);
             });
-            
+
             return item;
         }
-        
+
         function resumeConversation(conversationId) {
             // Add loading state to the item
             const item = document.querySelector(`[data-conversation-id="${conversationId}"]`);
@@ -610,14 +553,16 @@
                 item.style.opacity = '0.6';
                 item.style.transform = 'scale(0.98)';
             }
-            
+
             // Navigate to conversation page with ID
-            MobilePageUtils.showPageTransition();
+            if (typeof MobilePageUtils !== 'undefined') {
+                MobilePageUtils.showPageTransition();
+            }
             setTimeout(() => {
                 window.location.href = `/conversation?id=${conversationId}`;
             }, 200);
         }
-        
+
         // Helper function to refresh history when returning to this page
         window.refreshConversationHistory = function() {
             historyLoaded = false;

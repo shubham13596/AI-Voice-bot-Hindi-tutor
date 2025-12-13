@@ -118,28 +118,55 @@ def get_user_info():
 @auth_bp.route('/api/user/child-name', methods=['POST'])
 @login_required
 def update_child_name():
-    """API endpoint to update child name"""
+    """API endpoint to update child profile (name, age, gender)"""
     try:
         data = request.get_json()
         child_name = data.get('child_name', '').strip()
-        
+        child_age = data.get('child_age')
+        child_gender = data.get('child_gender', '').strip()
+
+        # Validate child name
         if not child_name:
             return jsonify({'error': 'Child name is required'}), 400
-        
+
         if len(child_name) > 100:
             return jsonify({'error': 'Child name is too long'}), 400
-        
+
+        # Validate child age
+        if not child_age:
+            return jsonify({'error': 'Child age is required'}), 400
+
+        try:
+            child_age = int(child_age)
+            if child_age < 1 or child_age > 18:
+                return jsonify({'error': 'Child age must be between 1 and 18'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid age format'}), 400
+
+        # Validate child gender
+        if not child_gender:
+            return jsonify({'error': 'Child gender is required'}), 400
+
+        if child_gender.lower() not in ['male', 'female']:
+            return jsonify({'error': 'Invalid gender selection'}), 400
+
         # Convert to sentence case
         formatted_name = child_name.capitalize()
-        
+        formatted_gender = child_gender.lower()
+
+        # Update user profile
         current_user.child_name = formatted_name
+        current_user.child_age = child_age
+        current_user.child_gender = formatted_gender
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
-            'child_name': formatted_name
+            'child_name': formatted_name,
+            'child_age': child_age,
+            'child_gender': formatted_gender
         })
-        
+
     except Exception as e:
-        print(f"Error updating child name: {e}")
-        return jsonify({'error': 'Failed to update child name'}), 500
+        print(f"Error updating child profile: {e}")
+        return jsonify({'error': 'Failed to update child profile'}), 500
