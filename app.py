@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
 import openai
 from groq import Groq
+import google.generativeai as genai
 import logging
 import logging.config
 import requests
@@ -133,6 +134,44 @@ except Exception as e:
     logger.error(f"Failed to initialize Groq client: {e}")
     raise
 
+# Initialize Gemini client
+try:
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not found in environment variables")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+
+    # Configure safety settings to be less restrictive for educational content
+    safety_settings = [
+        {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_NONE",
+        },
+        {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_NONE",
+        },
+        {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_NONE",
+        },
+        {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_NONE",
+        },
+    ]
+
+    # Create Gemini model instance
+    gemini_model = genai.GenerativeModel(
+        model_name='gemini-2.0-flash-exp',
+        safety_settings=safety_settings
+    )
+    logger.info("Gemini client initialized successfully with model: gemini-2.0-flash-exp")
+except Exception as e:
+    logger.error(f"Failed to initialize Gemini client: {e}")
+    raise
+
 
 # Module metadata with Hindi names, English names, taglines, and colors
 MODULES = {
@@ -241,6 +280,90 @@ You are nearing the end of this conversation (exchange {sentences_count}/8).
     
     # Early/mid conversation - no special instruction needed
     return ""
+
+def gemini_generate_content(system_prompt, conversation_history=None, response_format="json"):
+    """
+    Generate content using Gemini with optional JSON formatting
+
+    Args:
+        system_prompt: The system prompt
+        conversation_history: Optional list of previous messages
+        response_format: "json" or "text"
+    """
+    try:
+        # Build the prompt with conversation history
+        full_prompt = system_prompt
+
+        if conversation_history:
+            full_prompt += "\n\nConversation history:\n"
+            for msg in conversation_history:
+                role = "Child" if msg["role"] == "user" else "Tutor"
+                full_prompt += f"{role}: {msg['content']}\n"
+
+        # Configure generation settings
+        generation_config = {
+            "temperature": 0.4,
+            "max_output_tokens": 400,
+        }
+
+        # Add JSON mode if requested
+        if response_format == "json":
+            generation_config["response_mime_type"] = "application/json"
+
+        # Generate content
+        response = gemini_model.generate_content(
+            full_prompt,
+            generation_config=generation_config
+        )
+
+        return response.text
+
+    except Exception as e:
+        logger.error(f"Gemini generation error: {e}")
+        raise
+
+def gemini_stream_content(system_prompt, conversation_history=None):
+    """
+    Stream content using Gemini (for plain text responses, not JSON)
+
+    Args:
+        system_prompt: The system prompt
+        conversation_history: Optional list of previous messages
+
+    Yields:
+        Text chunks from Gemini
+    """
+    try:
+        # Build the prompt with conversation history
+        full_prompt = system_prompt
+
+        if conversation_history:
+            full_prompt += "\n\nConversation history:\n"
+            for msg in conversation_history:
+                role = "Child" if msg["role"] == "user" else "Tutor"
+                full_prompt += f"{role}: {msg['content']}\n"
+
+        # Configure generation settings for streaming
+        generation_config = {
+            "temperature": 0.4,
+            "max_output_tokens": 400,
+        }
+
+        # Generate content with streaming
+        response = gemini_model.generate_content(
+            full_prompt,
+            generation_config=generation_config,
+            stream=True
+        )
+
+        # Yield chunks
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+
+    except Exception as e:
+        logger.error(f"Gemini streaming error: {e}")
+        raise
 
 def get_streaming_system_prompt(base_prompt, sentences_count, child_name, child_age, child_gender, is_farewell=False):
     """
@@ -376,19 +499,16 @@ def get_initial_conversation(child_name="दोस्त", child_age=6, child_ge
                 exchange_number=1
             )
 
-        logger.info(f"Making Groq API call for initial {conversation_type} conversation")
+        logger.info(f"Making Gemini API call for initial {conversation_type} conversation")
 
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": system_prompt}],
-            response_format={ "type": "json_object" },
-            temperature=0.15,
-            max_tokens=400,
-            tool_choice="none"
+        # Use Gemini to generate initial greeting with JSON format
+        raw_content = gemini_generate_content(
+            system_prompt=system_prompt,
+            conversation_history=None,
+            response_format="json"
         )
-        
-        logger.info("Groq API call successful")
-        raw_content = response.choices[0].message.content
+
+        logger.info("Gemini API call successful")
         logger.info(f"Raw LLM response: {raw_content[:200]}")
         result = json.loads(raw_content)
         return result.get('response', "नमस्ते! कैसा है आपका दिन?")
@@ -1496,19 +1616,13 @@ def process_audio_stream():
                     is_farewell
                 )
 
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    *conversation_history,
-                    {"role": "user", "content": transcript}
-                ]
+                # Prepare conversation history for Gemini
+                gemini_history = conversation_history + [{"role": "user", "content": transcript}]
 
-                # Create streaming response
-                response_stream = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
-                    stream=True,
-                    temperature=0.4,
-                    max_tokens=400
+                # Create streaming response with Gemini
+                response_stream = gemini_stream_content(
+                    system_prompt=system_prompt,
+                    conversation_history=gemini_history
                 )
 
                 # Word buffering for smooth display
@@ -1517,25 +1631,25 @@ def process_audio_stream():
                 word_count = 0
                 first_words_sent = False
 
-                for chunk in response_stream:
-                    if chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        word_buffer += content
-                        accumulated_text += content
+                for chunk_text in response_stream:
+                    # Gemini streams text directly, not delta objects
+                    content = chunk_text
+                    word_buffer += content
+                    accumulated_text += content
 
-                        # Send buffered words (2-3 words or on punctuation)
-                        if (' ' in word_buffer and word_count >= 2) or any(p in word_buffer for p in '.!?,।'):
-                            words_to_send = word_buffer.strip()
-                            if words_to_send:
-                                if not first_words_sent:
-                                    first_words_time = time.time()
-                                    logger.info(f"📝 FIRST WORDS: {(first_words_time - request_start_time) * 1000:.1f}ms")
-                                    first_words_sent = True
-                                yield f"data: {json.dumps({'type': 'words', 'content': words_to_send, 'accumulated': accumulated_text})}\n\n"
-                            word_buffer = ""
-                            word_count = 0
-                        elif ' ' in word_buffer:
-                            word_count += 1
+                    # Send buffered words (2-3 words or on punctuation)
+                    if (' ' in word_buffer and word_count >= 2) or any(p in word_buffer for p in '.!?,।'):
+                        words_to_send = word_buffer.strip()
+                        if words_to_send:
+                            if not first_words_sent:
+                                first_words_time = time.time()
+                                logger.info(f"📝 FIRST WORDS: {(first_words_time - request_start_time) * 1000:.1f}ms")
+                                first_words_sent = True
+                            yield f"data: {json.dumps({'type': 'words', 'content': words_to_send, 'accumulated': accumulated_text})}\n\n"
+                        word_buffer = ""
+                        word_count = 0
+                    elif ' ' in word_buffer:
+                        word_count += 1
 
                 # Send remaining buffer
                 if word_buffer.strip():
