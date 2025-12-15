@@ -76,8 +76,8 @@
 }
 
 .module-header__illustration {
-    width: 120px;
-    height: 100px;
+    width: 160px;
+    height: 140px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -269,8 +269,8 @@
     }
 
     .module-header__illustration {
-        width: 140px;
-        height: 120px;
+        width: 180px;
+        height: 160px;
     }
 
     .topics-list {
@@ -318,8 +318,8 @@
     }
 
     .module-header__illustration {
-        width: 150px;
-        height: 130px;
+        width: 200px;
+        height: 180px;
     }
 
     .topics-list {

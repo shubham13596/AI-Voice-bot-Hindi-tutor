@@ -187,6 +187,174 @@ port = int(os.getenv('PORT', 5001))
 # Cache for storing user session data
 user_sessions = {}
 
+# Farewell keywords for early termination detection
+FAREWELL_KEYWORDS = [
+    'bye', 'goodbye', 'bye bye', 'byebye',
+    'अलविदा', 'बाय', 'टाटा', 'फिर मिलेंगे', 'चलता हूँ', 'चलती हूँ',
+    'बाय बाय', 'गुडबाय'
+]
+
+def detect_farewell(transcript):
+    """Check if the user's message contains farewell keywords"""
+    if not transcript:
+        return False
+    transcript_lower = transcript.lower().strip()
+    for keyword in FAREWELL_KEYWORDS:
+        if keyword in transcript_lower:
+            return True
+    return False
+
+def get_phase_instruction(sentences_count, is_farewell=False):
+    """Get phase-appropriate instruction based on conversation progress"""
+    
+    if is_farewell:
+        return """
+IMPORTANT - FINAL RESPONSE:
+The child is saying goodbye. This is your FINAL response.
+- Give a warm, affectionate goodbye
+- Summarize one thing you enjoyed talking about
+- Give them something fun to ask or tell their parents about what you discussed today
+- Keep it short and sweet
+- Do NOT ask any new questions
+"""
+    
+    if sentences_count >= 12:
+        return """
+IMPORTANT - FINAL RESPONSE:
+This is your FINAL response in this conversation.
+- Give a warm, affectionate goodbye
+- Briefly mention something nice from the conversation
+- Give them a fun "homework": something to ask or tell Mummy/Papa/Dadi/Nani about what you discussed
+- Do NOT ask any new questions
+- Make the child feel proud and successful
+"""
+    
+    if sentences_count >= 10:
+        return f"""
+CONVERSATION PHASE - WRAPPING UP:
+You are nearing the end of this conversation (exchange {sentences_count}/8).
+- Start wrapping up warmly over the next 1-2 exchanges
+- You can still ask one small follow-up question
+- Begin transitioning toward a natural conclusion
+- Think about what parent connection you'll suggest at the end
+"""
+    
+    # Early/mid conversation - no special instruction needed
+    return ""
+
+def get_streaming_system_prompt(base_prompt, sentences_count, child_name, child_age, child_gender, is_farewell=False):
+    """
+    Transform the base conversation prompt for streaming:
+    1. Remove JSON format requirement
+    2. Add phase-appropriate instructions
+    """
+    
+    # Remove the JSON format instruction (after .format() is called, {{ becomes {)
+    json_instruction = """RESPONSE FORMAT (CRITICAL - FOLLOW EXACTLY):
+Return a JSON object with this exact structure:
+{
+  "response": "Your Devanagari Hindi response here",
+  "hints": ["हिंट"],
+  "should_end": false
+}
+
+Fields:
+- "response": Your conversational response in Devanagari Hindi only (max 15 words)
+- "hints": A possible response the child could say next (in Devanagari)
+- "should_end": Set to true ONLY when conversation should naturally conclude"""
+    
+    streaming_instruction = """RESPONSE FORMAT:
+Respond ONLY with your conversational response in Devanagari Hindi (max 15 words).
+Do NOT use JSON format. Do NOT include any metadata or field names.
+Just write the Hindi text directly - nothing else."""
+
+    # IMPORTANT: Format first (to convert {{ to {), then replace
+    # Format with child details
+    formatted_prompt = base_prompt.format(
+        strategy="continue_conversation",
+        child_name=child_name,
+        child_gender=child_gender,
+        child_age=child_age,
+        exchange_number=sentences_count
+    )
+
+    # Now replace JSON instruction with streaming instruction
+    modified_prompt = formatted_prompt.replace(json_instruction, streaming_instruction)
+
+    # Debug: Log if replacement worked
+    if json_instruction in formatted_prompt:
+        logger.info("✅ Found and replaced JSON instruction for streaming")
+    else:
+        logger.warning("❌ JSON instruction NOT found - replacement didn't work!")
+
+    # Log a sample of the final prompt to verify
+    logger.info(f"📝 Streaming prompt sample (first 500 chars): {modified_prompt[:500]}...")
+
+    # Get phase-specific instruction
+    phase_instruction = get_phase_instruction(sentences_count, is_farewell)
+
+    # Add phase instruction if we have one
+    if phase_instruction:
+        modified_prompt = phase_instruction + "\n\n" + modified_prompt
+    
+    return modified_prompt
+
+def generate_hints(conversation_history, conversation_type, child_name, child_age):
+    """Generate hint suggestions for what the child could say next"""
+    try:
+        hints_prompt = f"""You are helping a {child_age}-year-old child learning Hindi.
+Based on the conversation so far, suggest ONLY 1 simple Hindi sentence the child could say next.
+
+Rules:
+- Use Devanagari script ONLY (no romanized Hindi)
+- Keep sentence very simple (3-6 words max)
+- Make them age-appropriate for a {child_age}-year-old
+- Sentence should be natural responses to the last assistant message
+
+RESPONSE FORMAT (CRITICAL - FOLLOW EXACTLY):
+Return a JSON object with this exact structure:
+{{
+  "hint": "Your Devanagari Hindi hint here"
+}}
+
+Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
+"""
+        
+        # Get last few exchanges for context
+        recent_history = conversation_history[-4:] if len(conversation_history) > 4 else conversation_history
+        
+        messages = [
+            {"role": "system", "content": hints_prompt},
+            *recent_history
+        ]
+        
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages = messages,
+            response_format = {"type": "json_object"},
+            temperature = 0.3,
+            max_tokens = 200
+        )
+        
+        result = response.choices[0].message.content
+        logger.info(f"Raw hints response: {result[:200]}")
+        # Parse the JSON response
+        hints_data = json.loads(result)
+        
+        # 2. CHANGED: Simplified parsing logic to match the new structure
+        if "hint" in hints_data:
+            # Return as a list because your UI likely expects a list of hints
+            return [hints_data["hint"]]
+        elif "hints" in hints_data and isinstance(hints_data["hints"], list):
+             # Fallback if model decides to use a list anyway
+            return hints_data["hints"][:1]
+        else:
+            return []
+            
+    except Exception as e:
+        logger.error(f"Error generating hints: {e}")
+        return []
+
 
 def get_initial_conversation(child_name="दोस्त", child_age=6, child_gender="neutral", conversation_type="everyday"):
     """Generate initial conversation starter based on conversation type"""
@@ -211,7 +379,7 @@ def get_initial_conversation(child_name="दोस्त", child_age=6, child_ge
         logger.info(f"Making Groq API call for initial {conversation_type} conversation")
 
         response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": system_prompt}],
             response_format={ "type": "json_object" },
             temperature=0.15,
@@ -220,7 +388,9 @@ def get_initial_conversation(child_name="दोस्त", child_age=6, child_ge
         )
         
         logger.info("Groq API call successful")
-        result = json.loads(response.choices[0].message.content)
+        raw_content = response.choices[0].message.content
+        logger.info(f"Raw LLM response: {raw_content[:200]}")
+        result = json.loads(raw_content)
         return result.get('response', "नमस्ते! कैसा है आपका दिन?")
         
     except Exception as e:
@@ -274,23 +444,23 @@ class ResponseEvaluator:
             You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
             1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
             3. Dont' evaluate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type should be green.
-            
+
             {context_section}
-            
+
             Return JSON format:
-            {{
+            {{{{
                 "score": 1-10,
                 "is_complete": true/false,
                 "is_grammatically_correct": true/false,
                 "issues": ["incomplete", "grammar_error"],
                 "corrected_response": "grammatically correct answer - keep this short and crisp",
                 "feedback_type": "green/amber"
-            }}
-            
+            }}}}
+
             Score guide:
             - 7-10: Complete, grammatically correct = green
             - 1-6: Incomplete, grammar issues = amber
-            
+
             For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-year-old's vocabulary
             """
             
@@ -775,7 +945,7 @@ def speech_to_text_hindi_google(audio_data):
             sample_rate_hertz = 48000,  # Google's recommended optimal rate
             language_code = "hi-IN",    # Hindi (India)
             # Alternative languages for code-switching
-            alternative_language_codes=["en-IN", "en-US"],
+            # alternative_language_codes=["en-IN", "en-US"],
             model = "latest_long",      # Latest model for better accuracy
             use_enhanced = True,        # Enhanced model if available
             enable_automatic_punctuation = True,
@@ -786,7 +956,7 @@ def speech_to_text_hindi_google(audio_data):
             # Optimization for child speech
             speech_contexts=[
                 speech.SpeechContext(
-                    phrases=["स्कूल", "घर", "मां", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा"]
+                    phrases=["स्कूल", "घर", "मां", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा","सबीर" ]
                 )
             ]
         )
@@ -997,15 +1167,20 @@ def completion_celebration():
     """Celebration page for completing structured conversations"""
     return render_template('completion_celebration.html')
 
+@app.route('/about')
+def about():
+    """About page - combines mission and contact - accessible to all users"""
+    return render_template('about.html')
+
 @app.route('/mission')
 def mission():
-    """Mission page - accessible to all users"""
-    return render_template('mission.html')
+    """Redirect old mission URL to about page"""
+    return redirect(url_for('about'))
 
 @app.route('/contact')
 def contact():
-    """Contact us page - accessible to all users"""
-    return render_template('contact.html')
+    """Redirect old contact URL to about page"""
+    return redirect(url_for('about'))
 
 @app.route('/privacy')
 def privacy():
@@ -1252,10 +1427,12 @@ def process_audio_stream():
             logger.error(f"Invalid session ID: {session_id}")
             return jsonify({'error': 'Invalid or expired session'}), 400
 
-        # Process audio file (same as original)
+        # Increment sentence count
         session_data['sentences_count'] += 1
+        current_count = session_data['sentences_count']
         session_store.save_session(session_id, session_data)
 
+        # Process audio file
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
             audio_file = request.files['audio']
             audio_file.save(temp_file.name)
@@ -1264,6 +1441,12 @@ def process_audio_stream():
 
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Check for farewell (early termination)
+        is_farewell = detect_farewell(transcript)
+        
+        # Determine should_end based on count OR farewell
+        should_end = (current_count >= 10) or is_farewell
 
         # Get conversation context
         conversation_type = session_data.get('conversation_type', 'everyday')
@@ -1279,7 +1462,7 @@ def process_audio_stream():
                 last_talker_response = message.get('content')
                 break
 
-        # Run evaluation in parallel (same as original)
+        # Run evaluation in parallel
         controller = ConversationController()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             eval_future = executor.submit(
@@ -1291,26 +1474,26 @@ def process_audio_stream():
 
         # Streaming response generator
         def generate_streaming_response():
+            nonlocal should_end
+            
             try:
                 # Send initial metadata
                 yield f"data: {json.dumps({'type': 'metadata', 'transcript': transcript, 'evaluation': evaluation})}\n\n"
 
-                # Get system prompt for conversation type (streaming version - plain text)
+                # Get base system prompt for conversation type
                 if conversation_type in CONVERSATION_TYPES:
                     system_prompt_base = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
                 else:
                     system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
 
-                # Remove JSON format instruction for streaming
-                system_prompt = system_prompt_base.replace(
-                    'Return a JSON object with this exact structure:\n{\n  "response": "Your Devanagari Hindi response here",\n  "hints": ["हिंट],\n  "should_end": false,\n}\n\nFields:\n- "response": Your conversational response in Devanagari Hindi only (max 15 words)\n- "hints": A possible response the child could say next (in Devanagari)\n- "should_end": Set to true ONLY when conversation should naturally conclude',
-                    'Respond directly in Devanagari Hindi only (no JSON format). Keep your response under 15 words.'
-                ).format(
-                    strategy="continue_conversation",
-                    child_name=child_name,
-                    child_gender=child_gender,
-                    child_age=child_age,
-                    exchange_number=session_data['sentences_count']
+                # Transform prompt for streaming with phase instructions
+                system_prompt = get_streaming_system_prompt(
+                    system_prompt_base,
+                    current_count,
+                    child_name,
+                    child_age,
+                    child_gender,
+                    is_farewell
                 )
 
                 messages = [
@@ -1319,17 +1502,16 @@ def process_audio_stream():
                     {"role": "user", "content": transcript}
                 ]
 
-                # Create streaming response (no JSON format for streaming)
+                # Create streaming response
                 response_stream = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages,
-                    stream=True,  # Enable streaming
+                    stream=True,
                     temperature=0.4,
-                    max_tokens=400,
-                    tool_choice="none"
+                    max_tokens=400
                 )
 
-                # Word buffering for smooth display (2-3 words at a time)
+                # Word buffering for smooth display
                 word_buffer = ""
                 accumulated_text = ""
                 word_count = 0
@@ -1343,12 +1525,11 @@ def process_audio_stream():
 
                         # Send buffered words (2-3 words or on punctuation)
                         if (' ' in word_buffer and word_count >= 2) or any(p in word_buffer for p in '.!?,।'):
-                            # Clean and send the buffered words
                             words_to_send = word_buffer.strip()
                             if words_to_send:
                                 if not first_words_sent:
                                     first_words_time = time.time()
-                                    logger.info(f"📝 FIRST WORDS: Sending first words chunk in {(first_words_time - request_start_time) * 1000:.1f}ms")
+                                    logger.info(f"📝 FIRST WORDS: {(first_words_time - request_start_time) * 1000:.1f}ms")
                                     first_words_sent = True
                                 yield f"data: {json.dumps({'type': 'words', 'content': words_to_send, 'accumulated': accumulated_text})}\n\n"
                             word_buffer = ""
@@ -1356,7 +1537,7 @@ def process_audio_stream():
                         elif ' ' in word_buffer:
                             word_count += 1
 
-                # Send any remaining buffered content
+                # Send remaining buffer
                 if word_buffer.strip():
                     yield f"data: {json.dumps({'type': 'words', 'content': word_buffer.strip(), 'accumulated': accumulated_text})}\n\n"
 
@@ -1371,10 +1552,10 @@ def process_audio_stream():
                     }
                     session_data.setdefault('amber_responses', []).append(amber_entry)
 
-                # Calculate additional response data
+                # Calculate popup and milestone status
                 should_show_popup = (
-                    session_data['sentences_count'] % 4 == 0 and
-                    session_data['sentences_count'] > 0 and
+                    current_count % 4 == 0 and
+                    current_count > 0 and
                     len(session_data.get('amber_responses', [])) > 0
                 )
 
@@ -1388,41 +1569,50 @@ def process_audio_stream():
                 if new_rewards > 0:
                     session_data['reward_points'] = session_data.get('reward_points', 0) + new_rewards
 
-                # Validate accumulated_text is not empty (safety check)
+                # Validate accumulated_text
                 if not accumulated_text or not accumulated_text.strip():
                     logger.error(f"Empty response from Groq for conversation_type={conversation_type}")
                     accumulated_text = "क्षमा करें, मुझे समझ नहीं आया। कृपया फिर से बोलें।"
 
-                # Send completion with final data
-                completion_time = time.time()
-                logger.info(f"✅ TEXT COMPLETE: Full text ready in {(completion_time - request_start_time) * 1000:.1f}ms, starting TTS...")
+                # Generate hints asynchronously (only if conversation is NOT ending)
+                hints = []
+                if not should_end:
+                    # Update conversation history first for better hint context
+                    temp_history = conversation_history + [
+                        {"role": "user", "content": transcript},
+                        {"role": "assistant", "content": accumulated_text}
+                    ]
+                    hints = generate_hints(temp_history, conversation_type, child_name, child_age)
 
+                # Send completion with all data
                 completion_data = {
                     'type': 'complete',
                     'final_text': accumulated_text,
+                    'should_end': should_end,
+                    'hints': hints,
                     'should_show_popup': should_show_popup,
                     'amber_responses': session_data.get('amber_responses', []) if should_show_popup else [],
                     'is_milestone': is_milestone,
                     'good_response_count': session_data.get('good_response_count', 0),
-                    'sentence_count': session_data['sentences_count'],
+                    'sentence_count': current_count,
                     'reward_points': session_data.get('reward_points', 0),
                     'new_rewards': new_rewards
                 }
                 yield f"data: {json.dumps(completion_data)}\n\n"
 
-                # Update conversation history and session
+                # Update conversation history
                 session_data['conversation_history'].extend([
                     {"role": "user", "content": transcript},
                     {"role": "assistant", "content": accumulated_text}
                 ])
 
-                # Update database if conversation exists (with proper app context)
+                # Update database
                 if 'conversation_id' in session_data:
                     try:
                         with app.app_context():
                             conversation = Conversation.query.get(session_data['conversation_id'])
                             if conversation:
-                                conversation.sentences_count = session_data['sentences_count']
+                                conversation.sentences_count = current_count
                                 conversation.good_response_count = session_data.get('good_response_count', 0)
                                 conversation.reward_points = session_data.get('reward_points', 0)
                                 conversation.conversation_data = session_data['conversation_history']
@@ -1481,6 +1671,34 @@ def clear_amber_responses():
         
     except Exception as e:
         logger.error(f"Error clearing amber responses: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/get_hints', methods=['POST'])
+@login_required
+def get_hints():
+    """API endpoint to get hints on demand"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'No session ID provided'}), 400
+        
+        session_data = session_store.load_session(session_id)
+        if not session_data:
+            return jsonify({'error': 'Invalid session'}), 400
+        
+        conversation_history = session_data.get('conversation_history', [])
+        conversation_type = session_data.get('conversation_type', 'everyday')
+        child_name = session_data.get('child_name', 'दोस्त')
+        child_age = session_data.get('child_age', 6)
+        
+        hints = generate_hints(conversation_history, conversation_type, child_name, child_age)
+        
+        return jsonify({'hints': hints})
+        
+    except Exception as e:
+        logger.error(f"Error getting hints: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/correction_stt', methods=['POST'])

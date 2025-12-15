@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Profile Setup - Your Hindi Tutor</title>
 
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;600;700&family=Poppins:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -15,13 +20,13 @@
         }
 
         body {
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            background: #FAF9F6;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 1rem;
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         .setup-container {
@@ -35,29 +40,31 @@
         }
 
         .title {
+            font-family: 'Eczar', serif;
             font-size: 2rem;
-            font-weight: bold;
-            color: #166534;
+            font-weight: 700;
+            color: #3D405B;
             margin-bottom: 1rem;
             line-height: 1.2;
         }
 
         .subtitle {
+            font-family: 'Poppins', sans-serif;
             font-size: 1.1rem;
             color: #6b7280;
             margin-bottom: 2rem;
         }
 
         .welcome-section {
-            background: #f0fdf4;
+            background: #FFF4E6;
             border-radius: 1rem;
             padding: 1.5rem;
             margin-bottom: 2rem;
-            border-left: 4px solid #22c55e;
+            border-left: 4px solid #E07A5F;
         }
 
         .welcome-text {
-            color: #166534;
+            color: #3D405B;
             font-weight: 500;
         }
 
@@ -85,7 +92,7 @@
         }
 
         .form-input:focus {
-            border-color: #22c55e;
+            border-color: #E07A5F;
         }
 
         /* Gender radio buttons */
@@ -122,18 +129,18 @@
         }
 
         .gender-radio:checked + .gender-label {
-            border-color: #22c55e;
-            background: #f0fdf4;
-            color: #166534;
+            border-color: #E07A5F;
+            background: #FFF4E6;
+            color: #3D405B;
         }
 
         .gender-label:hover {
-            border-color: #22c55e;
+            border-color: #E07A5F;
         }
 
         .continue-button {
             width: 100%;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
+            background: #E07A5F;
             color: white;
             padding: 1rem 2rem;
             border: none;
@@ -154,7 +161,8 @@
 
         .continue-button.active:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            background: #d16a4f;
+            box-shadow: 0 4px 12px rgba(224, 122, 95, 0.3);
         }
 
         .error-message {
