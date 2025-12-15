@@ -84,7 +84,7 @@ document.head.appendChild(recordingStyles);
 
 function initializeAudioEffects() {
     const audioEffects = {
-        applause: new Audio('/static/applause_v1.wav') // Use applause sound file
+        applause: new Audio('/static/audio/applause_v1.wav') // Use applause sound file
     };
     
     // Preload audio
@@ -97,7 +97,7 @@ function initializeAudioEffects() {
 // Create applause sound from audio file
 function createApplauseSound() {
     try {
-        const audio = new Audio('/static/applause_v1.wav');
+        const audio = new Audio('/static/audio/applause_v1.wav');
         audio.volume = 0.3; // Set volume to 30%
         
         return {
@@ -638,7 +638,6 @@ function initializeMessageForSliding(messageDiv) {
     messageDiv.style.display = '';
 }
 
-// Function removed - replaced with scrollToLatestUserMessage()
 
 // Toggle recording state
 function toggleRecording() {

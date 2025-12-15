@@ -159,6 +159,7 @@
             margin-top: 1rem;
             color: #6b7280;
             line-height: 1.7;
+            display: none;
         }
 
         /* Mobile Responsiveness */
@@ -193,14 +194,11 @@
         <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
-                    <span class="text-2xl">🎭</span>
+                    <img src="/static/illustrations/logo.png" alt="Hindi Tutor" class="h-8">
                     <span class="font-headline font-bold text-xl text-indigo">Hindi Tutor</span>
                 </div>
                 <div class="flex gap-4">
-                    <a href="/login" class="text-indigo hover:text-terracotta transition-colors font-medium">Login</a>
-                    <a href="/login" class="bg-terracotta text-white px-6 py-2 rounded-full hover:bg-opacity-90 transition-all font-medium">
-                        Try Free
-                    </a>
+                    <!-- Login CTA removed -->
                 </div>
             </div>
         </div>
@@ -231,41 +229,91 @@
                 </a>
 
                 <p class="mt-4 text-sm text-gray-500">
-                    Ages 5-10 • Free to try
+                    Ages 5-10 • Free early access
                 </p>
             </div>
 
             <!-- Right: Hero Image -->
             <div class="relative">
-                <!-- IMAGE PLACEHOLDER: Child on video call with grandmother
-                     Recommended dimensions: 600x500px (6:5 aspect ratio)
-                     Style: Warm illustration, child and grandmother both smiling, engaged in conversation
-                     Indian aesthetic, warm colors (terracotta, mustard, cream tones)
-                     File name: hero-child-grandparent-call.png or .jpg -->
-                <div class="image-placeholder w-full aspect-[6/5] mx-auto max-w-[600px]">
-                    <div class="placeholder-info">
-                        <strong>Hero Illustration</strong><br>
-                        600×500px • Child video calling with grandmother<br>
-                        Warm, illustrated style • Both smiling & engaged
-                    </div>
-                </div>
+                <img src="/static/illustrations/hero_illustration.png"
+                     alt="Child practicing Hindi conversation"
+                     class="w-full aspect-[6/5] mx-auto max-w-[600px] object-contain">
             </div>
         </div>
     </section>
 
     <!-- SECTION 2: THE PROBLEM (Founder Story) -->
     <section class="section-narrow bg-gradient-to-br from-mustard/10 to-teal/10 rounded-3xl">
-        <div class="text-center max-w-3xl mx-auto">
-            <blockquote class="text-2xl md:text-3xl font-headline text-indigo mb-6 leading-relaxed">
-                "My nephew could count to ten in Hindi.<br>
-                But when Dadi asked <span class="font-hindi">'क्या खाया?'</span>, he froze."
-            </blockquote>
-            <p class="text-xl text-gray-600 mb-2">
-                That's why I built this.
+        <div class="max-w-3xl mx-auto">
+            <p class="text-xl text-gray-700 mb-6 leading-relaxed">
+                It started at a family dinner in Singapore. My nephew was struggling to keep his Hindi alive in a world where Chinese surrounded him at school.
             </p>
-            <p class="text-lg text-gray-500">
+            
+            <blockquote class="text-2xl md:text-3xl font-headline text-indigo mb-6 leading-relaxed border-l-4 border-terracotta pl-6">
+                "Why should geography limit a child's ability to practice their heritage language?"
+            </blockquote>
+            
+            <p class="text-xl text-gray-700 mb-8 leading-relaxed">
+                Traditional apps teach vocabulary. Video calls with grandparents happen weekly at best. But conversation—real, natural conversation—needs daily practice.
+            </p>
+            
+            <p class="text-xl text-gray-700 mb-6 leading-relaxed">
+                So I built what he needed: a patient companion who's always available. Who lets him talk about dinosaurs and cartoons in Hindi. Who gently guides him when he slips into English. Who makes practice feel like play.
+            </p>
+            
+            <p class="text-lg text-gray-600 italic text-center mt-8">
+                This is for every child growing up between two worlds,<br>
+                trying to hold onto the language of home.
+            </p>
+            
+            <p class="text-lg text-gray-500 text-center mt-4">
                 — Shubham, Founder
             </p>
+        </div>
+    </section>
+
+    <!-- SECTION 2.5: EARLY ACCESS CALLOUT -->
+    <section class="section-narrow" style="padding-top: 3rem; padding-bottom: 3rem;">
+        <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border-2 border-teal/20 p-8 md:p-10">
+            <div class="text-center">
+                <div class="inline-block bg-teal/10 text-teal font-semibold px-4 py-2 rounded-full text-sm mb-4">
+                    🎉 You're Early
+                </div>
+                
+                <h3 class="font-headline text-3xl font-bold text-indigo mb-4">
+                    Join the First 100 Families
+                </h3>
+                
+                <p class="text-lg text-gray-700 mb-6 leading-relaxed">
+                    We just launched and are inviting founding families to help shape this for the diaspora. Join now and get <strong>unlimited conversations—completely free</strong> while we build together.
+                </p>
+                
+                <div class="bg-mustard/10 rounded-xl p-6 mb-6">
+                    <p class="text-gray-700 font-medium mb-2">What you get as a founding family:</p>
+                    <ul class="text-left text-gray-600 space-y-2 max-w-md mx-auto">
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal mt-1">✓</span>
+                            <span>Unlimited conversations—no limits, no restrictions</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal mt-1">✓</span>
+                            <span>Early access to new topics and features</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal mt-1">✓</span>
+                            <span>Direct input on what we build next</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <p class="text-gray-600 text-sm mb-6">
+                    No credit card. No catch. Just help us make this amazing.
+                </p>
+                
+                <a href="/login" class="cta-primary">
+                    Join as a Founding Family
+                </a>
+            </div>
         </div>
     </section>
 
@@ -337,6 +385,46 @@
         </div>
     </section>
 
+    <!-- SECTION 3.5: WHY THIS MATTERS (Benefits) -->
+    <section class="section-narrow" style="padding-top: 2rem; padding-bottom: 4rem;">
+        <div class="max-w-5xl mx-auto">
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Benefit 1: Cognitive -->
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-indigo/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-3xl">🧠</span>
+                    </div>
+                    <h3 class="font-semibold text-xl mb-3 text-indigo">Sharper Minds</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Multilingual children develop stronger problem-solving skills and focus. Hindi isn't just cultural—it's cognitive development.
+                    </p>
+                </div>
+
+                <!-- Benefit 2: School Success -->
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-indigo/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-3xl">📚</span>
+                    </div>
+                    <h3 class="font-semibold text-xl mb-3 text-indigo">School Success</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Conversation skills that align with school curriculum. Better speaking builds the foundation for better grades.
+                    </p>
+                </div>
+
+                <!-- Benefit 3: Cultural Roots -->
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-indigo/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-3xl">❤️</span>
+                    </div>
+                    <h3 class="font-semibold text-xl mb-3 text-indigo">Cultural Roots</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Connection to family, festivals, and stories that define who they are. Language is identity.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- SECTION 4: THE DIFFERENTIATOR -->
     <section class="section bg-gradient-to-br from-teal/5 to-mustard/5">
         <div class="text-center mb-16">
@@ -347,19 +435,9 @@
 
         <!-- Diwali/Family Scene Illustration -->
         <div class="mb-16">
-            <!-- IMAGE PLACEHOLDER: Warm family scene with Diwali diyas
-                 Recommended dimensions: 1000x600px (5:3 aspect ratio)
-                 Style: Warm illustrated scene of family gathering, Diwali diyas glowing
-                 Child listening to elder telling story, warm colors
-                 Indian cultural elements visible but not overwhelming
-                 File name: family-diwali-scene.png -->
-            <div class="image-placeholder w-full aspect-[5/3] mx-auto max-w-[1000px]">
-                <div class="placeholder-info">
-                    <strong>Family Connection Scene</strong><br>
-                    1000×600px • Warm Diwali gathering illustration<br>
-                    Family scene • Diyas, storytelling • Warm colors
-                </div>
-            </div>
+            <img src="/static/illustrations/family_connection.png"
+                 alt="Family Connection Scene"
+                 class="w-full aspect-[5/3] mx-auto max-w-[1000px] object-cover rounded-2xl">
         </div>
 
         <div class="max-w-4xl mx-auto">
@@ -406,56 +484,35 @@
         <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             <!-- Topic 1: My Home & Family -->
             <div class="topic-card">
-                <!-- IMAGE PLACEHOLDER: Home/Family icon or illustration
-                     Recommended dimensions: 400x300px (4:3 aspect ratio)
-                     Style: Simple, warm illustration of a home or family
-                     File name: topic-home-family.png -->
-                <div class="image-placeholder w-full aspect-[4/3] mb-6">
-                    <div class="placeholder-info">
-                        <strong>Home & Family</strong><br>
-                        400×300px • Home illustration
-                    </div>
-                </div>
+                <img src="/static/illustrations/mera_parivaar_homepage.png"
+                     alt="My Home & Family"
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
 
-                <h3 class="font-hindi text-2xl mb-2 text-indigo">मेरा घर</h3>
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">मेरा परिवार</h3>
                 <h4 class="font-semibold text-xl mb-3">My Home & Family</h4>
                 <p class="text-gray-600 mb-4">
                     Learn Dadi, Nani, Chacha, and why Hindi family words are special
                 </p>
             </div>
 
-            <!-- Topic 2: Talking to Grandparents -->
+            <!-- Topic 2: Food Talk -->
             <div class="topic-card">
-                <!-- IMAGE PLACEHOLDER: Phone/video call icon or illustration
-                     Recommended dimensions: 400x300px (4:3 aspect ratio)
-                     Style: Simple illustration of phone or video call
-                     File name: topic-talking-grandparents.png -->
-                <div class="image-placeholder w-full aspect-[4/3] mb-6">
-                    <div class="placeholder-info">
-                        <strong>Talking to Grandparents</strong><br>
-                        400×300px • Phone/video call illustration
-                    </div>
-                </div>
+                <img src="/static/illustrations/khana_peena_homepage.png"
+                     alt="Food Talk"
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
 
-                <h3 class="font-hindi text-2xl mb-2 text-indigo">दादी से बात</h3>
-                <h4 class="font-semibold text-xl mb-3">Talking to Grandparents</h4>
+                <h3 class="font-hindi text-2xl mb-2 text-indigo">खानें की बातें</h3>
+                <h4 class="font-semibold text-xl mb-3">Food Talk</h4>
                 <p class="text-gray-600 mb-4">
-                    Practice the video call so it's not just "hi" and awkward silence
+                    Talk about favorite foods, snacks, and meals—because food brings everyone together
                 </p>
             </div>
 
             <!-- Topic 3: Festivals -->
             <div class="topic-card">
-                <!-- IMAGE PLACEHOLDER: Diya or festival icon/illustration
-                     Recommended dimensions: 400x300px (4:3 aspect ratio)
-                     Style: Simple illustration of diya or rangoli
-                     File name: topic-festivals.png -->
-                <div class="image-placeholder w-full aspect-[4/3] mb-6">
-                    <div class="placeholder-info">
-                        <strong>Festivals</strong><br>
-                        400×300px • Diya/festival illustration
-                    </div>
-                </div>
+                <img src="/static/illustrations/tyohaar_homepage.png"
+                     alt="Festivals"
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
 
                 <h3 class="font-hindi text-2xl mb-2 text-indigo">त्योहार</h3>
                 <h4 class="font-semibold text-xl mb-3">Festivals</h4>
@@ -466,16 +523,9 @@
 
             <!-- Topic 4: Stories -->
             <div class="topic-card">
-                <!-- IMAGE PLACEHOLDER: Book or story icon/illustration
-                     Recommended dimensions: 400x300px (4:3 aspect ratio)
-                     Style: Simple illustration of book or storytelling
-                     File name: topic-stories.png -->
-                <div class="image-placeholder w-full aspect-[4/3] mb-6">
-                    <div class="placeholder-info">
-                        <strong>Stories</strong><br>
-                        400×300px • Book/storytelling illustration
-                    </div>
-                </div>
+                <img src="/static/illustrations/kahaniyan_homepage.png"
+                     alt="Stories"
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
 
                 <h3 class="font-hindi text-2xl mb-2 text-indigo">कहानियाँ</h3>
                 <h4 class="font-semibold text-xl mb-3">Stories</h4>
@@ -517,7 +567,7 @@
                 </div>
                 <h3 class="font-semibold text-xl mb-3">Pick a topic together</h3>
                 <p class="text-gray-600">
-                    Start with "Talking to Grandparents"—our most popular
+                    Start with "Food Talk"—our most popular
                 </p>
             </div>
 
@@ -534,7 +584,7 @@
 
         <div class="text-center">
             <a href="/login" class="cta-primary">
-                Start Free Trial
+                Join as a Founding Family
             </a>
             <p class="mt-4 text-gray-500">
                 Works on phone, tablet, or computer • Ages 5-10
@@ -575,6 +625,18 @@
 
             <div class="faq-item">
                 <div class="faq-question">
+                    <span>Will this help with my child's Hindi class at school?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    Yes! Natural conversation builds the foundation—vocabulary, sentence structure, confidence. 
+                    Kids who practice speaking do better in class. Plus, our topics align with common school themes 
+                    like family, food, festivals, and stories.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
                     <span>Is this just for Hindu families?</span>
                     <span class="text-2xl">+</span>
                 </div>
@@ -604,6 +666,17 @@
                 <div class="faq-answer">
                     For 5-6 year olds, yes—they might need help getting started. 7-10 year olds can often
                     use it independently once they know how it works.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <span>Is this really free?</span>
+                    <span class="text-2xl">+</span>
+                </div>
+                <div class="faq-answer">
+                    Yes! We're inviting founding families to join early and help us shape this. You'll get unlimited 
+                    conversations completely free while we build together. No credit card required, no catch.
                 </div>
             </div>
         </div>
@@ -636,11 +709,11 @@
     <!-- FOOTER -->
     <footer class="bg-indigo text-white py-16">
         <div class="max-w-7xl mx-auto px-6">
-            <div class="grid md:grid-cols-4 gap-12 mb-12">
+            <div class="grid md:grid-cols-3 gap-12 mb-12">
                 <!-- Logo & Tagline -->
-                <div class="md:col-span-2">
+                <div class="md:col-span-1">
                     <div class="flex items-center gap-2 mb-4">
-                        <span class="text-3xl">🎭</span>
+                        <img src="/static/illustrations/logo.png" alt="Hindi Tutor" class="h-10">
                         <span class="font-headline font-bold text-2xl">Hindi Tutor</span>
                     </div>
                     <p class="text-white/80 text-lg">
@@ -648,26 +721,41 @@
                     </p>
                 </div>
 
-                <!-- About Us -->
-                <div>
-                    <h3 class="font-semibold text-lg mb-4">About us</h3>
-                    <ul class="space-y-2">
-                        <li><a href="/mission" class="text-white/80 hover:text-white transition-colors">Mission</a></li>
-                        <li><a href="/contact" class="text-white/80 hover:text-white transition-colors">Contact us</a></li>
-                    </ul>
-                </div>
-
-                <!-- Privacy & Terms -->
-                <div>
-                    <h3 class="font-semibold text-lg mb-4">Privacy and terms</h3>
-                    <ul class="space-y-2">
-                        <li><a href="/privacy" class="text-white/80 hover:text-white transition-colors">Privacy and Terms</a></li>
-                    </ul>
+                <!-- About the Founder -->
+                <div class="md:col-span-2">
+                    <h3 class="font-semibold text-lg mb-4">About the Founder</h3>
+                    <div class="flex gap-6 items-start">
+                        <!-- Founder photo -->
+                        <div class="flex-shrink-0">
+                            <img src="/static/illustrations/self.jpg"
+                                 alt="Shubham Gupta - Founder"
+                                 class="w-24 h-24 rounded-full object-cover border-2 border-white/20">
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-white/90 mb-3 leading-relaxed">
+                                Built by <strong>Shubham Gupta</strong> (IIT Delhi, IIM Bangalore) for families trying to keep Hindi alive across continents.
+                            </p>
+                            <p class="text-white/80 text-sm mb-4">
+                            </p>
+                            <a href="https://www.linkedin.com/in/shubham-gupta-50267a90/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                </svg>
+                                <span class="text-sm">Connect on LinkedIn</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="border-t border-white/20 pt-8 text-center text-white/70">
-                <p>&copy; 2024 Hindi Tutor. All rights reserved.</p>
+            <!-- Bottom Links -->
+            <div class="border-t border-white/20 pt-8">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <p class="text-white/70 text-sm">&copy; 2025 Hindi Tutor. All rights reserved.</p>
+                    <div class="flex gap-6">
+                        <a href="/privacy" class="text-white/70 hover:text-white text-sm transition-colors">Privacy & Terms</a>
+                    </div>
+                </div>
             </div>
         </div>
     </footer>
@@ -703,7 +791,7 @@
                 });
             });
 
-            // Simple FAQ accordion (optional - can make interactive)
+            // FAQ accordion functionality
             const faqQuestions = document.querySelectorAll('.faq-question');
             faqQuestions.forEach(question => {
                 question.addEventListener('click', function() {
