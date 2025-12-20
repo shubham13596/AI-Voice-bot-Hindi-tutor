@@ -906,14 +906,12 @@ async function startConversation() {
 
 // Display message in conversation
 function displayMessage(role, text, corrections = null, feedbackType = 'green') {
-    const messageDiv = document.createElement('div');
-    
     // Determine border color based on feedback type for user messages
     let borderClass = '';
     if (role === 'user') {
         borderClass = feedbackType === 'amber' ? 'border-l-4 border-amber-500' : 'border-l-4 border-green-500';
     }
-    
+
     // Calculate dynamic width for user messages based on text length
     let widthClass = 'max-w-[80%]';
     if (role === 'user') {
@@ -927,6 +925,8 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
         }
     }
 
+    // Create message bubble
+    const messageDiv = document.createElement('div');
     messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
         role === 'user'
             ? `bg-green-100 ml-auto ${widthClass}` // Right-aligned for user messages with dynamic width
@@ -1039,8 +1039,31 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     // Initialize message for sliding animation
     initializeMessageForSliding(messageDiv);
 
-    // Add message to conversation
-    conversation.appendChild(messageDiv);
+    // For assistant messages, wrap with Kiki avatar
+    if (role === 'assistant') {
+        const messageWithAvatar = document.createElement('div');
+        messageWithAvatar.className = 'flex items-start gap-3 my-2';
+
+        // Create Kiki avatar
+        const avatar = document.createElement('img');
+        avatar.src = '/static/illustrations/Kiki.png';
+        avatar.className = 'w-12 h-12 rounded-full object-cover flex-shrink-0';
+        avatar.alt = 'Kiki';
+
+        // Add avatar and message to container
+        messageWithAvatar.appendChild(avatar);
+        messageWithAvatar.appendChild(messageDiv);
+
+        // Remove my-2 from messageDiv since it's now on the wrapper
+        messageDiv.classList.remove('my-2');
+
+        // Add the wrapper to conversation
+        conversation.appendChild(messageWithAvatar);
+    } else {
+        // User messages don't need avatar wrapper
+        conversation.appendChild(messageDiv);
+    }
+
     conversation.scrollTop = conversation.scrollHeight;
 }
 
@@ -1216,7 +1239,26 @@ async function sendAudioToServerStream(audioBlob) {
 
                                 messageDiv = createEmptyMessageDiv('assistant');
                                 textContentDiv = messageDiv.querySelector('.text-content');
-                                conversation.appendChild(messageDiv);
+
+                                // Wrap assistant message with Kiki avatar
+                                const messageWithAvatar = document.createElement('div');
+                                messageWithAvatar.className = 'flex items-start gap-3 my-2';
+
+                                // Create Kiki avatar
+                                const avatar = document.createElement('img');
+                                avatar.src = '/static/illustrations/Kiki.png';
+                                avatar.className = 'w-12 h-12 rounded-full object-cover flex-shrink-0';
+                                avatar.alt = 'Kiki';
+
+                                // Remove my-2 from messageDiv since it's now on the wrapper
+                                messageDiv.classList.remove('my-2');
+
+                                // Add avatar and message to wrapper
+                                messageWithAvatar.appendChild(avatar);
+                                messageWithAvatar.appendChild(messageDiv);
+
+                                // Add wrapper to conversation
+                                conversation.appendChild(messageWithAvatar);
                                 conversation.scrollTop = conversation.scrollHeight;
                             }
 
