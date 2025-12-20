@@ -1643,6 +1643,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Show correction popup for amber responses
 function showCorrectionPopup(amberResponses, onCloseCallback = null) {
+    // Clean up any existing correction state before showing popup
+    isCorrectionRecording = false;
+    if (correctionRecorder && correctionRecorder.state === 'recording') {
+        correctionRecorder.stop();
+    }
+    if (correctionStream) {
+        correctionStream.getTracks().forEach(track => track.stop());
+        correctionStream = null;
+    }
+    
     const overlay = document.createElement('div');
     overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
     
@@ -1652,11 +1662,21 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
     let currentIndex = 0;
     
     function renderCorrectionItem(index) {
+        // Reset correction recording state for each new item
+        isCorrectionRecording = false;
+        if (correctionRecorder && correctionRecorder.state === 'recording') {
+            correctionRecorder.stop();
+        }
+        if (correctionStream) {
+            correctionStream.getTracks().forEach(track => track.stop());
+            correctionStream = null;
+        }
+        
         const item = amberResponses[index];
         popup.innerHTML = `
             <div class="text-center mb-4">
                 <h3 class="text-lg font-bold text-green-600">Let's improve your Hindi!</h3>
-                <p class="text-sm text-gray-600">Complete all corrections to earn badges 🏆</p>
+                <p class="text-sm text-gray-600">Complete all corrections to earn more stars 🏆</p>
             </div>
             
             <div class="mb-6">
@@ -1691,30 +1711,52 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
             </div>
         `;
         
-        // Add event listeners
-        const recordBtn = popup.querySelector('#recordCorrectionBtn');
-        const skipBtn = popup.querySelector('#skipCorrectionBtn');
-        
-        recordBtn.addEventListener('click', () => {
-            recordCorrection(item.corrected_response, () => {
-                if (index + 1 < amberResponses.length) {
-                    renderCorrectionItem(index + 1);
-                } else {
-                    closeCorrectionPopup();
-                }
-            });
-        });
-        
-        skipBtn.addEventListener('click', () => {
-            if (index + 1 < amberResponses.length) {
-                renderCorrectionItem(index + 1);
-            } else {
-                closeCorrectionPopup();
+        // Add event listeners after a small delay to ensure DOM is ready
+        setTimeout(() => {
+            const recordBtn = popup.querySelector('#recordCorrectionBtn');
+            const skipBtn = popup.querySelector('#skipCorrectionBtn');
+            
+            if (recordBtn) {
+                recordBtn.addEventListener('click', () => {
+                    recordCorrection(item.corrected_response, () => {
+                        if (index + 1 < amberResponses.length) {
+                            renderCorrectionItem(index + 1);
+                        } else {
+                            closeCorrectionPopup();
+                        }
+                    });
+                });
             }
-        });
+            
+            if (skipBtn) {
+                skipBtn.addEventListener('click', () => {
+                    // Stop any ongoing recording before skipping
+                    if (correctionRecorder && correctionRecorder.state === 'recording') {
+                        correctionRecorder.stop();
+                    }
+                    isCorrectionRecording = false;
+                    
+                    if (index + 1 < amberResponses.length) {
+                        renderCorrectionItem(index + 1);
+                    } else {
+                        closeCorrectionPopup();
+                    }
+                });
+            }
+        }, 50);
     }
     
     function closeCorrectionPopup() {
+        // Clean up any ongoing recording
+        if (correctionRecorder && correctionRecorder.state === 'recording') {
+            correctionRecorder.stop();
+        }
+        isCorrectionRecording = false;
+        if (correctionStream) {
+            correctionStream.getTracks().forEach(track => track.stop());
+            correctionStream = null;
+        }
+        
         overlay.classList.add('fade-out');
         setTimeout(() => {
             overlay.remove();
@@ -1751,6 +1793,7 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
 // Global variables for correction recording state
 let correctionRecorder = null;
 let isCorrectionRecording = false;
+let correctionStream = null; // Track the stream separately
 
 // Record correction attempt with proper UI state management
 async function recordCorrection(targetText, onSuccess) {
@@ -1760,28 +1803,73 @@ async function recordCorrection(targetText, onSuccess) {
     const spokenWordsArea = document.getElementById('spokenWordsArea');
     const spokenWords = document.getElementById('spokenWords');
     
+    // Prevent rapid double-clicks
+    if (recordBtn.disabled) {
+        console.log('Button disabled, ignoring click');
+        return;
+    }
+    
     // Handle button click based on current state
     if (!isCorrectionRecording) {
         // START RECORDING STATE
+        
+        // Immediately disable button to prevent double-clicks
+        recordBtn.disabled = true;
+        
         try {
+            // Stop any existing main mediaRecorder first
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                console.log('Stopping main mediaRecorder before correction recording');
+                mediaRecorder.stop();
+            }
+            
+            // Clean up any previous correction recorder
+            if (correctionRecorder && correctionRecorder.state === 'recording') {
+                console.log('Stopping previous correction recorder');
+                correctionRecorder.stop();
+            }
+            if (correctionStream) {
+                correctionStream.getTracks().forEach(track => track.stop());
+                correctionStream = null;
+            }
+            
+            // Small delay to ensure previous streams are released
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            correctionStream = stream; // Store reference for cleanup
             correctionRecorder = new MediaRecorder(stream);
             const tempAudioChunks = [];
             
-            // Update UI to recording state
-            isCorrectionRecording = true;
-            recordIcon.textContent = '⏹️';
-            recordText.textContent = 'Stop Recording';
-            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
-            
-            // Hide previous spoken words
-            spokenWordsArea.classList.add('hidden');
-            
+            // Set up handlers BEFORE starting
             correctionRecorder.ondataavailable = (event) => {
-                tempAudioChunks.push(event.data);
+                if (event.data && event.data.size > 0) {
+                    tempAudioChunks.push(event.data);
+                    console.log('Audio chunk received, size:', event.data.size);
+                }
             };
             
             correctionRecorder.onstop = async () => {
+                console.log('Correction recorder stopped, chunks:', tempAudioChunks.length);
+                
+                // Check if we actually recorded anything meaningful
+                const totalSize = tempAudioChunks.reduce((sum, chunk) => sum + chunk.size, 0);
+                if (tempAudioChunks.length === 0 || totalSize < 1000) {
+                    console.warn('No meaningful audio data captured - resetting state');
+                    recordIcon.textContent = '🎤';
+                    recordText.textContent = 'Record Correct Response';
+                    recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
+                    recordBtn.disabled = false;
+                    isCorrectionRecording = false;
+                    
+                    // Cleanup stream
+                    if (correctionStream) {
+                        correctionStream.getTracks().forEach(track => track.stop());
+                        correctionStream = null;
+                    }
+                    return;
+                }
+                
                 // CHECKING STATE
                 recordIcon.textContent = '🔄';
                 recordText.textContent = 'Your Hindi tutor is checking...';
@@ -1840,7 +1928,7 @@ async function recordCorrection(targetText, onSuccess) {
                         
                         // Reset to initial state after 3 seconds if user doesn't click
                         setTimeout(() => {
-                            if (!isCorrectionRecording) {
+                            if (!isCorrectionRecording && recordBtn && recordText.textContent === 'Try Again') {
                                 recordIcon.textContent = '🎤';
                                 recordText.textContent = 'Record Correct Response';
                                 recordBtn.className = 'bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors mx-auto';
@@ -1857,16 +1945,39 @@ async function recordCorrection(targetText, onSuccess) {
                     recordBtn.disabled = false;
                     isCorrectionRecording = false;
                 } finally {
-                    // Stop and cleanup correction recorder
-                    stream.getTracks().forEach(track => track.stop());
+                    // Cleanup stream
+                    if (correctionStream) {
+                        correctionStream.getTracks().forEach(track => track.stop());
+                        correctionStream = null;
+                    }
                 }
             };
             
-            correctionRecorder.start();
+            // Update UI to recording state
+            isCorrectionRecording = true;
+            recordIcon.textContent = '⏹️';
+            recordText.textContent = 'Stop Recording';
+            recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            
+            // Hide previous spoken words
+            spokenWordsArea.classList.add('hidden');
+            
+            // Start recording with timeslice to ensure ondataavailable fires periodically
+            correctionRecorder.start(500); // Collect data every 500ms
+            
+            console.log('Correction recording started');
+            
+            // Re-enable button after a short delay to allow stopping
+            setTimeout(() => {
+                if (isCorrectionRecording) {
+                    recordBtn.disabled = false;
+                }
+            }, 300);
             
             // Auto-stop after 10 seconds
             setTimeout(() => {
                 if (correctionRecorder && correctionRecorder.state === 'recording') {
+                    console.log('Auto-stopping correction recording after 10 seconds');
                     correctionRecorder.stop();
                     isCorrectionRecording = false;
                 }
@@ -1877,6 +1988,15 @@ async function recordCorrection(targetText, onSuccess) {
             recordIcon.textContent = '❌';
             recordText.textContent = 'Microphone Error - Try Again';
             recordBtn.className = 'bg-red-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors mx-auto';
+            recordBtn.disabled = false;
+            isCorrectionRecording = false;
+            
+            // Cleanup stream on error
+            if (correctionStream) {
+                correctionStream.getTracks().forEach(track => track.stop());
+                correctionStream = null;
+            }
+            
             setTimeout(() => {
                 recordIcon.textContent = '🎤';
                 recordText.textContent = 'Record Correct Response';
@@ -1886,7 +2006,10 @@ async function recordCorrection(targetText, onSuccess) {
         
     } else {
         // STOP RECORDING
+        console.log('User clicked stop');
         if (correctionRecorder && correctionRecorder.state === 'recording') {
+            // Disable button immediately to prevent double-stop
+            recordBtn.disabled = true;
             correctionRecorder.stop();
             isCorrectionRecording = false;
         }
