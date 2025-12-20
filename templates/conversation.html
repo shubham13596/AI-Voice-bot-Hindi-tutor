@@ -280,6 +280,100 @@
                 gap: 0.25rem;
             }
         }
+
+        /* ===== Hints Accordion Section ===== */
+        .hints-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: auto;
+        }
+
+        .hints-toggle {
+            width: auto;
+            min-width: fit-content;
+            background: linear-gradient(135deg, #FFF4E6 0%, #FFE4D6 100%);
+            border: 2px solid rgba(237, 137, 54, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #3D405B;
+            box-shadow: 0 2px 8px rgba(237, 137, 54, 0.1);
+        }
+
+        .hints-toggle:hover {
+            background: linear-gradient(135deg, #FFE4D6 0%, #FFD4C6 100%);
+            border-color: rgba(237, 137, 54, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(237, 137, 54, 0.15);
+        }
+
+        .hints-toggle:active {
+            transform: translateY(0);
+        }
+
+        .bulb-icon {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .hints-toggle:hover .bulb-icon {
+            transform: scale(1.1);
+        }
+
+        .hints-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.3s ease;
+            background: #FFF9F0;
+            border-radius: 1rem;
+            margin-top: 0.5rem;
+            padding: 0 1rem;
+            opacity: 0;
+            width: auto;
+            min-width: 280px;
+            max-width: 90%;
+        }
+
+        .hints-content.expanded {
+            max-height: 200px;
+            padding: 1rem 1.5rem;
+            border: 2px solid rgba(237, 137, 54, 0.15);
+            opacity: 1;
+            box-shadow: 0 4px 8px rgba(237, 137, 54, 0.08);
+        }
+
+        .hints-text {
+            color: #3D405B;
+            font-size: 1rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .hints-value {
+            font-weight: 600;
+            color: #DD6B20;
+        }
+
+        @media (max-width: 640px) {
+            .hints-toggle {
+                font-size: 0.9rem;
+                padding: 0.65rem 0.85rem;
+            }
+
+            .hints-text {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -319,14 +413,27 @@
                 Initializing...
             </div>
 
-            <div id="conversation" class="mt-6 space-y-4">
+            <div id="conversation" class="mt-6 mb-6 space-y-4">
             </div>
-            <div class="flex justify-center">
-                <button id="recordButton" 
+
+            <!-- Button Controls Container -->
+            <div class="flex flex-col items-center gap-4">
+                <button id="recordButton"
                         class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50">
                     <span id="recordIcon">🎤</span>
                     <span id="recordText">Start Speaking</span>
                 </button>
+
+                <!-- Hints Section -->
+                <div id="hintsContainer" class="hints-section" style="display: none;">
+                    <button id="hintsToggle" class="hints-toggle" type="button">
+                        <span>Need help?</span>
+                        <span class="bulb-icon">💡</span>
+                    </button>
+                    <div id="hintsContent" class="hints-content collapsed">
+                        <p class="hints-text">Try saying: <span id="hintsText" class="hints-value"></span></p>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
