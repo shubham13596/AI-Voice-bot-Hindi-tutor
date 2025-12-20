@@ -1,4 +1,5 @@
 let audioEffects = null;
+let currentHints = [];
 
 // First, let's add the necessary styles to the document
 const recordingStyles = document.createElement('style');
@@ -671,7 +672,14 @@ function toggleRecording() {
         elements.recordText.textContent = 'Stop Speaking';
         elements.recordIcon.textContent = '⏹️';
         elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
-        
+
+        // Auto-collapse hints when user starts speaking
+        const hintsContent = document.getElementById('hintsContent');
+        if (hintsContent && hintsContent.classList.contains('expanded')) {
+            hintsContent.classList.remove('expanded');
+            hintsContent.classList.add('collapsed');
+        }
+
         // Add recording indicator
         const indicator = document.createElement('div');
         indicator.className = 'recording-indicator';
@@ -1311,6 +1319,12 @@ async function sendAudioToServerStream(audioBlob) {
                             // Update rewards display
                             updateRewardsDisplay(data.sentence_count, data.reward_points);
 
+                            // Update hints display
+                            if (data.hints && data.hints.length > 0) {
+                                currentHints = data.hints;
+                                updateHintsDisplay(data.hints);
+                            }
+
                             // Handle correction popup
                             if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
                                 showCorrectionPopup(data.amber_responses, () => {
@@ -1617,6 +1631,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const recordButton = document.getElementById('recordButton');
     if (recordButton) {
         recordButton.addEventListener('click', toggleRecording);
+    }
+
+    // Setup hints toggle
+    const hintsToggle = document.getElementById('hintsToggle');
+    if (hintsToggle) {
+        hintsToggle.addEventListener('click', toggleHints);
+        console.log('💡 Hints toggle button initialized');
     }
 });
 
@@ -2015,13 +2036,43 @@ function handleFunctionCall(functionCall) {
     }
 }
 
+// Hints display and accordion functions
+function updateHintsDisplay(hints) {
+    const hintsContainer = document.getElementById('hintsContainer');
+    const hintsText = document.getElementById('hintsText');
+
+    if (hints && hints.length > 0) {
+        // Join hints with "या" (or) if multiple hints
+        hintsText.textContent = hints.join(' या ');
+        hintsContainer.style.display = 'block';
+        console.log('💡 Hints updated:', hints);
+    } else {
+        hintsContainer.style.display = 'none';
+    }
+}
+
+function toggleHints() {
+    const hintsContent = document.getElementById('hintsContent');
+    const hintsToggle = document.getElementById('hintsToggle');
+
+    if (hintsContent.classList.contains('expanded')) {
+        // Collapse
+        hintsContent.classList.remove('expanded');
+        hintsContent.classList.add('collapsed');
+    } else {
+        // Expand
+        hintsContent.classList.remove('collapsed');
+        hintsContent.classList.add('expanded');
+    }
+}
+
 // Add refresh button for errors
 function addRefreshButton() {
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = 'Refresh Page';
     refreshBtn.className = 'mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600';
     refreshBtn.onclick = () => window.location.reload();
-    
+
     const status = document.getElementById('status');
     if (status && status.parentNode) {
         status.parentNode.appendChild(refreshBtn);
