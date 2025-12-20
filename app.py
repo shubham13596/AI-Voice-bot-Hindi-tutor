@@ -258,7 +258,7 @@ The child is saying goodbye. This is your FINAL response.
 - Do NOT ask any new questions
 """
     
-    if sentences_count >= 10:
+    if sentences_count >= 14:
         return """
 IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
@@ -269,7 +269,7 @@ This is your FINAL response in this conversation.
 - Make the child feel proud and successful
 """
     
-    if sentences_count >= 9:
+    if sentences_count >= 13:
         return f"""
 CONVERSATION PHASE - WRAPPING UP:
 You are nearing the end of this conversation.
@@ -303,8 +303,9 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
 
         # Configure generation settings
         generation_config = {
-            "temperature": 0.4,
+            "temperature": 0.6,
             "max_output_tokens": 500,
+            "stop_sequences": ["Child:", "User:", "Tutor:", "Assistant:"]
         }
 
         # Add JSON mode if requested
@@ -346,8 +347,9 @@ def gemini_stream_content(system_prompt, conversation_history=None):
 
         # Configure generation settings for streaming
         generation_config = {
-            "temperature": 0.4,
+            "temperature": 0.6,
             "max_output_tokens": 500,
+            "stop_sequences": ["Child:", "User:", "Tutor:", "Assistant:"]
         }
 
         # Generate content with streaming
@@ -383,7 +385,7 @@ Return a JSON object with this exact structure:
 }
 
 Fields:
-- "response": Your conversational response in Devanagari Hindi only (max 15 words)
+- "response": Your conversational response in Devanagari Hindi only (max 20 words)
 - "hints": A possible response the child could say next (in Devanagari)
 - "should_end": Set to true ONLY when conversation should naturally conclude"""
     
@@ -424,7 +426,7 @@ Just write the Hindi text directly - nothing else."""
     return modified_prompt
 
 def generate_hints(conversation_history, conversation_type, child_name, child_age):
-    """Generate hint suggestions for what the child could say next"""
+    """Generate hint suggestions for what the child could say next using Gemini"""
     try:
         hints_prompt = f"""You are helping a {child_age}-year-old child learning Hindi.
 Based on the conversation so far, suggest ONLY 1 simple Hindi sentence the child could say next.
@@ -443,29 +445,23 @@ Return a JSON object with this exact structure:
 
 Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
 """
-        
+
         # Get last few exchanges for context
         recent_history = conversation_history[-4:] if len(conversation_history) > 4 else conversation_history
-        
-        messages = [
-            {"role": "system", "content": hints_prompt},
-            *recent_history
-        ]
-        
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages = messages,
-            response_format = {"type": "json_object"},
-            temperature = 0.3,
-            max_tokens = 200
+
+        # Use Gemini for hint generation
+        result = gemini_generate_content(
+            system_prompt=hints_prompt,
+            conversation_history=recent_history,
+            response_format="json"
         )
-        
-        result = response.choices[0].message.content
+
         logger.info(f"Raw hints response: {result[:200]}")
+
         # Parse the JSON response
         hints_data = json.loads(result)
-        
-        # 2. CHANGED: Simplified parsing logic to match the new structure
+
+        # Simplified parsing logic to match the structure
         if "hint" in hints_data:
             # Return as a list because your UI likely expects a list of hints
             return [hints_data["hint"]]
@@ -474,7 +470,7 @@ Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
             return hints_data["hints"][:1]
         else:
             return []
-            
+
     except Exception as e:
         logger.error(f"Error generating hints: {e}")
         return []
@@ -547,9 +543,9 @@ class ResponseEvaluator:
     
     @staticmethod
     def evaluate_response(user_text, last_talker_response=None):
-        """Evaluate user response and return corrected answer"""
+        """Evaluate user response and return corrected answer using Gemini"""
         try:
-            
+
             # Build system prompt with context from last talker response
             if last_talker_response:
                 context_section = f"""
@@ -560,7 +556,7 @@ class ResponseEvaluator:
                 context_section = f"""
                 User response: "{user_text}"
                 """
-            
+
             system_prompt = f"""
             You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
             1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
@@ -584,18 +580,16 @@ class ResponseEvaluator:
 
             For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-year-old's vocabulary
             """
-            
-            response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "system", "content": system_prompt}],
-                response_format={"type": "json_object"},
-                temperature=0.1,
-                max_tokens=500,
-                tool_choice="none"
+
+            # Use Gemini for evaluation
+            result = gemini_generate_content(
+                system_prompt=system_prompt,
+                conversation_history=None,
+                response_format="json"
             )
-            
-            return json.loads(response.choices[0].message.content)
-            
+
+            return json.loads(result)
+
         except Exception as e:
             logger.error(f"Error in response evaluation: {str(e)}")
             return {
@@ -612,7 +606,7 @@ class TalkerModule:
     
     @staticmethod
     def get_response(conversation_history, user_text, sentence_count, conversation_type="everyday", child_name="दोस्त", child_age=6, child_gender="neutral"):
-        """Generate conversation response based on conversation type"""
+        """Generate conversation response based on conversation type using Gemini"""
         try:
 
             # Always use continue_conversation strategy for simplicity and speed
@@ -632,26 +626,19 @@ class TalkerModule:
                 child_age=child_age,
                 exchange_number=sentence_count
             )
-            
-            messages = [
-                {"role": "system", "content": system_prompt},
-                *conversation_history,
-                {"role": "user", "content": user_text}
-            ]
-            
-            response = groq_client.chat.completions.create(
-                model = "llama-3.3-70b-versatile",
-                messages = messages,
-                response_format = {"type": "json_object"},
-                temperature = 0.2,
-                max_tokens = 500,
-                tool_choice = "none"
+
+            # Prepare history with user message
+            history_with_user = conversation_history + [{"role": "user", "content": user_text}]
+
+            # Use Gemini for conversation response
+            result = gemini_generate_content(
+                system_prompt=system_prompt,
+                conversation_history=history_with_user,
+                response_format="json"
             )
 
-            result = json.loads(response.choices[0].message.content)
+            return json.loads(result)  # Return full object with response, hints, should_end
 
-            return result  # Return full object with response, hints, should_end
-            
         except Exception as e:
             logger.error(f"Error in talker response: {str(e)}")
             return "मैं समझ नहीं पाया। कृपया दोबारा बोलें।"
@@ -914,8 +901,8 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
                     optimize_streaming_latency="4",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
-                        stability=0.7,
-                        similarity_boost=0.6,
+                        stability=0.8,
+                        similarity_boost=0.7,
                         style=0.0,
                         use_speaker_boost=True,
                         speed=0.8
@@ -1252,7 +1239,7 @@ def conversation_select():
             **topic_data
         })
 
-    return render_template('conversation_select.html', modules=modules_data, module_order=['main_aur_meri_baatein', 'mera_parivaar', 'khana_peena', 'tyohaar', 'bahar_ki_duniya', 'kahaniyan'])
+    return render_template('conversation_select.html', modules=modules_data, module_order=['main_aur_meri_baatein', 'mera_parivaar', 'khana_peena', 'tyohaar', 'bahar_ki_duniya'])
 
 @app.route('/conversation')
 @login_required
@@ -1351,29 +1338,23 @@ def translate_text():
     try:
         data = request.json
         text = data.get('text')
-        
+
         if not text:
             return jsonify({'error': 'No text provided'}), 400
-            
-        # Use Groq for translation
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a translator. Translate the given text to English. Provide only the translation, no additional text."
-                },
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ],
-            temperature=0.2
-        )
-        
-        translation = response.choices[0].message.content.strip()
+
+        # Use Gemini for translation
+        system_prompt = f"""You are a translator. Translate the given text to English. Provide only the translation, no additional text.
+
+Text to translate: {text}"""
+
+        # Use Gemini streaming for translation (faster response)
+        translation_chunks = []
+        for chunk in gemini_stream_content(system_prompt, conversation_history=None):
+            translation_chunks.append(chunk)
+
+        translation = ''.join(translation_chunks).strip()
         return jsonify({'translation': translation})
-        
+
     except Exception as e:
         print(f"Translation Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -1567,7 +1548,7 @@ def process_audio_stream():
         is_farewell = detect_farewell(transcript)
 
         # Determine should_end based on count OR farewell
-        should_end = (current_count >= 11) or is_farewell
+        should_end = (current_count >= 15) or is_farewell
         logger.info(f"🔚 Should End Decision: current_count={current_count}, is_farewell={is_farewell}, should_end={should_end}")
 
         # Get conversation context
