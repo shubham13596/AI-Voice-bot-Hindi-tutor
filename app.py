@@ -164,10 +164,10 @@ try:
 
     # Create Gemini model instance
     gemini_model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash-exp',
+        model_name='gemini-2.0-flash-lite',
         safety_settings=safety_settings
     )
-    logger.info("Gemini client initialized successfully with model: gemini-2.0-flash-exp")
+    logger.info("Gemini client initialized successfully with model: gemini-2.0-flash-lite")
 except Exception as e:
     logger.error(f"Failed to initialize Gemini client: {e}")
     raise
@@ -240,6 +240,7 @@ def detect_farewell(transcript):
     transcript_lower = transcript.lower().strip()
     for keyword in FAREWELL_KEYWORDS:
         if keyword in transcript_lower:
+            logger.info(f"👋 Farewell detected! Keyword '{keyword}' found in transcript: '{transcript}'")
             return True
     return False
 
@@ -257,7 +258,7 @@ The child is saying goodbye. This is your FINAL response.
 - Do NOT ask any new questions
 """
     
-    if sentences_count >= 12:
+    if sentences_count >= 10:
         return """
 IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
@@ -268,10 +269,10 @@ This is your FINAL response in this conversation.
 - Make the child feel proud and successful
 """
     
-    if sentences_count >= 10:
+    if sentences_count >= 9:
         return f"""
 CONVERSATION PHASE - WRAPPING UP:
-You are nearing the end of this conversation (exchange {sentences_count}/8).
+You are nearing the end of this conversation.
 - Start wrapping up warmly over the next 1-2 exchanges
 - You can still ask one small follow-up question
 - Begin transitioning toward a natural conclusion
@@ -303,7 +304,7 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
         # Configure generation settings
         generation_config = {
             "temperature": 0.4,
-            "max_output_tokens": 400,
+            "max_output_tokens": 500,
         }
 
         # Add JSON mode if requested
@@ -346,7 +347,7 @@ def gemini_stream_content(system_prompt, conversation_history=None):
         # Configure generation settings for streaming
         generation_config = {
             "temperature": 0.4,
-            "max_output_tokens": 400,
+            "max_output_tokens": 500,
         }
 
         # Generate content with streaming
@@ -643,7 +644,7 @@ class TalkerModule:
                 messages = messages,
                 response_format = {"type": "json_object"},
                 temperature = 0.2,
-                max_tokens = 400,
+                max_tokens = 500,
                 tool_choice = "none"
             )
 
@@ -1564,9 +1565,10 @@ def process_audio_stream():
 
         # Check for farewell (early termination)
         is_farewell = detect_farewell(transcript)
-        
+
         # Determine should_end based on count OR farewell
-        should_end = (current_count >= 10) or is_farewell
+        should_end = (current_count >= 11) or is_farewell
+        logger.info(f"🔚 Should End Decision: current_count={current_count}, is_farewell={is_farewell}, should_end={should_end}")
 
         # Get conversation context
         conversation_type = session_data.get('conversation_type', 'everyday')
@@ -1712,6 +1714,14 @@ def process_audio_stream():
                     'reward_points': session_data.get('reward_points', 0),
                     'new_rewards': new_rewards
                 }
+
+                # If conversation should end, add function_call to redirect to completion celebration
+                if should_end:
+                    completion_page_data = show_completion_page()
+                    completion_data['function_call'] = completion_page_data
+                    logger.info(f"🎉 Conversation ending - added function_call to redirect to completion_celebration")
+
+                logger.info(f"📤 Sending completion data: should_end={should_end}, sentence_count={current_count}, is_milestone={is_milestone}")
                 yield f"data: {json.dumps(completion_data)}\n\n"
 
                 # Update conversation history
