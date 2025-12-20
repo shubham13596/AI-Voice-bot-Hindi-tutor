@@ -444,9 +444,9 @@ Based on the conversation so far, suggest ONLY 1 simple Hindi sentence the child
 
 Rules:
 - Use Devanagari script ONLY (no romanized Hindi)
-- Keep sentence very simple (3-6 words max)
+- Keep sentence simple (8-10 words max)
 - Make them age-appropriate for a {child_age}-year-old
-- Sentence should be natural responses to the last assistant message
+- Sentence should be a NATURAL RESPONSE to the LAST ASSISTANT message
 
 RESPONSE FORMAT (CRITICAL - FOLLOW EXACTLY):
 Return a JSON object with this exact structure:
@@ -581,7 +581,9 @@ class ResponseEvaluator:
             system_prompt = f"""
             You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
             1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
-            3. Dont' evaluate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type should be green.
+            2. Don't evaluate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type should be green.
+            3. EXAMPLES:
+            हमने दिया जलाना अच्छा लगता है। -> This sentence should be given a low score since the correct form is हमें दीये जलाना अच्छा लगता है।
 
             {context_section}
 
@@ -599,7 +601,7 @@ class ResponseEvaluator:
             - 7-10: Complete, grammatically correct = green
             - 1-6: Incomplete, grammar issues = amber
 
-            For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-year-old's vocabulary
+            For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-8 year-old's vocabulary
             """
 
             # Use Gemini for evaluation
