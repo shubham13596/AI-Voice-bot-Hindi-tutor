@@ -253,7 +253,6 @@ IMPORTANT - FINAL RESPONSE:
 The child is saying goodbye. This is your FINAL response.
 - Give a warm, affectionate goodbye
 - Summarize one thing you enjoyed talking about
-- Give them something fun to ask or tell their parents about what you discussed today
 - Keep it short and sweet
 - Do NOT ask any new questions
 """
@@ -264,7 +263,7 @@ IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
 - Give a warm, affectionate goodbye
 - Briefly mention something nice from the conversation
-- Give them a fun "homework": something to ask or tell Mummy/Papa/Dadi/Nani about what you discussed
+- Give them a fun "homework": something to ask or tell Mummy/Papa about what you discussed
 - Do NOT ask any new questions
 - Make the child feel proud and successful
 """
@@ -303,20 +302,32 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
 
         # Configure generation settings
         generation_config = {
-            "temperature": 0.6,
-            "max_output_tokens": 500,
-            "stop_sequences": ["Child:", "User:", "Tutor:", "Assistant:"]
+            "temperature": 0.7,
+            "max_output_tokens": 1000,
         }
 
         # Add JSON mode if requested
         if response_format == "json":
             generation_config["response_mime_type"] = "application/json"
+            # IMPORTANT: Don't use stop_sequences with JSON mode as they can truncate the JSON
+        else:
+            # Only use stop_sequences for non-JSON responses
+            generation_config["stop_sequences"] = ["Child:", "User:", "Tutor:", "Assistant:"]
 
         # Generate content
         response = gemini_model.generate_content(
             full_prompt,
             generation_config=generation_config
         )
+
+        # Validate JSON response if in JSON mode
+        if response_format == "json":
+            # Try to parse to ensure it's valid JSON
+            try:
+                json.loads(response.text)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"Invalid JSON from Gemini: {response.text[:200]}")
+                raise ValueError(f"Gemini returned invalid JSON: {json_err}")
 
         return response.text
 
@@ -348,7 +359,7 @@ def gemini_stream_content(system_prompt, conversation_history=None):
         # Configure generation settings for streaming
         generation_config = {
             "temperature": 0.6,
-            "max_output_tokens": 500,
+            "max_output_tokens": 1000,
             "stop_sequences": ["Child:", "User:", "Tutor:", "Assistant:"]
         }
 
@@ -463,14 +474,24 @@ Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
 
         # Simplified parsing logic to match the structure
         if "hint" in hints_data:
-            # Return as a list because your UI likely expects a list of hints
-            return [hints_data["hint"]]
+            hint_text = hints_data["hint"]
+            # Validate that the hint is not empty
+            if hint_text and hint_text.strip():
+                return [hint_text]
+            else:
+                logger.warning("Empty hint returned from Gemini")
+                return []
         elif "hints" in hints_data and isinstance(hints_data["hints"], list):
              # Fallback if model decides to use a list anyway
             return hints_data["hints"][:1]
         else:
+            logger.warning(f"Unexpected hints response structure: {hints_data}")
             return []
 
+    except json.JSONDecodeError as json_err:
+        logger.error(f"Error parsing hints JSON: {json_err}")
+        logger.error(f"Raw response was: {result if 'result' in locals() else 'No result'}")
+        return []
     except Exception as e:
         logger.error(f"Error generating hints: {e}")
         return []
@@ -588,8 +609,27 @@ class ResponseEvaluator:
                 response_format="json"
             )
 
-            return json.loads(result)
+            evaluation_data = json.loads(result)
 
+            # Validate that all required fields are present
+            required_fields = ["score", "is_complete", "is_grammatically_correct", "issues", "corrected_response", "feedback_type"]
+            if not all(field in evaluation_data for field in required_fields):
+                logger.warning(f"Incomplete evaluation data, missing fields. Got: {evaluation_data.keys()}")
+                raise ValueError("Incomplete evaluation response from Gemini")
+
+            return evaluation_data
+
+        except json.JSONDecodeError as json_err:
+            logger.error(f"Error parsing evaluation JSON: {json_err}")
+            logger.error(f"Raw response was: {result if 'result' in locals() else 'No result'}")
+            return {
+                "score": 5,
+                "is_complete": True,
+                "is_grammatically_correct": True,
+                "issues": [],
+                "corrected_response": user_text,
+                "feedback_type": "green"
+            }
         except Exception as e:
             logger.error(f"Error in response evaluation: {str(e)}")
             return {

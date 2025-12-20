@@ -3107,9 +3107,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_2_2_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3131,9 +3129,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_2_3_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3155,9 +3151,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_2_4_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
