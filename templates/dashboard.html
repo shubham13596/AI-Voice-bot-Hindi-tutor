@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dashboard - Your Hindi Tutor</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/css/mobile-design-system.css">
+    <script src="/static/js/mobile-navigation.js" defer></script>
     
     <script>
         // Dashboard page initialization
@@ -16,23 +22,29 @@
                     window.location.href = '/';
                     return;
                 }
-                
+
                 const user = await response.json();
                 if (!user.child_name) {
                     window.location.href = '/profile-setup';
                     return;
                 }
-                
+
                 // Update page title and user info
                 document.title = `Activity Dashboard - ${user.child_name}`;
                 const childNameEl = document.getElementById('childName');
                 if (childNameEl) {
                     childNameEl.textContent = user.child_name + "'s";
                 }
-                
+
+                // Update top bar stars
+                const topBarStarsEl = document.getElementById('topBarStars');
+                if (topBarStarsEl && user.reward_points !== undefined) {
+                    topBarStarsEl.textContent = user.reward_points || 0;
+                }
+
                 // Initialize dashboard data
                 await loadDashboardData();
-                
+
             } catch (error) {
                 console.error('Error checking user authentication:', error);
                 window.location.href = '/';
@@ -41,151 +53,13 @@
     </script>
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Dashboard-specific styles that extend mobile design system */
+        .dashboard-content {
+            padding: var(--space-lg);
+            max-width: var(--max-content-width);
+            margin: 0 auto;
         }
 
-        body {
-            background-color: #f3f4f6;
-            min-height: 100vh;
-            padding-top: 4rem;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        /* Header styles */
-        .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4rem;
-            background: linear-gradient(to right, #22c55e, #16a34a);
-            color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            padding: 0.5rem;
-        }
-
-        .header-container {
-            height: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 1rem;
-        }
-
-        .app-title {
-            font-size: 1.25rem;
-            font-weight: bold;
-        }
-
-        .nav-section {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            transition: background-color 0.3s;
-            font-weight: 500;
-        }
-
-        .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-link.active {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Profile dropdown */
-        .profile-dropdown {
-            position: relative;
-        }
-
-        .profile-button {
-            background: rgba(255, 255, 255, 0.15);
-            border: none;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: background-color 0.3s;
-        }
-
-        .profile-button:hover {
-            background-color: rgba(255, 255, 255, 0.25);
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            min-width: 200px;
-            z-index: 1001;
-            display: none;
-            margin-top: 0.5rem;
-        }
-
-        .dropdown-menu.show {
-            display: block;
-        }
-
-        .dropdown-header {
-            padding: 1rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .dropdown-user-name {
-            font-weight: 600;
-            color: #166534;
-            margin-bottom: 0.25rem;
-        }
-
-        .dropdown-user-email {
-            font-size: 0.875rem;
-            color: #6b7280;
-        }
-
-        .dropdown-item {
-            display: block;
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background: none;
-            border: none;
-            text-align: left;
-            color: #374151;
-            text-decoration: none;
-            transition: background-color 0.2s;
-            cursor: pointer;
-        }
-
-        .dropdown-item:hover {
-            background-color: #f3f4f6;
-        }
-
-        .dropdown-item.danger {
-            color: #dc2626;
-        }
-
-        .dropdown-item.danger:hover {
-            background-color: #fef2f2;
-        }
-
-        /* Dashboard layout - works with mobile design system */
         .dashboard-container {
             background: var(--card-white);
             border-radius: var(--radius-lg);
@@ -302,36 +176,34 @@
 
         /* Back button styles */
         .back-button-container {
-            position: fixed;
-            top: 1rem;
-            left: 1rem;
-            z-index: 1000;
+            padding: var(--space-md);
+            padding-bottom: 0;
         }
 
         .back-button {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            background: #22c55e;
+            gap: var(--space-sm);
+            background: var(--primary-green);
             color: white;
             border: none;
-            padding: 0.75rem 1rem;
-            border-radius: 2rem;
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-full);
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
-            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+            font-size: var(--font-size-base);
         }
 
         .back-button:hover {
-            background: #16a34a;
+            background: var(--primary-green-dark);
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+            box-shadow: var(--shadow);
         }
 
         .back-button svg {
-            transition: transform 0.3s;
+            transition: transform 0.3s ease;
         }
 
         .back-button:hover svg {
@@ -356,63 +228,64 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            .header-container {
-                padding: 0 0.5rem;
-            }
-
-            .app-title {
-                font-size: 1rem;
-            }
-
-            .nav-link {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.9rem;
-            }
-
-            .profile-button {
-                padding: 0.4rem 0.8rem;
-            }
-
-            .dropdown-menu {
-                right: -0.5rem;
-            }
-
-            .mobile-main-content {
+            .dashboard-content {
                 padding: var(--space-md);
             }
 
+            .dashboard-container {
+                padding: var(--space-lg);
+            }
+
             .dashboard-title {
-                font-size: 1.5rem;
+                font-size: var(--font-size-2xl);
+            }
+
+            .dashboard-subtitle {
+                font-size: var(--font-size-base);
             }
 
             .stats-grid {
                 grid-template-columns: 1fr;
-                gap: 1rem;
+                gap: var(--space-md);
+            }
+
+            .stat-card {
+                padding: var(--space-lg);
             }
 
             .toggle-button {
-                padding: 0.6rem 1.2rem;
+                padding: var(--space-sm) var(--space-lg);
+                font-size: var(--font-size-sm);
+            }
+
+            .stat-number {
+                font-size: var(--font-size-3xl);
             }
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- No top bar for dashboard as per requirements -->
-        
-        <!-- Back button -->
-        <div class="back-button-container">
-            <button onclick="window.location.href='/conversation-select'" class="back-button">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5"/>
-                    <path d="M12 19l-7-7 7-7"/>
-                </svg>
-                Back
-            </button>
+        <!-- Top Bar -->
+        <div class="mobile-top-bar">
+            <div class="stars-display">
+                <span class="star-icon">⭐</span>
+                <span class="stars-count" id="topBarStars">0</span>
+            </div>
         </div>
 
         <!-- Main Content -->
         <main class="mobile-main-content dashboard-content">
+            <!-- Back button -->
+            <div class="back-button-container">
+                <button onclick="window.location.href='/conversation-select'" class="back-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5"/>
+                        <path d="M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back
+                </button>
+            </div>
             <div class="dashboard-container">
                 <div class="dashboard-header">
                     <h1 class="dashboard-title">Learning Progress</h1>

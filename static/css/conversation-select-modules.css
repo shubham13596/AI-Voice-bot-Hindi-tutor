@@ -17,10 +17,24 @@
 }
 
 .child-greeting {
-    background: #f0fdf4;
+    background: linear-gradient(135deg, #FFF4E6 0%, #FFE4D6 100%);
     border-radius: 1rem;
     padding: 1.5rem;
-    border-left: 4px solid var(--primary-green);
+    border: 2px solid rgba(237, 137, 54, 0.15);
+    box-shadow: 0 2px 12px rgba(237, 137, 54, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.child-greeting::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #ED8936 0%, #DD6B20 100%);
+    border-radius: 4px 0 0 4px;
 }
 
 .greeting-text {
