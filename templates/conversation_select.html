@@ -546,6 +546,13 @@
         }
 
         function resumeConversation(conversationId) {
+            // Find the conversation data to get the type
+            const conversation = conversationHistory.find(conv => conv.id === conversationId);
+            if (!conversation) {
+                console.error('Conversation not found:', conversationId);
+                return;
+            }
+
             // Add loading state to the item
             const item = document.querySelector(`[data-conversation-id="${conversationId}"]`);
             if (item) {
@@ -553,12 +560,12 @@
                 item.style.transform = 'scale(0.98)';
             }
 
-            // Navigate to conversation page with ID
+            // Navigate to conversation page with ID and type
             if (typeof MobilePageUtils !== 'undefined') {
                 MobilePageUtils.showPageTransition();
             }
             setTimeout(() => {
-                window.location.href = `/conversation?id=${conversationId}`;
+                window.location.href = `/conversation?id=${conversationId}&type=${conversation.conversation_type}`;
             }, 200);
         }
 
