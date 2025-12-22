@@ -2280,18 +2280,27 @@ class FileSessionStore(SessionStore):
 class RedisSessionStore(SessionStore):
     def __init__(self, redis_url):
         import redis
-        
+        import ssl
+
         # Parse the URL to determine if SSL is needed
         if redis_url.startswith('rediss://'):
             # Heroku Redis uses rediss:// for SSL connections
-            # Use redis.from_url which handles SSL automatically
-            self.redis = redis.from_url(redis_url, decode_responses=False)
+            # Disable cert verification for Heroku's self-signed certificates
+            self.redis = redis.from_url(
+                redis_url,
+                decode_responses=False,
+                ssl_cert_reqs=None  # Disable certificate verification
+            )
         elif 'amazonaws.com' in redis_url or 'heroku' in redis_url:
             # For redis:// URLs that require SSL (older Heroku format)
             # Convert redis:// to rediss:// for SSL
             if redis_url.startswith('redis://'):
                 redis_url = redis_url.replace('redis://', 'rediss://', 1)
-            self.redis = redis.from_url(redis_url, decode_responses=False)
+            self.redis = redis.from_url(
+                redis_url,
+                decode_responses=False,
+                ssl_cert_reqs=None  # Disable certificate verification
+            )
         else:
             # Local Redis without SSL
             self.redis = redis.from_url(redis_url, decode_responses=False)
