@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hindi for Connection, Not Just Vocabulary | Hindi Tutor</title>
 
+    <!-- Preload critical hero image -->
+    <link rel="preload" as="image" href="/static/illustrations/hero_illustration.png" fetchpriority="high">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -237,7 +240,9 @@
             <div class="relative">
                 <img src="/static/illustrations/hero_illustration.png"
                      alt="Child practicing Hindi conversation"
-                     class="w-full aspect-[6/5] mx-auto max-w-[600px] object-contain">
+                     class="w-full aspect-[6/5] mx-auto max-w-[600px] object-contain"
+                     loading="eager"
+                     fetchpriority="high">
             </div>
         </div>
     </section>
@@ -329,7 +334,8 @@
         <div class="mb-16">
             <img src="/static/illustrations/conversation_page.png"
                  alt="Conversation screen showing tutor-child interaction"
-                 class="w-full aspect-[5/3] mx-auto max-w-[1000px] object-cover rounded-2xl shadow-lg">
+                 class="w-full aspect-[5/3] mx-auto max-w-[1000px] object-cover rounded-2xl shadow-lg"
+                 loading="lazy">
         </div>
 
         <div class="max-w-4xl mx-auto mb-12">
@@ -427,7 +433,8 @@
         <div class="mb-16">
             <img src="/static/illustrations/family_connection.png"
                  alt="Family Connection Scene"
-                 class="w-full aspect-[5/3] mx-auto max-w-[1000px] object-cover rounded-2xl">
+                 class="w-full aspect-[5/3] mx-auto max-w-[1000px] object-cover rounded-2xl"
+                 loading="lazy">
         </div>
 
         <div class="max-w-4xl mx-auto">
@@ -476,7 +483,8 @@
             <div class="topic-card">
                 <img src="/static/illustrations/mera_parivaar_homepage.png"
                      alt="My Home & Family"
-                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg"
+                     loading="lazy">
 
                 <h3 class="font-hindi text-2xl mb-2 text-indigo">मेरा परिवार</h3>
                 <h4 class="font-semibold text-xl mb-3">My Home & Family</h4>
@@ -489,7 +497,8 @@
             <div class="topic-card">
                 <img src="/static/illustrations/khana_peena_homepage.png"
                      alt="Food Talk"
-                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg"
+                     loading="lazy">
 
                 <h3 class="font-hindi text-2xl mb-2 text-indigo">खानें की बातें</h3>
                 <h4 class="font-semibold text-xl mb-3">Food Talk</h4>
@@ -502,7 +511,8 @@
             <div class="topic-card">
                 <img src="/static/illustrations/tyohaar_homepage.png"
                      alt="Festivals"
-                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
+                     class="w-full aspect-[4/3] mb-6 object-cover rounded-lg"
+                     loading="lazy">
 
                 <h3 class="font-hindi text-2xl mb-2 text-indigo">त्योहार</h3>
                 <h4 class="font-semibold text-xl mb-3">Festivals</h4>
@@ -514,6 +524,7 @@
             <!-- Topic 4: Stories -->
             <div class="topic-card">
                 <img src="/static/illustrations/kahaniyan_homepage.png"
+                     loading="lazy"
                      alt="Stories"
                      class="w-full aspect-[4/3] mb-6 object-cover rounded-lg">
 
