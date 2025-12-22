@@ -78,13 +78,64 @@
             font-size: 1.1rem;
         }
 
+        .related-topics-section {
+            width: 100%;
+            margin-bottom: 2rem;
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 1.2s forwards;
+        }
+
+        .related-topics-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .related-topics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .topic-card {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .topic-card:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .topic-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.25rem;
+        }
+
+        .topic-title-hi {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .celebration-buttons {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
             justify-content: center;
             opacity: 0;
-            animation: fadeInUp 1s ease-out 1.5s forwards;
+            animation: fadeInUp 1s ease-out 1.8s forwards;
         }
 
         .celebration-btn {
@@ -174,18 +225,60 @@
                 transform: translateY(100vh) rotate(360deg);
             }
         }
+
+        /* Responsive design for mobile */
+        @media (max-width: 640px) {
+            .related-topics-title {
+                font-size: 1.25rem;
+            }
+
+            .related-topics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .topic-card {
+                padding: 0.75rem;
+            }
+
+            .celebration-title {
+                font-size: 2rem;
+            }
+
+            .celebration-message {
+                font-size: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Audio element for celebration sound -->
+    <audio id="celebrationSound" preload="auto">
+        <source src="/static/audio/videogame_sound_compressed.wav" type="audio/wav">
+    </audio>
+
     <div class="celebration-container">
         <div class="celebration-content">
             <div class="celebration-icon">🎉</div>
             <h1 class="celebration-title">बहुत बढ़िया!</h1>
             <p class="celebration-message">
                 यह एक शानदार बातचीत थी।!<br>
-                A great job done on the conversation in this topic!
+                Your Hindi conversation was excellent 😃!
             </p>
 
+
+            {% if related_topics %}
+            <div class="related-topics-section">
+                <h2 class="related-topics-title">You're on a roll! Try another topic?</h2>
+                <div class="related-topics-grid">
+                    {% for topic in related_topics %}
+                    <a href="/conversation?type={{ topic.id }}" class="topic-card">
+                        <div class="topic-title">{{ topic.title_en }}</div>
+                        <div class="topic-title-hi">{{ topic.title_hi }}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             <div class="celebration-buttons">
                 <a href="/conversation-select" class="celebration-btn primary">
@@ -222,6 +315,14 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Play celebration sound
+            const celebrationSound = document.getElementById('celebrationSound');
+            if (celebrationSound) {
+                celebrationSound.play().catch(error => {
+                    console.log('Audio autoplay was prevented:', error);
+                });
+            }
+
             // Start confetti animation
             createConfetti();
 

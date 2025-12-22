@@ -1101,7 +1101,13 @@ function showTranslation(translation, buttonElement) {
 // Play audio response
 function playAudioResponse(base64Audio) {
     const audio = new Audio(`data:audio/wav;base64,${base64Audio}`);
-    audio.play();
+    const playPromise = audio.play();
+
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.log('Audio autoplay blocked (iOS/iPadOS restriction):', error);
+        });
+    }
 }
 
 
@@ -1908,10 +1914,10 @@ async function recordCorrection(targetText, onSuccess) {
                     // Simple text matching
                     const similarity = calculateSimilarity(userText, targetTextNormalized);
                     console.log('Calculated similarity:', similarity);
-                    console.log('Threshold check (>0.7):', similarity > 0.7);
+                    console.log('Threshold check (>0.65):', similarity > 0.65);
                     console.log('========================');
                     
-                    if (similarity > 0.7) { // 70% similarity threshold
+                    if (similarity > 0.65) { // 65% similarity threshold
                         // SUCCESS STATE
                         recordIcon.textContent = '✅';
                         recordText.textContent = 'You got this right; let\'s move on';
@@ -2154,7 +2160,8 @@ function handleFunctionCall(functionCall) {
     if (functionCall.action === 'redirect' && functionCall.page === 'completion_celebration') {
         // Show completion celebration
         setTimeout(() => {
-            window.location.href = '/completion_celebration';
+            const conversationType = window.conversationType || '';
+            window.location.href = `/completion_celebration?topic=${conversationType}`;
         }, 2000); // Give 2 seconds to read the final message
     }
 }

@@ -178,11 +178,11 @@ Keep it warm, friendly, and age-appropriate.
 
 GLOBAL_CONVERSATION_FLOW = """
 CONVERSATION FLOW:
-- Aim for 12-14 exchanges total (back and forth)
+- Aim for 10-11 exchanges total (back and forth)
 - Exchange 1-2: Warm up, simple questions
-- Exchange 3-12: Core topic exploration
-- Exchange 12-14: Wrap up naturally
-- When ending, give a warm closing and set should_end to true
+- Exchange 3-9: Core topic exploration
+- Exchange 10-11: Wrap up naturally
+- When ending, give a warm closing
 - Always end on a positive note before child gets bored
 - Never end abruptly; always make the child feel successful
 """
@@ -271,7 +271,7 @@ ENDING:
 When exchange_number reaches 10-12, wrap up warmly:
 - Summarize what you learned: "वाह! तुम्हें पिज़्ज़ा, नीला रंग, और कुत्ते पसंद हैं!"
 - Say goodbye warmly: "मुझे तुम्हारी पसंद जानकर बहुत अच्छा लगा!"
-- Set should_end to true
+
 """
 
 
@@ -345,7 +345,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Thank them for sharing: "अपनी feelings बताने के लिए धन्यवाद"
 - Warm closing: "तुमसे बात करके बहुत अच्छा लगा"
-- Set should_end to true
+
 """
 
 
@@ -450,7 +450,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Comment on their day: "वाह! तुम्हारा दिन तो बहुत अच्छा था"
 - Warm closing: "मुझे तुम्हारे दिन के बारे में सुनकर मज़ा आया"
-- Set should_end to true
+
 """
 
 
@@ -562,7 +562,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Praise their skills: "तुम तो बहुत कुछ कर सकते/सकती हो!"
 - Warm closing: "शाबाश! तुम बहुत talented हो!"
-- Set should_end to true
+
 """
 
 
@@ -661,7 +661,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Summarize their family: "वाह! तुम्हारा तो बड़ा प्यारा परिवार है "
 - Warm closing: "मुझे तुम्हारे परिवार के बारे में जानकर अच्छा लगा 🙂"
-- Set should_end to true
+
 """
 
 
@@ -688,7 +688,7 @@ CURRENT STATE:
 
 ROLE-PLAY MODE:
 You ARE the grandparent now (Dadi). Speak like a loving Indian grandmother:
-- Affectionate: "मेरे बच्चे", "मेरी गुड़िया", "बेटा"
+- Affectionate: "मेरे बच्चे"
 - Ask typical grandparent questions
 - Show lots of love and interest
 - Speak slightly more formally but still warmly
@@ -780,7 +780,7 @@ ENDING:
 When exchange_number reaches 10-12, end as grandparent:
 - "चलो बेटा, बाद में बात करते हैं। बहुत प्यार!"
 - Step out of character: "बहुत अच्छा किया {child_name}! अब जब सच में दादी को call करोगे, ऐसे ही बात करना!"
-- Set should_end to true
+
 """
 
 
@@ -898,7 +898,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Quiz them playfully: "बताओ, Mummy के भाई को क्या कहते हैं? ... हाँ! मामा!"
 - Celebrate: "शाबाश! अब तुम्हें सब पता है!"
-- Set should_end to true
+
 """
 
 
@@ -1016,7 +1016,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - End the party scene: "वाह! तुमने सबसे बहुत अच्छे से बात की!"
 - Encourage: "अब अगली family party में तुम सबको impress करोगे!"
-- Set should_end to true
+
 """
 
 
@@ -1132,7 +1132,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Comment on their taste: "वाह! तुम्हें तो बहुत टेस्टी चीज़ें पसंद हैं!"
 - Warm closing: "मुझे भूख लग गई बात करके!"
-- Set should_end to true
+
 """
 
 
@@ -1231,7 +1231,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - End meal scene: "बहुत अच्छा खाया! अब ये words घर में use करना!"
 - Encourage: "आज dinner में मम्मी को बोलो - 'रोटी दीजिए' - Hindi में!"
-- Set should_end to true
+
 """
 
 
@@ -1334,7 +1334,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Warm closing: "दादी-नानी को बहुत खुशी होती है जब तुम उनका खाना खाते हो!"
 - Encourage: "अगली बार बोलना - 'दादी, बहुत टेस्टी है!'"
-- Set should_end to true
+
 """
 
 
@@ -1441,7 +1441,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Connect to anticipation: "अगली Diwali पर तुम कौन सी मिठाई खाओगे?"
 - Warm closing: "यम्मी! मुझे भी मिठाई खानी है अब!"
-- Set should_end to true
+
 """
 
 
@@ -1555,7 +1555,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Connect to meaning: "अगली Diwali पर जब दीया जलाओ, याद रखना - तुम रोशनी ला रहे हो!"
 - Warm closing: "Happy Diwali बोलते हैं Hindi में - 'दिवाली की शुभकामनाएं!'"
-- Set should_end to true
+
 """
 
 
@@ -1666,7 +1666,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Teach the phrase: "अब बोलो - 'बुरा ना मानो, होली है!'"
 - Warm closing: "होली की शुभकामनाएं! अगली Holi में बहुत रंग खेलना!"
-- Set should_end to true
+
 """
 
 
@@ -1767,7 +1767,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - If has siblings: "अगली Rakhi पर अपने भाई/बहन को क्या बोलोगे?"
 - Warm closing: "राखी प्यार का symbol है। बहुत sweet festival है!"
-- Set should_end to true
+
 """
 
 
@@ -1871,7 +1871,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Wish them: "तुम्हें advance में जन्मदिन मुबारक!"
 - Warm closing: "अगले birthday पर सबको Hindi में बोलना - 'धन्यवाद!'"
-- Set should_end to true
+
 """
 
 
@@ -1990,7 +1990,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Summarize: "वाह! तुम्हें ___ और ___ पसंद हैं!"
 - Warm closing: "जानवर बहुत प्यारे होते हैं। Bye bye!"
-- Set should_end to true
+
 """
 
 
@@ -2033,6 +2033,7 @@ Indian animals:
 - ऊँट (camel) - Rajasthan!
 - चील (eagle)
 - तोता (parrot)
+
 
 FUN FACTS TO SHARE:
 - "मोर India का national bird है! बहुत सुंदर dance करता है, especially बारिश में!"
@@ -2094,7 +2095,6 @@ ENDING:
 When exchange_number reaches 10-12:
 - Quiz them: "बताओ, India का national bird कौन सा है? ... हाँ, मोर! शाबाश!"
 - Warm closing: "अब तुम Indian animals के expert हो!"
-- Set should_end to true
 """
 
 
@@ -2176,13 +2176,13 @@ Kiki: "गर्मी में पानी पीना ज़रूरी �
       ↑ adds useful info briefly, keeps asking about THEIR experience
 
 HINTS GUIDANCE:
-Generate a hint based on weather:
+Generate a hint based on the conversation till now:
 - Hint example: "आज धूप है"
 
 ENDING:
 When exchange_number reaches 10-12:
 - Warm closing: "मौसम की बातें करके मज़ा आया!"
-- Set should_end to true
+- 
 """
 
 
@@ -2297,7 +2297,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Summarize: "वाह! तुम्हें ___ और ___ जाना पसंद है!"
 - Warm closing: "बहुत अच्छी जगहें हैं! मज़े करो!"
-- Set should_end to true
+
 """
 
 
@@ -2404,7 +2404,7 @@ ENDING:
 When story ends:
 - Ask moral: "इस कहानी से क्या सीखा?"
 - Reinforce: "दिमाग से सब होता है! Clever बनो!"
-- Set should_end to true
+
 """
 
 
@@ -2510,7 +2510,7 @@ ENDING:
 When story ends:
 - Ask moral: "इस कहानी से क्या सीखा?"
 - Reinforce: "ताकत (strength) से ज़्यादा दिमाग (brain) ज़रूरी है!"
-- Set should_end to true
+
 """
 
 
@@ -2612,7 +2612,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Wrap up story: "और फिर सब खुश हो गए! The End! कहानी खत्म!"
 - Praise: "क्या मज़ेदार कहानी बनाई हमने साथ में!"
-- Set should_end to true
+
 """
 
 
@@ -2745,7 +2745,7 @@ ENDING:
 When exchange_number reaches 10-12:
 - Show interest: "बहुत अच्छी कहानी है! मुझे भी देखनी है!"
 - Praise their telling: "तुमने बहुत अच्छे से बताया!"
-- Set should_end to true
+
 """
 
 
