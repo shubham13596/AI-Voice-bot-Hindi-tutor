@@ -263,7 +263,7 @@ IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
 - Give a warm, affectionate goodbye
 - Briefly mention something nice from the conversation
-- Give them a fun "homework": something to ask or tell Mummy/Papa about what you discussed
+- Give them a fun "homework": something to ask Mummy/Papa basis the discussion you had; for example: if the discussion was about favorite colors, the homework to the child can be to ask mom what her favorite color is.
 - Do NOT ask any new questions
 - Make the child feel proud and successful
 """
@@ -1340,27 +1340,19 @@ def completion_celebration():
     completed_topic = request.args.get('topic', None)
     related_topics = []
 
-    if completed_topic:
+    if completed_topic and completed_topic in CONVERSATION_TYPES:
         # Find which module this topic belongs to
-        topic_module = None
-        for module_key, module_data in MODULES.items():
-            # Find the topic key for this topic ID
-            for topic_key in module_data['topics']:
-                if TOPICS.get(topic_key, {}).get('id') == completed_topic:
-                    topic_module = module_data
-                    break
-            if topic_module:
-                break
+        completed_topic_module = CONVERSATION_TYPES[completed_topic].get('module')
 
-        # Get other topics from the same module (excluding the completed one)
-        if topic_module:
-            for topic_key in topic_module['topics']:
-                topic_data = TOPICS.get(topic_key, {})
-                if topic_data.get('id') != completed_topic:
+        if completed_topic_module:
+            # Find all other topics in the same module
+            for topic_id, topic_data in CONVERSATION_TYPES.items():
+                if (topic_data.get('module') == completed_topic_module and
+                    topic_id != completed_topic):
                     related_topics.append({
-                        'id': topic_data.get('id'),
-                        'title_en': topic_data.get('title_en'),
-                        'title_hi': topic_data.get('title_hi')
+                        'id': topic_id,
+                        'title_en': topic_data.get('name'),
+                        'title_hi': topic_data.get('name')  # Use same name for both
                     })
 
     return render_template('completion_celebration.html',
