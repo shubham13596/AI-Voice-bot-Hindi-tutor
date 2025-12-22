@@ -22,7 +22,7 @@ import tempfile
 import time
 import concurrent.futures
 import random
-from conversation_config import CONVERSATION_TYPES
+from conversation_config import CONVERSATION_TYPES, MODULES, TOPICS
 
 # Import our models and auth
 from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics
@@ -257,7 +257,7 @@ The child is saying goodbye. This is your FINAL response.
 - Do NOT ask any new questions
 """
     
-    if sentences_count >= 14:
+    if sentences_count >= 10:
         return """
 IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
@@ -268,7 +268,7 @@ This is your FINAL response in this conversation.
 - Make the child feel proud and successful
 """
     
-    if sentences_count >= 13:
+    if sentences_count == 9:
         return f"""
 CONVERSATION PHASE - WRAPPING UP:
 You are nearing the end of this conversation.
@@ -553,8 +553,8 @@ def calculate_rewards(evaluation_result, good_response_count):
     if evaluation_result.get('feedback_type') == 'green':
         points = 10  # Base points for good response
         
-        # Bonus for milestones (every 4 good responses)
-        if good_response_count % 4 == 0 and good_response_count > 0:
+        # Bonus for milestones (every 5 good responses)
+        if good_response_count % 5 == 0 and good_response_count > 0:
             points += 20  # Milestone bonus
     
     return points
@@ -765,7 +765,7 @@ class ConversationController:
             # Calculate milestone status for celebration
             is_milestone = (
                 evaluation['feedback_type'] == 'green' and
-                session_data['good_response_count'] % 4 == 0 and
+                session_data['good_response_count'] % 5 == 0 and
                 session_data['good_response_count'] > 0
             )
 
@@ -1106,7 +1106,29 @@ def speech_to_text_hindi_google(audio_data):
             # Optimization for child speech
             speech_contexts=[
                 speech.SpeechContext(
-                    phrases=["स्कूल", "घर", "मां", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा","सबीर" ]
+                    phrases=["स्कूल", "घर", "माँ", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा","सबीर", "मोर", "ऊँट", "बाघ", "मई",
+                    
+                    # Family (Module 2) - High priority since these are unique Hindi terms
+                    "मौसी", "मौसा", "बुआ", "फूफा", "भाई", "बहन",
+                    
+                    # Common verbs kids will use
+                    "सुनना", "बोलना",
+                    
+                    # Food (Module 3) - Very common in conversations
+                    "सब्ज़ी", "दूध", "फल", "मिठाई",
+                    
+                    # Festivals (Module 4)
+                    "दिवाली", "होली", "राखी", "दीया", "पटाखे", "गुलाल",
+                    
+                    # Animals (Module 5)
+                    "चिड़िया",
+                    
+                    # Story-specific (Module 6)
+                    "कहानी", "जंगल", "मगरमच्छ", "जामुन", "कुआँ", "परछाई",
+                    
+                    # Places
+                    "पार्क", "मंदिर", "दुकान"
+                ]
                 )
             ]
         )
@@ -1315,7 +1337,35 @@ def dashboard():
 @login_required
 def completion_celebration():
     """Celebration page for completing structured conversations"""
-    return render_template('completion_celebration.html')
+    completed_topic = request.args.get('topic', None)
+    related_topics = []
+
+    if completed_topic:
+        # Find which module this topic belongs to
+        topic_module = None
+        for module_key, module_data in MODULES.items():
+            # Find the topic key for this topic ID
+            for topic_key in module_data['topics']:
+                if TOPICS.get(topic_key, {}).get('id') == completed_topic:
+                    topic_module = module_data
+                    break
+            if topic_module:
+                break
+
+        # Get other topics from the same module (excluding the completed one)
+        if topic_module:
+            for topic_key in topic_module['topics']:
+                topic_data = TOPICS.get(topic_key, {})
+                if topic_data.get('id') != completed_topic:
+                    related_topics.append({
+                        'id': topic_data.get('id'),
+                        'title_en': topic_data.get('title_en'),
+                        'title_hi': topic_data.get('title_hi')
+                    })
+
+    return render_template('completion_celebration.html',
+                         related_topics=related_topics,
+                         completed_topic=completed_topic)
 
 @app.route('/about')
 def about():
@@ -1590,7 +1640,7 @@ def process_audio_stream():
         is_farewell = detect_farewell(transcript)
 
         # Determine should_end based on count OR farewell
-        should_end = (current_count >= 15) or is_farewell
+        should_end = (current_count >= 11) or is_farewell
         logger.info(f"🔚 Should End Decision: current_count={current_count}, is_farewell={is_farewell}, should_end={should_end}")
 
         # Get conversation context
@@ -1700,7 +1750,7 @@ def process_audio_stream():
 
                 is_milestone = (
                     evaluation['feedback_type'] == 'green' and
-                    session_data.get('good_response_count', 0) % 4 == 0 and
+                    session_data.get('good_response_count', 0) % 5 == 0 and
                     session_data.get('good_response_count', 0) > 0
                 )
 
