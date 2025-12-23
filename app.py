@@ -2330,13 +2330,22 @@ class RedisSessionStore(SessionStore):
                 session_data = json.loads(data)
                 if 'created_at' in session_data:
                     session_data['created_at'] = datetime.fromisoformat(session_data['created_at'])
-                logger.info(f"Session loaded successfully: {session_id}")
+                logger.info(f"Session loaded from Redis: {session_id}")
                 return session_data
-            logger.warning(f"No session found for ID: {session_id}")
+
+            # Session not found in Redis, try FileSessionStore fallback
+            logger.info(f"Session not in Redis, trying FileSessionStore fallback: {session_id}")
+            fallback_store = FileSessionStore()
+            fallback_data = fallback_store.load_session(session_id)
+            if fallback_data:
+                logger.info(f"Session loaded from FileSessionStore fallback: {session_id}")
+                return fallback_data
+
+            logger.warning(f"No session found in Redis or FileSessionStore: {session_id}")
             return None
         except Exception as e:
             logger.error(f"Failed to load session from Redis: {e}")
-            # Try fallback to file storage
+            # Try fallback to file storage on exception
             fallback_store = FileSessionStore()
             return fallback_store.load_session(session_id)
 
