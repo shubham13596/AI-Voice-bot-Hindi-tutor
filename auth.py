@@ -39,6 +39,9 @@ def login():
     session['oauth_nonce'] = nonce
     
     redirect_uri = url_for('auth.callback', _external=True)
+    # Force HTTPS for ngrok (required by Google OAuth for non-localhost)
+    if 'ngrok' in request.host:
+        redirect_uri = redirect_uri.replace('http://', 'https://')
     return google.authorize_redirect(redirect_uri, nonce=nonce)
 
 @auth_bp.route('/callback')

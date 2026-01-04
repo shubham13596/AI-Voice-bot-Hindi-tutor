@@ -1346,6 +1346,7 @@ TOPIC_3_4_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Special foods for special occasions
 
 YOUR TASK:
@@ -1357,6 +1358,7 @@ TOPIC_3_4_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Festival and celebration foods
@@ -1457,6 +1459,7 @@ TOPIC_4_1_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Diwali - Festival of Lights
 
 YOUR TASK:
@@ -1468,6 +1471,7 @@ TOPIC_4_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Diwali - Festival of Lights
@@ -1567,6 +1571,7 @@ TOPIC_4_2_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Holi - Festival of Colors
 
 YOUR TASK:
@@ -1578,6 +1583,7 @@ TOPIC_4_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Holi - Festival of Colors
@@ -1679,7 +1685,6 @@ CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Has siblings: {has_siblings} (if known)
 - Topic: Raksha Bandhan
 
 YOUR TASK:
@@ -1758,7 +1763,6 @@ EXAMPLE: This is not to be followed exactly; focus on how the conversation has b
 कीकी: बहुत अच्छे! तो आज तुमने राखी के बारे में सीखा - रक्षा बंधन, भाई-बहन का त्योहार! बहुत अच्छा!
 आरव: हाँ दीदी! मुझे अच्छा लगा!
 
-
 HINTS GUIDANCE:
 Generate one hint basis the conversation:
 - Hint example: "बहन भाई को राखी बाँधती है"
@@ -1779,6 +1783,7 @@ TOPIC_4_4_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Birthday celebrations (Indian style)
 
 YOUR TASK:
@@ -1887,6 +1892,7 @@ TOPIC_5_1_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Favorite animals
 
 YOUR TASK:
@@ -1900,6 +1906,7 @@ TOPIC_5_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Favorite animals
@@ -2002,6 +2009,7 @@ TOPIC_5_2_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Special animals from India
 
 YOUR TASK:
@@ -2015,6 +2023,7 @@ TOPIC_5_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Animals special to India
@@ -2106,6 +2115,7 @@ TOPIC_5_3_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Weather and seasons
 
 YOUR TASK:
@@ -2119,7 +2129,8 @@ TOPIC_5_3_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange: {exchange_number} of 12-14
+- Child's gender: {child_gender}
+- Exchange number: {exchange_number} of 10-12
 
 TOPIC: Weather - But through THEIR experiences, not vocabulary drilling
 
@@ -2194,6 +2205,7 @@ TOPIC_5_4_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Favorite places
 
 YOUR TASK:
@@ -2207,6 +2219,7 @@ TOPIC_5_4_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Favorite places
@@ -2313,6 +2326,7 @@ TOPIC_6_1_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Panchatantra story - The Monkey and the Crocodile
 
 YOUR TASK:
@@ -2326,6 +2340,7 @@ TOPIC_6_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Panchatantra - Bandar aur Magarmachh (Monkey and Crocodile)
@@ -2416,6 +2431,7 @@ TOPIC_6_2_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Panchatantra story - The Lion and the Rabbit
 
 YOUR TASK:
@@ -2429,6 +2445,7 @@ TOPIC_6_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Panchatantra - Sher aur Khargosh (The Lion and the Rabbit)
@@ -2525,6 +2542,7 @@ TOPIC_6_3_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Collaborative storytelling
 
 YOUR TASK:
@@ -2539,6 +2557,7 @@ TOPIC_6_3_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Collaborative storytelling
@@ -2624,6 +2643,7 @@ TOPIC_6_4_INITIAL_SPECIFIC = """
 CONTEXT:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Topic: Talking about their favorite story/movie/book
 
 YOUR TASK:
@@ -2637,6 +2657,7 @@ TOPIC_6_4_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
+- Child's gender: {child_gender}
 - Exchange number: {exchange_number} of 10-12
 
 TOPIC: Their favorite story
@@ -3294,9 +3315,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_4_2_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3318,9 +3337,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_4_3_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3342,9 +3359,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_4_4_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3368,9 +3383,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_5_1_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )
@@ -3392,9 +3405,7 @@ CONVERSATION_TYPES = {
             'conversation': (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
-            
             GLOBAL_CONVERSATION_FLOW +
-            
             TOPIC_5_2_CONVERSATION_SPECIFIC +
             GLOBAL_RESPONSE_FORMAT
         )

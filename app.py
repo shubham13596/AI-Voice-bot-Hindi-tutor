@@ -440,13 +440,15 @@ def generate_hints(conversation_history, conversation_type, child_name, child_ag
     """Generate hint suggestions for what the child could say next using Gemini"""
     try:
         hints_prompt = f"""You are helping a {child_age}-year-old child learning Hindi.
-Based on the conversation so far, suggest ONLY 1 simple Hindi sentence the child could say next.
+Based on the conversation so far, suggest ONLY 1 Hindi sentence the child could say next.
 
 Rules:
 - Use Devanagari script ONLY (no romanized Hindi)
-- Keep sentence simple (8-10 words max)
+- Keep sentence of 8-10 words max
+- Prefer the most idiomatic and natural-sounding word for the SPECIFIC CONTEXT, not just any grammatically correct synonym.
 - Make them age-appropriate for a {child_age}-year-old
 - Sentence should be a NATURAL RESPONSE to the LAST ASSISTANT message
+- Check for naturalness: Would a native speaker say this phrase this way, or does it sound translated/awkward?
 
 RESPONSE FORMAT (CRITICAL - FOLLOW EXACTLY):
 Return a JSON object with this exact structure:

@@ -890,6 +890,10 @@ async function toggleRecording() {
         // STOP RECORDING
         // ============================================
 
+        // ★ iOS FIX: Warm up audio element NOW (during user gesture)
+        // so it can play Kiki's response later without NotAllowedError
+        warmUpAudioElement();
+
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
         }
@@ -988,10 +992,18 @@ async function initializeRecording() {
         // Make sure button starts disabled
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
-        elements.status.textContent = 'Starting conversation...';
 
-        await startConversation();
-        //initializeWaveform();
+        // ★ iOS FIX: Show overlay to get user gesture before starting conversation
+        if (isIOS || isSafari) {
+            elements.status.textContent = 'Tap "Let\'s Go" to start!';
+            showIOSStartOverlay(async () => {
+                elements.status.textContent = 'Starting conversation...';
+                await startConversation();
+            });
+        } else {
+            elements.status.textContent = 'Starting conversation...';
+            await startConversation();
+        }
 
         return true;
     } catch (error) {
@@ -1324,50 +1336,212 @@ function showTranslation(translation, buttonElement) {
     }, 3000);
 }
 
-// Reusable audio element for iOS volume control
-let persistentAudioElement = null;
+// Debug helper - shows messages on screen for mobile debugging
+function debugLog(message, isError = false) {
+    console.log(message);
+
+    // Create or get debug panel
+    let debugPanel = document.getElementById('debugPanel');
+    if (!debugPanel) {
+        debugPanel = document.createElement('div');
+        debugPanel.id = 'debugPanel';
+        debugPanel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.8);color:#0f0;font-size:10px;padding:5px;z-index:9999;font-family:monospace;';
+        document.body.appendChild(debugPanel);
+    }
+
+    const line = document.createElement('div');
+    line.style.color = isError ? '#f00' : '#0f0';
+    line.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+    debugPanel.appendChild(line);
+    debugPanel.scrollTop = debugPanel.scrollHeight;
+}
+
+// ★ iOS FIX: Shared audio element that gets "unlocked" during user gesture
+let sharedAudioElement = null;
 
 /**
- * Get or create a persistent audio element for playback
- * Using a DOM-attached element helps iOS respect device volume
+ * Get or create the shared audio element
  */
-function getAudioElement() {
-    if (!persistentAudioElement) {
-        persistentAudioElement = document.createElement('audio');
-        persistentAudioElement.id = 'kikiAudioPlayer';
-        persistentAudioElement.setAttribute('playsinline', ''); // Required for iOS
-        persistentAudioElement.setAttribute('webkit-playsinline', ''); // Legacy iOS
-        persistentAudioElement.style.display = 'none';
-        document.body.appendChild(persistentAudioElement);
-        console.log('🔊 Created persistent audio element for iOS volume control');
+function getSharedAudioElement() {
+    if (!sharedAudioElement) {
+        sharedAudioElement = document.createElement('audio');
+        sharedAudioElement.id = 'kikiSharedAudio';
+        sharedAudioElement.setAttribute('playsinline', '');
+        sharedAudioElement.setAttribute('webkit-playsinline', '');
+        document.body.appendChild(sharedAudioElement);
+        debugLog('Created shared audio element');
     }
-    return persistentAudioElement;
+    return sharedAudioElement;
+}
+
+/**
+ * ★ iOS FIX: "Warm up" the audio element during a user gesture
+ * This must be called directly from a click/touch handler
+ */
+function warmUpAudioElement() {
+    if (!isIOS && !isSafari) return; // Only needed for iOS/Safari
+
+    const audio = getSharedAudioElement();
+    // Tiny silent WAV file (44 bytes)
+    audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    audio.play().then(() => {
+        debugLog('✅ Audio element warmed up during user gesture');
+    }).catch(e => {
+        debugLog(`⚠️ Warm up failed: ${e.message}`, true);
+    });
+}
+
+/**
+ * ★ iOS FIX: Show "Let's Go" overlay for iOS/Safari
+ * This ensures we have a user gesture before any audio plays
+ */
+function showIOSStartOverlay(onStart) {
+    const overlay = document.createElement('div');
+    overlay.id = 'iosStartOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+    `;
+
+    overlay.innerHTML = `
+        <div style="text-align: center; color: white; padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
+            <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 600;">Ready to practice Hindi?</h2>
+            <p style="font-size: 16px; opacity: 0.8; margin-bottom: 24px;">Tap below to start your conversation with Kiki</p>
+            <button id="iosStartButton" style="
+                background: linear-gradient(135deg, #22c55e, #16a34a);
+                color: white;
+                border: none;
+                padding: 16px 48px;
+                font-size: 18px;
+                font-weight: 600;
+                border-radius: 50px;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+                transition: transform 0.2s, box-shadow 0.2s;
+            ">Let's Go! 🚀</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const button = document.getElementById('iosStartButton');
+
+    // Add hover effect
+    button.addEventListener('mouseenter', () => {
+        button.style.transform = 'scale(1.05)';
+        button.style.boxShadow = '0 6px 20px rgba(34, 197, 94, 0.5)';
+    });
+    button.addEventListener('mouseleave', () => {
+        button.style.transform = 'scale(1)';
+        button.style.boxShadow = '0 4px 15px rgba(34, 197, 94, 0.4)';
+    });
+
+    button.addEventListener('click', async () => {
+        debugLog('🚀 iOS Start button clicked - warming up audio');
+
+        // ★ This is the user gesture - warm up audio NOW
+        await unlockAudioContext();
+        warmUpAudioElement();
+
+        // Remove overlay with fade
+        overlay.style.transition = 'opacity 0.3s';
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.remove();
+            // Now start the conversation
+            onStart();
+        }, 300);
+    });
+
+    debugLog('📱 iOS overlay shown - waiting for user tap');
 }
 
 // Play audio response
 async function playAudioResponse(base64Audio) {
+    debugLog(`playAudioResponse called, data length: ${base64Audio ? base64Audio.length : 'NULL'}`);
+
     try {
-        // ★ iOS FIX: Unlock audio context before playing
-        await unlockAudioContext();
+        if (!base64Audio || base64Audio.length < 100) {
+            debugLog('ERROR: base64Audio is empty or too short!', true);
+            return;
+        }
 
-        // ★ iOS FIX: Use DOM-attached audio element for proper volume control
-        const audio = getAudioElement();
+        // ★ iOS FIX: Use AudioContext for proper media volume routing
+        if ((isIOS || isSafari) && audioContext) {
+            debugLog('🔊 Using AudioContext for iOS volume control');
+            await playWithAudioContext(base64Audio);
+            return;
+        }
 
-        // ★ iOS FIX: Use mp3 format (what ElevenLabs returns)
-        audio.src = `data:audio/mp3;base64,${base64Audio}`;
+        // Non-iOS: Use standard audio element
+        const audio = getSharedAudioElement();
+        audio.src = `data:audio/wav;base64,${base64Audio}`;
 
-        // For iOS, we need to handle the play promise properly
+        debugLog(`Audio src set, attempting play...`);
+
+        audio.onplay = () => debugLog('✅ Audio started playing!');
+        audio.onerror = (e) => debugLog(`❌ Audio error: ${e.type}`, true);
+        audio.onended = () => debugLog('Audio finished playing');
+
         const playPromise = audio.play();
 
         if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.warn('Audio playback failed:', error);
-                // On iOS, if autoplay is blocked, the user will need to tap again
-            });
+            playPromise
+                .then(() => debugLog('✅ Play promise resolved'))
+                .catch(error => {
+                    debugLog(`❌ Play promise rejected: ${error.name} - ${error.message}`, true);
+                });
         }
     } catch (error) {
-        console.error('Audio playback error:', error);
+        debugLog(`❌ Exception in playAudioResponse: ${error.message}`, true);
     }
+}
+
+/**
+ * ★ iOS FIX: Play audio through AudioContext
+ * AudioContext routes to "media" channel which respects volume buttons
+ */
+async function playWithAudioContext(base64Audio) {
+    // Ensure context is active
+    if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        debugLog('AudioContext resumed');
+    }
+
+    // Convert base64 to ArrayBuffer
+    const binaryString = atob(base64Audio);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Decode the audio data
+    debugLog('Decoding audio data...');
+    const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+
+    // Create and play source
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+
+    return new Promise((resolve) => {
+        source.onended = () => {
+            debugLog('✅ AudioContext playback finished');
+            resolve();
+        };
+        source.start(0);
+        debugLog('✅ AudioContext playback started');
+    });
 }
 
 
