@@ -189,12 +189,42 @@ async function unlockAudioContext() {
         source.connect(audioContext.destination);
         source.start(0);
 
+        // Also create and play a silent HTML audio element to unlock that path too
+        const silentAudio = document.createElement('audio');
+        silentAudio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+1DEAAAFAAGf9AAAIgAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7UMQbg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+        silentAudio.volume = 0.01;
+        silentAudio.play().catch(() => {});
+
         isAudioUnlocked = true;
         console.log('🔊 Audio context unlocked successfully');
 
     } catch (error) {
         console.error('Failed to unlock audio context:', error);
     }
+}
+
+/**
+ * Setup early audio unlock - listen for first user interaction
+ * This ensures audio is unlocked BEFORE Kiki's first message plays
+ */
+function setupEarlyAudioUnlock() {
+    const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown'];
+
+    const earlyUnlock = async () => {
+        await unlockAudioContext();
+        // Remove listeners after first unlock
+        unlockEvents.forEach(event => {
+            document.removeEventListener(event, earlyUnlock, true);
+        });
+        console.log('🔓 Early audio unlock triggered by user interaction');
+    };
+
+    // Add listeners with capture to catch events early
+    unlockEvents.forEach(event => {
+        document.addEventListener(event, earlyUnlock, true);
+    });
+
+    console.log('👆 Waiting for first user interaction to unlock audio...');
 }
 
 /**
@@ -746,21 +776,28 @@ async function toggleRecording() {
         try {
             // ★ iOS FIX: Create fresh MediaRecorder for each recording on iOS
             if (isIOS) {
-                console.log('📱 iOS detected: Creating fresh MediaRecorder');
+                console.log('📱 iOS detected: Preparing MediaRecorder');
 
-                // Stop existing stream if any
-                if (mediaStream) {
-                    mediaStream.getTracks().forEach(track => track.stop());
+                // Check if we need a new stream (reuse existing if still active)
+                const needNewStream = !mediaStream ||
+                    mediaStream.getTracks().some(track => track.readyState === 'ended');
+
+                if (needNewStream) {
+                    console.log('📱 Getting new audio stream...');
+                    // Stop old stream tracks if any
+                    if (mediaStream) {
+                        mediaStream.getTracks().forEach(track => track.stop());
+                    }
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } else {
+                    console.log('📱 Reusing existing audio stream (faster!)');
                 }
-
-                // Get fresh stream
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
                 // Get supported MIME type
                 const mimeType = getSupportedMimeType();
                 const options = mimeType ? { mimeType } : {};
 
-                // Create new MediaRecorder
+                // Create new MediaRecorder (required for each recording on iOS)
                 mediaRecorder = new MediaRecorder(mediaStream, options);
 
                 // Reset chunks
@@ -1287,14 +1324,37 @@ function showTranslation(translation, buttonElement) {
     }, 3000);
 }
 
+// Reusable audio element for iOS volume control
+let persistentAudioElement = null;
+
+/**
+ * Get or create a persistent audio element for playback
+ * Using a DOM-attached element helps iOS respect device volume
+ */
+function getAudioElement() {
+    if (!persistentAudioElement) {
+        persistentAudioElement = document.createElement('audio');
+        persistentAudioElement.id = 'kikiAudioPlayer';
+        persistentAudioElement.setAttribute('playsinline', ''); // Required for iOS
+        persistentAudioElement.setAttribute('webkit-playsinline', ''); // Legacy iOS
+        persistentAudioElement.style.display = 'none';
+        document.body.appendChild(persistentAudioElement);
+        console.log('🔊 Created persistent audio element for iOS volume control');
+    }
+    return persistentAudioElement;
+}
+
 // Play audio response
 async function playAudioResponse(base64Audio) {
     try {
         // ★ iOS FIX: Unlock audio context before playing
         await unlockAudioContext();
 
+        // ★ iOS FIX: Use DOM-attached audio element for proper volume control
+        const audio = getAudioElement();
+
         // ★ iOS FIX: Use mp3 format (what ElevenLabs returns)
-        const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+        audio.src = `data:audio/mp3;base64,${base64Audio}`;
 
         // For iOS, we need to handle the play promise properly
         const playPromise = audio.play();
@@ -1817,6 +1877,11 @@ async function sendAudioToServer(audioBlob) {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    // ★ iOS FIX: Setup early audio unlock to catch first user interaction
+    if (isIOS || isSafari) {
+        setupEarlyAudioUnlock();
+    }
+
     try {
         const initialized = await initializeRecording();
         if (!initialized) {
