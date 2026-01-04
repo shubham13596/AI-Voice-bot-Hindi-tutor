@@ -1336,24 +1336,13 @@ function showTranslation(translation, buttonElement) {
     }, 3000);
 }
 
-// Debug helper - shows messages on screen for mobile debugging
+// Debug helper - logs to console only (no visual panel in production)
 function debugLog(message, isError = false) {
-    console.log(message);
-
-    // Create or get debug panel
-    let debugPanel = document.getElementById('debugPanel');
-    if (!debugPanel) {
-        debugPanel = document.createElement('div');
-        debugPanel.id = 'debugPanel';
-        debugPanel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.8);color:#0f0;font-size:10px;padding:5px;z-index:9999;font-family:monospace;';
-        document.body.appendChild(debugPanel);
+    if (isError) {
+        console.warn(message);
+    } else {
+        console.log(message);
     }
-
-    const line = document.createElement('div');
-    line.style.color = isError ? '#f00' : '#0f0';
-    line.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-    debugPanel.appendChild(line);
-    debugPanel.scrollTop = debugPanel.scrollHeight;
 }
 
 // ★ iOS FIX: Shared audio element that gets "unlocked" during user gesture
