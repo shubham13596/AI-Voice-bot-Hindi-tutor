@@ -146,6 +146,78 @@ let isRecording = false;
 let sessionId = null;
 let waveformAnimationFrame;
 let conversationPairs = []; // Track conversation pairs (keeping for potential future use)
+let mediaStream = null; // Track media stream for iOS cleanup
+
+// ============================================
+// iOS/iPadOS AUDIO COMPATIBILITY FIXES
+// ============================================
+
+// Audio context for iOS audio unlocking
+let audioContext = null;
+let isAudioUnlocked = false;
+
+// Platform detection
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+console.log('🔍 Platform Detection:', { isIOS, isSafari, userAgent: navigator.userAgent });
+
+/**
+ * Unlock audio context for iOS - must be called from user gesture
+ */
+async function unlockAudioContext() {
+    if (isAudioUnlocked) return Promise.resolve();
+
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+            console.warn('AudioContext not supported');
+            return;
+        }
+
+        audioContext = new AudioContextClass();
+
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        // Play silent buffer to fully unlock
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+
+        isAudioUnlocked = true;
+        console.log('🔊 Audio context unlocked successfully');
+
+    } catch (error) {
+        console.error('Failed to unlock audio context:', error);
+    }
+}
+
+/**
+ * Get supported MIME type for MediaRecorder (iOS compatibility)
+ */
+function getSupportedMimeType() {
+    const types = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/wav'
+    ];
+
+    for (const type of types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+            console.log('✅ Supported MIME type found:', type);
+            return type;
+        }
+    }
+    console.warn('⚠️ No preferred MIME type supported, using default');
+    return null;
+}
 
 // Initialize recording visualization
 /*
@@ -641,11 +713,10 @@ function initializeMessageForSliding(messageDiv) {
 
 
 // Toggle recording state
-function toggleRecording() {
-
+async function toggleRecording() {
     if (!audioEffects) {
         console.error('Audio effects not initialized');
-        return; // Prevent further execution if audio isn't ready
+        return;
     }
 
     const elements = {
@@ -656,65 +727,153 @@ function toggleRecording() {
         conversation: document.getElementById('conversation')
     };
 
-    // Validate all required elements exist
     if (!Object.values(elements).every(element => element)) {
         console.error('Missing required DOM elements');
         return;
     }
 
-    // Add button press animation
+    // ★ iOS FIX: Unlock audio context on first interaction
+    await unlockAudioContext();
+
     elements.recordButton.classList.add('button-press');
     setTimeout(() => elements.recordButton.classList.remove('button-press'), 100);
 
     if (!isRecording) {
-        mediaRecorder.start();
-        isRecording = true;
-        elements.recordText.textContent = 'Stop Speaking';
-        elements.recordIcon.textContent = '⏹️';
-        elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
+        // ============================================
+        // START RECORDING - iOS FIX
+        // ============================================
 
-        // Auto-collapse hints when user starts speaking
-        const hintsContent = document.getElementById('hintsContent');
-        if (hintsContent && hintsContent.classList.contains('expanded')) {
-            hintsContent.classList.remove('expanded');
-            hintsContent.classList.add('collapsed');
+        try {
+            // ★ iOS FIX: Create fresh MediaRecorder for each recording on iOS
+            if (isIOS) {
+                console.log('📱 iOS detected: Creating fresh MediaRecorder');
+
+                // Stop existing stream if any
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+
+                // Get fresh stream
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Get supported MIME type
+                const mimeType = getSupportedMimeType();
+                const options = mimeType ? { mimeType } : {};
+
+                // Create new MediaRecorder
+                mediaRecorder = new MediaRecorder(mediaStream, options);
+
+                // Reset chunks
+                audioChunks = [];
+
+                // Set up event handlers
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        console.log('📦 Audio chunk received, size:', event.data.size);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    console.log('🛑 MediaRecorder stopped');
+                    console.log('=== AUDIO DEBUG ===');
+                    console.log('Number of chunks:', audioChunks.length);
+                    console.log('Chunk sizes:', audioChunks.map(c => c.size));
+                    console.log('MediaRecorder mimeType:', mediaRecorder.mimeType);
+
+                    // ★ iOS FIX: Use actual MIME type from recorder
+                    const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+                    const audioBlob = new Blob(audioChunks, { type: actualMimeType });
+
+                    console.log('Total blob size:', audioBlob.size);
+                    console.log('==================');
+
+                    // Check for empty recording
+                    if (audioBlob.size < 1000) {
+                        console.warn('⚠️ Audio blob too small, likely empty recording');
+                        resetRecordingInterface();
+                        elements.status.textContent = 'Recording was empty. Please try again.';
+                        audioChunks = [];
+                        return;
+                    }
+
+                    try {
+                        await sendAudioToServerStream(audioBlob);
+                    } catch (error) {
+                        console.log('Streaming failed, using fallback:', error);
+                        await sendAudioToServer(audioBlob);
+                    }
+
+                    audioChunks = [];
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    resetRecordingInterface();
+                    elements.status.textContent = 'Recording error. Please try again.';
+                };
+            }
+
+            // ★ iOS FIX: Start with timeslice to ensure data collection
+            mediaRecorder.start(100); // Collect data every 100ms
+
+            isRecording = true;
+            elements.recordText.textContent = 'Stop Speaking';
+            elements.recordIcon.textContent = '⏹️';
+            elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
+
+            // Auto-collapse hints
+            const hintsContent = document.getElementById('hintsContent');
+            if (hintsContent && hintsContent.classList.contains('expanded')) {
+                hintsContent.classList.remove('expanded');
+                hintsContent.classList.add('collapsed');
+            }
+
+            // Add recording indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'recording-indicator';
+            indicator.innerHTML = `
+                <div class="recording-dot"></div>
+                <span class="text-red-500 text-sm font-medium">Recording...</span>
+            `;
+            elements.recordButton.appendChild(indicator);
+
+            elements.conversation.style.boxShadow = 'inset 0 0 10px rgba(239, 68, 68, 0.1)';
+
+            console.log('🎙️ Recording started');
+
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            elements.status.textContent = 'Microphone error. Please check permissions.';
+            resetRecordingInterface();
         }
 
-        // Add recording indicator
-        const indicator = document.createElement('div');
-        indicator.className = 'recording-indicator';
-        indicator.innerHTML = `
-            <div class="recording-dot"></div>
-            <span class="text-red-500 text-sm font-medium">Recording...</span>
-        `;
-        elements.recordButton.appendChild(indicator);
-
-        // Optional: Add a subtle background animation to the conversation area
-        elements.conversation.style.boxShadow = 'inset 0 0 10px rgba(239, 68, 68, 0.1)';
-
     } else {
+        // ============================================
+        // STOP RECORDING
+        // ============================================
 
-        mediaRecorder.stop();
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+
         isRecording = false;
 
-        // Update UI to show processing state - simplified button state
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
         elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
         elements.recordText.textContent = 'Start Speaking';
         elements.recordIcon.textContent = '🎤';
 
-        // Remove recording indicator
         const indicator = elements.recordButton.querySelector('.recording-indicator');
         if (indicator) {
             indicator.remove();
         }
 
-        // Remove conversation area animation
         elements.conversation.style.boxShadow = '';
-
-        // Create new thinking loader in conversation area (left-aligned like assistant messages)
         showThinkingLoader();
+
+        console.log('🛑 Recording stopped, processing...');
     }
 }
 
@@ -730,7 +889,7 @@ async function initializeRecording() {
         const missingElements = Object.entries(elements)
             .filter(([key, value]) => !value)
             .map(([key]) => key);
-            
+
         if (missingElements.length > 0) {
             throw new Error(`Missing required DOM elements: ${missingElements.join(', ')}`);
         }
@@ -739,14 +898,44 @@ async function initializeRecording() {
         audioEffects = initializeAudioEffects();
 
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        
+
+        // ★ iOS FIX: Detect supported MIME type
+        const mimeType = getSupportedMimeType();
+        const options = mimeType ? { mimeType } : {};
+
+        console.log('🎤 Creating MediaRecorder with options:', options);
+
+        mediaRecorder = new MediaRecorder(stream, options);
+        mediaStream = stream; // ★ Store stream reference for iOS cleanup
+
         mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
+            // ★ iOS FIX: Only add chunks with data
+            if (event.data && event.data.size > 0) {
+                audioChunks.push(event.data);
+                console.log('📦 Audio chunk received, size:', event.data.size);
+            }
         };
 
         mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            // ★ iOS FIX: Use actual MIME type from recorder, not hardcoded 'audio/wav'
+            const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+            const audioBlob = new Blob(audioChunks, { type: actualMimeType });
+
+            console.log('=== AUDIO DEBUG ===');
+            console.log('Number of chunks:', audioChunks.length);
+            console.log('Total blob size:', audioBlob.size);
+            console.log('MIME type:', actualMimeType);
+            console.log('==================');
+
+            // ★ iOS FIX: Check for empty recording
+            if (audioBlob.size < 1000) {
+                console.warn('⚠️ Audio blob too small, likely empty recording');
+                resetRecordingInterface();
+                const status = document.getElementById('status');
+                if (status) status.textContent = 'Recording was empty. Please try again.';
+                audioChunks = [];
+                return;
+            }
 
             // Try streaming version first, fallback to original if needed
             try {
@@ -766,23 +955,23 @@ async function initializeRecording() {
 
         await startConversation();
         //initializeWaveform();
-        
+
         return true;
     } catch (error) {
         // Log the full error for debugging
         console.error('Initialization error:', error);
-        
+
         // Update UI with user-friendly error message
         const status = document.getElementById('status');
         if (status) {
             status.textContent = `Error: ${error.message}. Please refresh and try again.`;
         }
-        
+
         // Also check if error is due to microphone permissions
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
             status.textContent = 'Please allow microphone access to use this application.';
         }
-        
+
         return false;
     }
 }
@@ -1099,14 +1288,25 @@ function showTranslation(translation, buttonElement) {
 }
 
 // Play audio response
-function playAudioResponse(base64Audio) {
-    const audio = new Audio(`data:audio/wav;base64,${base64Audio}`);
-    const playPromise = audio.play();
+async function playAudioResponse(base64Audio) {
+    try {
+        // ★ iOS FIX: Unlock audio context before playing
+        await unlockAudioContext();
 
-    if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.log('Audio autoplay blocked (iOS/iPadOS restriction):', error);
-        });
+        // ★ iOS FIX: Use mp3 format (what ElevenLabs returns)
+        const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+
+        // For iOS, we need to handle the play promise properly
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn('Audio playback failed:', error);
+                // On iOS, if autoplay is blocked, the user will need to tap again
+            });
+        }
+    } catch (error) {
+        console.error('Audio playback error:', error);
     }
 }
 
