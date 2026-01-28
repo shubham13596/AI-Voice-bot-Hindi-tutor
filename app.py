@@ -2001,15 +2001,30 @@ def get_conversation_history():
             
             # Map conversation type to display info
             type_info = {
-                'about_me': {'name': 'About Me', 'icon': '🙋'},
-                'my_family': {'name': 'My Family', 'icon': '👨‍👩‍👧‍👦'},
-                'everyday': {'name': 'Everyday Life', 'icon': '🏠'},
-                'my_toys': {'name': 'My Toys', 'icon': '🧸'},
-                'food_i_like': {'name': 'Food I Like', 'icon': '🍽️'},
-                'superheroes': {'name': 'Superheroes', 'icon': '🦸'},
-                'animals_nature': {'name': 'Animals and Nature', 'icon': '🦊'},
-                'adventure_story': {'name': 'Adventure Story', 'icon': '🗺️'},
-                'panchatantra_story': {'name': 'Panchatantra Story', 'icon': '📖'}
+                'things_i_love': {'name': 'Things I Love', 'icon': '🤩'},
+                'how_im_feeling': {'name': 'How I Feel', 'icon': '😄'},
+                'my_day': {'name': 'My Day', 'icon': '🫡'},
+                'what_i_can_do': {'name': 'What I can Do', 'icon': '⛹🏻'},
+                'family_members': {'name': 'Family Members', 'icon': '👨‍👩‍👧‍👦'},
+                'talking_to_grandparents': {'name': 'Talking to Grandparents', 'icon': '👵'},
+                'talking_to_chacha_mausi': {'name': 'Talking to Uncles/Aunts', 'icon': '👴'},
+                'family_gathering': {'name': 'At a family gathering', 'icon': '👩‍👦‍👦'},
+                'what_i_like_to_eat': {'name': 'What I like to eat', 'icon': '🥘'},
+                'at_the_dinner_table': {'name': 'At the dinner table', 'icon': '🍽️'},
+                'at_dadi_house': {'name': "Food at Grandparents'", 'icon': '👨‍🍳'},
+                'festival_foods': {'name': 'Festival Foods', 'icon': '🍬'},
+                'diwali': {'name': 'Diwali', 'icon': '🪔'},
+                'holi': {'name': 'Holi', 'icon': '🎨'},
+                'raksha_bandhan': {'name': 'Raksha Bandhan', 'icon': '🏵️'},
+                'indian_birthdays': {'name': 'Indian Birthdays', 'icon': '🎂'},
+                'animals_i_like': {'name': 'Animals I Like', 'icon': '🦁'},
+                'indian_animals': {'name': 'Indian Animals', 'icon': '🦚'},
+                'weather_today': {'name': 'Weather today', 'icon': '🌧️'},
+                'my_favorite_place': {'name': 'My favorite place', 'icon': '🎡'},
+                'panchatantra_monkey_crocodile': {'name': 'Panchatantra: Monkey & Crocodile', 'icon': '🐵'},
+                'panchatantra_lion_rabbit': {'name': 'Panchatantra: Lion & Rabbit', 'icon': '🦁'},
+                'lets_make_a_story': {'name': 'Create your own Story!', 'icon': '🦸'},
+                'my_favorite_story': {'name': 'My Favorite Story', 'icon': '📖'}
             }
             
             conv_type = type_info.get(conv.conversation_type, {'name': 'Conversation', 'icon': '💬'})
