@@ -321,9 +321,12 @@
                 <div class="modules-container">
                     {% for module_key in module_order %}
                         {% set module = modules[module_key] %}
-                        <div class="module-card" style="--module-color: {{ module.metadata.color }}">
+                        <div class="module-card{% if module_key == 'bahar_ki_duniya' %} module-card--coming-soon{% endif %}" style="--module-color: {{ module.metadata.color }}">
                             <!-- Module Header -->
                             <div class="module-header">
+                                {% if module_key == 'bahar_ki_duniya' %}
+                                <span class="coming-soon-chip">Coming Soon</span>
+                                {% endif %}
                                 <div class="module-header__content">
                                     <h2 class="module-header__title-hindi">{{ module.metadata.name_hindi }}</h2>
                                     <p class="module-header__title-english">{{ module.metadata.name_english }}</p>
@@ -337,6 +340,18 @@
                             <!-- Topics List -->
                             <div class="topics-list">
                                 {% for topic in module.topics %}
+                                    {% if module_key == 'bahar_ki_duniya' %}
+                                    <div class="topic-card topic-card--disabled" data-type="{{ topic.key }}">
+                                        <div class="topic-icon">{{ topic.icon }}</div>
+                                        <div class="topic-content">
+                                            <h3 class="topic-title">{{ topic.name }}</h3>
+                                            <p class="topic-description">{{ topic.description }}</p>
+                                        </div>
+                                        <div class="topic-action">
+                                            <span class="topic-btn topic-btn--disabled">Start →</span>
+                                        </div>
+                                    </div>
+                                    {% else %}
                                     <a href="/conversation?type={{ topic.key }}" class="topic-card" data-type="{{ topic.key }}">
                                         <div class="topic-icon">{{ topic.icon }}</div>
                                         <div class="topic-content">
@@ -347,6 +362,7 @@
                                             <button class="topic-btn">Start →</button>
                                         </div>
                                     </a>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </div>

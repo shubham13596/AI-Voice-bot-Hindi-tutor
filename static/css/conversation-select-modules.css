@@ -683,3 +683,57 @@
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
 }
+
+/* ===== Coming Soon Module State ===== */
+.module-card--coming-soon {
+    opacity: 0.6;
+    filter: grayscale(40%);
+}
+
+.module-card--coming-soon:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.coming-soon-chip {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: #6B7280;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 1;
+}
+
+.module-header {
+    position: relative;  /* For chip positioning */
+}
+
+/* Disabled topic cards */
+.topic-card--disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.topic-card--disabled:hover {
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    transform: none;
+    box-shadow: none;
+}
+
+.topic-btn--disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+}
+
+.topic-btn--disabled:hover {
+    background: #9CA3AF;
+    transform: none;
+    box-shadow: none;
+}
