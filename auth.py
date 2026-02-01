@@ -153,8 +153,8 @@ def update_child_name():
         if child_gender.lower() not in ['male', 'female']:
             return jsonify({'error': 'Invalid gender selection'}), 400
 
-        # Convert to sentence case
-        formatted_name = child_name.capitalize()
+        # Store name as-is (Hindi names don't need English capitalization)
+        formatted_name = child_name.strip()
         formatted_gender = child_gender.lower()
 
         # Update user profile
