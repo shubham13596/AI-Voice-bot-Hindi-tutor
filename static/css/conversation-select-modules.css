@@ -652,22 +652,34 @@
 
 /* Know more about Kiki - returning users */
 .know-more-kiki-btn {
-    background: none;
+    background: linear-gradient(135deg, #ED8936 0%, #DD6B20 100%);
     border: none;
-    color: #ED8936;
+    color: white;
+    font-family: 'Poppins', sans-serif;
     font-size: 0.85rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    padding: 0.25rem 0;
-    margin-top: 0.5rem;
-    text-decoration: underline;
+    padding: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    border-radius: 2rem;
     display: none;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 2px 8px rgba(237, 137, 54, 0.3);
+    transition: all 0.2s ease;
+}
+
+.know-more-kiki-btn::before {
+    content: '👋';
+    font-size: 0.9rem;
 }
 
 .know-more-kiki-btn.active {
-    display: inline-block;
+    display: inline-flex;
 }
 
 .know-more-kiki-btn:hover {
-    color: #DD6B20;
+    background: linear-gradient(135deg, #DD6B20 0%, #C05621 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
 }
