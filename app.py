@@ -1147,13 +1147,14 @@ def speech_to_text_hindi_google(audio_data):
         api_end_time = time.time()
         api_response_time = (api_end_time - api_start_time) * 1000
 
-        # Extract transcription
-        transcription = None
+        # Extract transcription - concatenate ALL results (pauses create multiple segments)
+        transcriptions = []
         if response.results:
             for result in response.results:
                 if result.alternatives:
-                    transcription = result.alternatives[0].transcript
-                    break
+                    transcriptions.append(result.alternatives[0].transcript)
+
+        transcription = " ".join(transcriptions) if transcriptions else None
 
         if not transcription:
             logger.warning("❌ GOOGLE CLOUD STT: No transcription in response")
@@ -1220,13 +1221,16 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
         response.raise_for_status()
         result = response.json()
 
-        # Extract transcription
-        transcription = None
+        # Extract transcription - concatenate ALL results (pauses create multiple segments)
+        transcriptions = []
         if "results" in result and result["results"]:
             for res in result["results"]:
                 if "alternatives" in res and res["alternatives"]:
-                    transcription = res["alternatives"][0].get("transcript")
-                    break
+                    transcript = res["alternatives"][0].get("transcript")
+                    if transcript:
+                        transcriptions.append(transcript)
+
+        transcription = " ".join(transcriptions) if transcriptions else None
 
         if not transcription:
             logger.warning("❌ GOOGLE CLOUD STT REST: No transcription in response")
