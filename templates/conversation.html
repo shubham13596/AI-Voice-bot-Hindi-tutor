@@ -471,22 +471,21 @@
 
             <!-- Button Controls Container -->
             <div class="flex flex-col items-center gap-4">
-                <button id="recordButton"
-                        class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50">
-                    <span id="recordIcon">🎤</span>
-                    <span id="recordText">Start Speaking</span>
-                </button>
-
                 <!-- Hints Section -->
                 <div id="hintsContainer" class="hints-section" style="display: none;">
                     <button id="hintsToggle" class="hints-toggle" type="button">
-                        <span>Need help?</span>
-                        <span class="bulb-icon">💡</span>
+                        <span>See what to say 🤔</span>
                     </button>
                     <div id="hintsContent" class="hints-content collapsed">
                         <p class="hints-text">Try saying: <span id="hintsText" class="hints-value"></span></p>
                     </div>
                 </div>
+
+                <button id="recordButton"
+                        class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-green-600 transition-colors disabled:opacity-50">
+                    <span id="recordIcon">🎤</span>
+                    <span id="recordText">Start Speaking</span>
+                </button>
             </div>
         </div>
     </main>
