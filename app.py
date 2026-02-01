@@ -124,7 +124,7 @@ if GOOGLE_CREDENTIALS_JSON:
     except Exception as e:
         logger.error(f"Failed to configure Google Cloud credentials: {e}")
 
-STT_PROVIDER = os.getenv('STT_PROVIDER', 'sarvam')  # Default to sarvam (options: sarvam, groq, google)
+STT_PROVIDER = os.getenv('STT_PROVIDER', 'google')  # Default to google (options: sarvam, groq, google)
 
 # Initialize Groq client
 try:
@@ -1042,19 +1042,12 @@ def trim_audio_silence(audio_data):
 def optimize_audio_for_google_cloud(audio_data):
     """
     Apply optimizations for Google Cloud Speech-to-Text
+    Note: Silence trimming disabled - doesn't work with compressed WEBM_OPUS format.
+    The trim_audio_silence function incorrectly treats compressed bytes as raw PCM
+    amplitude values, causing random truncation of longer recordings.
     """
-    try:
-        # Apply silence trimming
-        optimized_audio = trim_audio_silence(audio_data)
-
-        # Additional optimizations to be added here
-        # (e.g., audio format conversion, noise reduction)
-
-        return optimized_audio
-
-    except Exception as e:
-        logger.warning(f"⚠️ Audio optimization failed, using original: {e}")
-        return audio_data
+    # Return audio unchanged - silence trimming only works for raw PCM, not compressed formats
+    return audio_data
 
 # Initialize Google Cloud Speech client with connection pooling
 google_speech_client = None
