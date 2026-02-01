@@ -284,6 +284,14 @@
         <!-- Sidebar overlay -->
         <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
+        <!-- First-time user spotlight overlay -->
+        <div id="introSpotlightOverlay" class="intro-spotlight-overlay"></div>
+
+        <!-- Kiki intro audio -->
+        <audio id="kikiIntroAudio" preload="auto">
+            <source src="/static/audio/kiki_intro.mp3" type="audio/mpeg">
+        </audio>
+
         <!-- Main Content -->
         <main class="mobile-main-content">
             <div class="mobile-card">
@@ -298,6 +306,14 @@
                         <div class="greeting-text">नमस्ते <span id="childName">...</span>! I am Kiki 👋</div>
                         <div class="greeting-subtext">Let's practice Hindi together through fun conversations!</div>
                     </div>
+
+                    <!-- Intro controls (hidden by default) -->
+                    <button id="introSkipBtn" class="intro-skip-btn">Skip</button>
+                    <button id="introTapBtn" class="intro-tap-btn">
+                        <span class="tap-emoji">👆</span>
+                        <span>Tap to meet Kiki!</span>
+                    </button>
+                    <div id="introAudioTimer" class="intro-audio-timer">0:00 / 0:00</div>
                 </div>
 
                 <!-- Modules Container -->
@@ -370,11 +386,134 @@
                 // Update page title
                 document.title = `Choose Conversation - ${user.child_name}`;
 
+                // Check if user has no conversations yet → show intro
+                if (!user.has_conversations) {
+                    // Small delay to let page fully render
+                    setTimeout(() => initFirstTimeIntro(user), 500);
+                }
+
             } catch (error) {
                 console.error('Error loading user info:', error);
                 window.location.href = '/';
             }
         });
+
+        // First-time user intro flow
+        function initFirstTimeIntro(user) {
+            const overlay = document.getElementById('introSpotlightOverlay');
+            const greeting = document.querySelector('.child-greeting');
+            const kikiAvatar = document.querySelector('.kiki-avatar');
+            const introAudio = document.getElementById('kikiIntroAudio');
+            const tapBtn = document.getElementById('introTapBtn');
+            const skipBtn = document.getElementById('introSkipBtn');
+            const timerEl = document.getElementById('introAudioTimer');
+            const firstTopicCard = document.querySelector('.topic-card');
+
+            if (!overlay || !greeting || !introAudio || !tapBtn) return;
+
+            let timerInterval = null;
+            let introCompleted = false;
+
+            // Format seconds as M:SS
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            // Update timer display
+            function updateTimer() {
+                if (introAudio.duration && !isNaN(introAudio.duration)) {
+                    timerEl.textContent = `${formatTime(introAudio.currentTime)} / ${formatTime(introAudio.duration)}`;
+                }
+            }
+
+            // End intro and show topic highlight
+            function endIntro() {
+                if (introCompleted) return;
+                introCompleted = true;
+
+                // Stop timer
+                if (timerInterval) clearInterval(timerInterval);
+
+                // Stop audio if playing
+                introAudio.pause();
+                introAudio.currentTime = 0;
+
+                // Hide playback controls
+                skipBtn.classList.remove('active');
+                timerEl.classList.remove('active');
+                kikiAvatar.classList.remove('speaking');
+
+                // Remove spotlight
+                greeting.classList.remove('spotlight-active');
+                overlay.classList.remove('active');
+
+                // Highlight first topic card with arrow
+                if (firstTopicCard) {
+                    firstTopicCard.classList.add('intro-highlight');
+                    firstTopicCard.style.position = 'relative';
+
+                    // Create and add bouncing arrow
+                    const arrow = document.createElement('div');
+                    arrow.className = 'intro-topic-arrow';
+                    arrow.textContent = '👇';
+                    arrow.id = 'introTopicArrow';
+                    firstTopicCard.appendChild(arrow);
+
+                    // Remove after 5 seconds or on click
+                    const cleanup = () => {
+                        arrow.remove();
+                        firstTopicCard.classList.remove('intro-highlight');
+                    };
+
+                    firstTopicCard.addEventListener('click', cleanup, { once: true });
+                    setTimeout(cleanup, 5000);
+                }
+            }
+
+            // Step 1: Show overlay and tap button
+            overlay.classList.add('active');
+            greeting.classList.add('spotlight-active');
+            setTimeout(() => tapBtn.classList.add('active'), 300);
+
+            // Step 2: On tap - play audio
+            async function onTapToMeet() {
+                tapBtn.classList.remove('active');
+                tapBtn.style.display = 'none';
+
+                // Show skip button and timer
+                skipBtn.classList.add('active');
+                timerEl.classList.add('active');
+                kikiAvatar.classList.add('speaking');
+
+                // Start timer updates
+                timerInterval = setInterval(updateTimer, 100);
+
+                try {
+                    introAudio.volume = 0.8;
+                    await introAudio.play();
+
+                    // Wait for audio to end
+                    introAudio.onended = endIntro;
+                    introAudio.onerror = endIntro;
+                } catch (error) {
+                    console.error('Intro audio failed:', error);
+                    setTimeout(endIntro, 2000);
+                }
+            }
+
+            // Event listeners
+            tapBtn.addEventListener('click', onTapToMeet, { once: true });
+            skipBtn.addEventListener('click', endIntro);
+
+            // Also allow clicking overlay to start (before audio plays)
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay && tapBtn.classList.contains('active')) {
+                    onTapToMeet();
+                }
+            }, { once: true });
+        }
 
         // Add click tracking for analytics
         document.addEventListener('click', function(e) {

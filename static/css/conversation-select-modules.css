@@ -471,3 +471,178 @@
 .module-card:nth-child(4) { animation-delay: 0.2s; }
 .module-card:nth-child(5) { animation-delay: 0.25s; }
 .module-card:nth-child(6) { animation-delay: 0.3s; }
+
+/* ========================================
+   FIRST-TIME USER SPOTLIGHT EXPERIENCE
+   ======================================== */
+
+/* Dimming overlay - covers entire page */
+.intro-spotlight-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.intro-spotlight-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Kiki greeting in spotlight mode */
+.child-greeting.spotlight-active {
+    position: relative;
+    z-index: 999;
+    animation: kikiPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    box-shadow: 0 8px 32px rgba(237, 137, 54, 0.4), 0 0 60px rgba(255, 255, 255, 0.3);
+}
+
+@keyframes kikiPop {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+    100% {
+        transform: scale(1.05);
+    }
+}
+
+/* Kiki avatar animation during intro */
+.kiki-avatar.speaking {
+    animation: kikiWave 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes kikiWave {
+    0% {
+        transform: rotate(-3deg);
+    }
+    100% {
+        transform: rotate(3deg);
+    }
+}
+
+/* Tap to Meet Kiki button - inside greeting box */
+.intro-tap-btn {
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.intro-tap-btn.active {
+    opacity: 1;
+    visibility: visible;
+    animation: tapBtnPulse 1.5s ease-in-out infinite;
+}
+
+.intro-tap-btn .tap-emoji {
+    font-size: 1.2rem;
+}
+
+@keyframes tapBtnPulse {
+    0%, 100% { box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); }
+    50% { box-shadow: 0 4px 25px rgba(237, 137, 54, 0.4); }
+}
+
+/* Skip button - top right during playback */
+.intro-skip-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: transparent;
+    border: 1px solid #6b7280;
+    padding: 0.35rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    z-index: 1001;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.intro-skip-btn.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.intro-skip-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Audio duration timer - bottom right during playback */
+.intro-audio-timer {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #6b7280;
+    z-index: 1001;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.intro-audio-timer.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Topic card highlight (green glow) */
+.topic-card.intro-highlight {
+    position: relative;
+    z-index: 10;
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 4px 20px rgba(34, 197, 94, 0.25);
+    animation: topicCardPulse 2s ease-in-out infinite;
+}
+
+@keyframes topicCardPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 4px 20px rgba(34, 197, 94, 0.25); }
+    50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4), 0 4px 30px rgba(34, 197, 94, 0.35); }
+}
+
+/* Bouncing arrow for topic card */
+.intro-topic-arrow {
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.8rem;
+    z-index: 100;
+    animation: bounceArrow 1s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes bounceArrow {
+    0%, 100% {
+        transform: translateX(-50%) translateY(0);
+    }
+    50% {
+        transform: translateX(-50%) translateY(10px);
+    }
+}
