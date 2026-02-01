@@ -23,7 +23,7 @@
     border: 2px solid rgba(237, 137, 54, 0.15);
     box-shadow: 0 2px 12px rgba(237, 137, 54, 0.08);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -498,6 +498,7 @@
     z-index: 999;
     animation: kikiPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     box-shadow: 0 8px 32px rgba(237, 137, 54, 0.4), 0 0 60px rgba(255, 255, 255, 0.3);
+    margin-bottom: 1.5rem;
 }
 
 @keyframes kikiPop {
@@ -529,17 +530,17 @@
 /* Tap to Meet Kiki button - inside greeting box */
 .intro-tap-btn {
     position: absolute;
-    bottom: -25px;
+    bottom: -22px;
     left: 50%;
     transform: translateX(-50%);
     background: white;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.6rem 1.25rem;
     border-radius: 2rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #1f2937;
     cursor: pointer;
@@ -548,6 +549,7 @@
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
 .intro-tap-btn.active {
@@ -557,7 +559,8 @@
 }
 
 .intro-tap-btn .tap-emoji {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    line-height: 1;
 }
 
 @keyframes tapBtnPulse {
@@ -645,4 +648,26 @@
     50% {
         transform: translateX(-50%) translateY(10px);
     }
+}
+
+/* Know more about Kiki - returning users */
+.know-more-kiki-btn {
+    background: none;
+    border: none;
+    color: #ED8936;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    margin-top: 0.5rem;
+    text-decoration: underline;
+    display: none;
+}
+
+.know-more-kiki-btn.active {
+    display: inline-block;
+}
+
+.know-more-kiki-btn:hover {
+    color: #DD6B20;
 }

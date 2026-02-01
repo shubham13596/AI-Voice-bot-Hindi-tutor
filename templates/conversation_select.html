@@ -305,6 +305,7 @@
                     <div class="greeting-content">
                         <div class="greeting-text">नमस्ते <span id="childName">...</span>! I am Kiki 👋</div>
                         <div class="greeting-subtext">Let's practice Hindi together through fun conversations!</div>
+                        <button id="knowMoreKikiBtn" class="know-more-kiki-btn">Know more about Kiki</button>
                     </div>
 
                     <!-- Intro controls (hidden by default) -->
@@ -390,6 +391,9 @@
                 if (!user.has_conversations) {
                     // Small delay to let page fully render
                     setTimeout(() => initFirstTimeIntro(user), 500);
+                } else {
+                    // Returning user - show "Know more about Kiki" option
+                    initKnowMoreButton();
                 }
 
             } catch (error) {
@@ -513,6 +517,73 @@
                     onTapToMeet();
                 }
             }, { once: true });
+        }
+
+        // Know more about Kiki - returning users
+        function initKnowMoreButton() {
+            const knowMoreBtn = document.getElementById('knowMoreKikiBtn');
+            const introAudio = document.getElementById('kikiIntroAudio');
+            const skipBtn = document.getElementById('introSkipBtn');
+            const timerEl = document.getElementById('introAudioTimer');
+            const kikiAvatar = document.querySelector('.kiki-avatar');
+
+            if (!knowMoreBtn || !introAudio) return;
+
+            knowMoreBtn.classList.add('active');
+
+            let timerInterval = null;
+            let isPlaying = false;
+
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            function updateTimer() {
+                if (introAudio.duration && !isNaN(introAudio.duration)) {
+                    timerEl.textContent = `${formatTime(introAudio.currentTime)} / ${formatTime(introAudio.duration)}`;
+                }
+            }
+
+            function endPlayback() {
+                if (!isPlaying) return;
+                isPlaying = false;
+
+                if (timerInterval) clearInterval(timerInterval);
+                introAudio.pause();
+                introAudio.currentTime = 0;
+
+                skipBtn.classList.remove('active');
+                timerEl.classList.remove('active');
+                kikiAvatar.classList.remove('speaking');
+                knowMoreBtn.classList.add('active');
+            }
+
+            async function playKikiIntro() {
+                if (isPlaying) return;
+                isPlaying = true;
+
+                knowMoreBtn.classList.remove('active');
+                skipBtn.classList.add('active');
+                timerEl.classList.add('active');
+                kikiAvatar.classList.add('speaking');
+
+                timerInterval = setInterval(updateTimer, 100);
+
+                try {
+                    introAudio.volume = 0.8;
+                    await introAudio.play();
+                    introAudio.onended = endPlayback;
+                    introAudio.onerror = endPlayback;
+                } catch (error) {
+                    console.error('Audio failed:', error);
+                    setTimeout(endPlayback, 2000);
+                }
+            }
+
+            knowMoreBtn.addEventListener('click', playKikiIntro);
+            skipBtn.addEventListener('click', endPlayback);
         }
 
         // Add click tracking for analytics
