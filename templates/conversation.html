@@ -255,6 +255,42 @@
             color: white;
         }
 
+        /* Header topic info */
+        .header-topic {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 50%;
+            overflow: hidden;
+        }
+
+        .header-topic-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .header-topic-text {
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .header-topic-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-topic-desc {
+            font-size: 0.7rem;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         /* Main content container */
         .main-container {
             max-width: 100%;
@@ -277,13 +313,29 @@
             .conversation-header {
                 padding: 0 0.5rem;
             }
-            
+
             .content-card {
                 padding: 1rem;
             }
-            
+
             .header-right {
                 gap: 0.25rem;
+            }
+
+            .header-topic {
+                max-width: 45%;
+            }
+
+            .header-topic-icon {
+                font-size: 1.1rem;
+            }
+
+            .header-topic-name {
+                font-size: 0.8rem;
+            }
+
+            .header-topic-desc {
+                font-size: 0.65rem;
             }
         }
 
@@ -388,7 +440,15 @@
         <a href="/conversation-select" class="back-button">
             <span class="back-arrow">←</span>
         </a>
-        
+
+        <div class="header-topic">
+            <span id="conversationIcon" class="header-topic-icon">💬</span>
+            <div class="header-topic-text">
+                <div id="conversationTypeName" class="header-topic-name">Conversation</div>
+                <div id="conversationTypeDesc" class="header-topic-desc">General conversation</div>
+            </div>
+        </div>
+
         <div class="header-right">
             <div class="stars-display">
                 <span class="star-icon">⭐</span>
@@ -402,20 +462,6 @@
 
     <main class="main-container">
         <div class="content-card">
-            <!-- Conversation Type Indicator -->
-            <div id="conversationTypeIndicator" class="mb-4 flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-3">
-                <div class="flex items-center gap-3">
-                    <span id="conversationIcon" class="text-2xl">🏠</span>
-                    <div>
-                        <div id="conversationTypeName" class="font-semibold text-green-800">Everyday Life</div>
-                        <div id="conversationTypeDesc" class="text-sm text-green-600">Talk about daily activities and school</div>
-                    </div>
-                </div>
-                <a href="/conversation-select" class="text-green-600 hover:text-green-800 text-sm font-medium transition-colors">
-                    Change Topic →
-                </a>
-            </div>
-            
             <div id="status" class="text-center text-lg font-medium text-gray-600 mb-6">
                 Initializing...
             </div>
