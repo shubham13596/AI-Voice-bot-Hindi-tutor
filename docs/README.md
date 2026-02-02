@@ -31,7 +31,7 @@ Experience Kiki here: **[hindispeakingtutor.in](https://www.hindispeakingtutor.i
 ### Parent & Teacher Tools
 - **Analytics Dashboard**: Track conversation frequency, sentence counts, and progress
 - **Conversation Insights**: Review what topics your child enjoys discussing
-  
+
 ## 🛠️ Technical Stack
 
 ### AI & Language Processing

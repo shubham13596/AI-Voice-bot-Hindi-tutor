@@ -63,7 +63,7 @@ The conversation flow is managed by several classes in `app.py`:
 
 #### Speech Processing Pipeline
 1. **Audio Input**: User records voice via browser MediaRecorder API
-2. **STT**: Sarvam AI API converts Hindi speech to text
+2. **STT**: Google Cloud STT API converts Hindi speech to text
 3. **LLM Processing**: Groq Llama 3.1 8B processes conversation (parallel evaluation + response generation)
 4. **TTS**: ElevenLabs converts Hindi response to speech
 5. **Audio Output**: Browser plays generated audio response
@@ -267,28 +267,12 @@ git checkout -b enhancement/mobile-navigation-improvements
 - **Professional Footer**: Added informational pages and company footer
 - **Dashboard Logic**: Improved weekly comparison logic and back button functionality
 
-## STT Provider Testing & Evaluation
-
-### Google Cloud Speech-to-Text Evaluation (September 2025)
-- **Branch**: `enhancement/google-cloud-stt-integration`
-- **Objective**: Test Google Cloud Speech-to-Text API as alternative to Sarvam AI for reduced ASR latency
-- **Implementation**: Complete integration with Hindi language support (`hi-IN`)
-- **Configuration**: Used `latest_short` model with enhanced mode for optimal performance
-- **Result**: **REJECTED** - Latency remained high, no significant improvement over Sarvam AI
-- **Technical Details**:
-  - Added google-cloud-speech==2.21.0 dependency
-  - Implemented feature flag (`STT_PROVIDER=google/sarvam`) for easy switching
-  - Full integration with existing audio processing pipeline
-  - Comprehensive error handling and logging
-- **Conclusion**: Google Cloud STT does not solve the ASR latency bottleneck for real-time conversation
-- **Status**: **REMOVED** - Google Cloud Speech dependency and code removed to reduce app size (~8MB savings)
 
 ### App Size Optimization (January 2025)
 - **Objective**: Reduce Heroku app size from 52MB for faster deployments and reduced slug size
 - **Actions Taken**:
   - Removed `google-cloud-speech==2.21.0` dependency (~8MB with grpcio dependencies)
   - Removed all related Google Cloud Speech STT code from app.py
-  - Updated STT_PROVIDER options to support only `sarvam` and `groq`
 - **Result**: Significant reduction in app size and dependency complexity
 
 ### Google Cloud Speech-to-Text Integration v2 (January 2025)
