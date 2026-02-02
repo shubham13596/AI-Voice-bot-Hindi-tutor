@@ -160,8 +160,9 @@ let isAudioUnlocked = false;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const isAndroid = /android/i.test(navigator.userAgent);
 
-console.log('🔍 Platform Detection:', { isIOS, isSafari, userAgent: navigator.userAgent });
+console.log('🔍 Platform Detection:', { isIOS, isSafari, isAndroid, userAgent: navigator.userAgent });
 
 /**
  * Unlock audio context for iOS - must be called from user gesture
@@ -993,8 +994,8 @@ async function initializeRecording() {
         elements.recordButton.disabled = true;
         elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
 
-        // ★ iOS FIX: Show overlay to get user gesture before starting conversation
-        if (isIOS || isSafari) {
+        // ★ Show overlay to get user gesture before starting conversation (iOS/Safari/Android)
+        if (isIOS || isSafari || isAndroid) {
             elements.status.textContent = 'Tap "Let\'s Go" to start!';
             showIOSStartOverlay(async () => {
                 elements.status.textContent = 'Starting conversation...';
