@@ -116,7 +116,13 @@ def logout():
 @login_required
 def get_user_info():
     """API endpoint to get current user information"""
-    return jsonify(current_user.to_dict())
+    from models import Conversation
+    user_dict = current_user.to_dict()
+    # Check if user has started any conversations
+    user_dict['has_conversations'] = Conversation.query.filter_by(
+        user_id=current_user.id
+    ).first() is not None
+    return jsonify(user_dict)
 
 @auth_bp.route('/api/user/child-name', methods=['POST'])
 @login_required
