@@ -88,6 +88,7 @@ sessions.json
 # Audio files (temporary)
 # Note: applause_v1.wav is allowed for production deployment
 *.mp3
+!static/audio/kiki_intro.mp3
 response.wav
 temp_*.wav
 
