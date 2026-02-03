@@ -448,9 +448,6 @@ Just write the Hindi text directly - nothing else."""
     else:
         logger.warning("❌ JSON instruction NOT found - replacement didn't work!")
 
-    # Log a sample of the final prompt to verify
-    logger.info(f"📝 Streaming prompt sample (first 500 chars): {modified_prompt[:500]}...")
-
     # Get phase-specific instruction
     phase_instruction = get_phase_instruction(sentences_count, is_farewell)
 
@@ -492,8 +489,6 @@ Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
             conversation_history=recent_history,
             response_format="json"
         )
-
-        logger.info(f"Raw hints response: {result[:200]}")
 
         # Parse the JSON response
         hints_data = json.loads(result)
