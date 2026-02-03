@@ -593,28 +593,23 @@ subtleRewardStyles.textContent = `
         width: fit-content;
     }
 
-    .thinking-spinner {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: conic-gradient(
-            from 0deg,
-            #3b82f6 0deg,
-            #8b5cf6 90deg,
-            #ec4899 180deg,
-            #f59e0b 270deg,
-            #3b82f6 360deg
-        );
-        animation: thinkingSpin 2s linear infinite;
-        position: relative;
+    .thinking-emoji {
+        font-size: 24px;
+        opacity: 0;
+        transform: scale(0);
+        animation: emojiPopIn 0.3s ease-out forwards;
     }
 
-    .thinking-spinner::before {
-        content: '';
-        position: absolute;
-        inset: 2.5px;
-        background: white;
-        border-radius: 50%;
+    .thinking-emoji:nth-child(1) {
+        animation-delay: 0s;
+    }
+
+    .thinking-emoji:nth-child(2) {
+        animation-delay: 1s;
+    }
+
+    .thinking-emoji:nth-child(3) {
+        animation-delay: 2s;
     }
 
     .thinking-text {
@@ -623,9 +618,18 @@ subtleRewardStyles.textContent = `
         font-weight: 400;
     }
 
-    @keyframes thinkingSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    @keyframes emojiPopIn {
+        0% {
+            opacity: 0;
+            transform: scale(0);
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 
     /* Smooth text flow animation */
@@ -675,7 +679,9 @@ function showThinkingLoader() {
     loaderDiv.className = 'thinking-loader';
 
     loaderDiv.innerHTML = `
-        <div class="thinking-spinner"></div>
+        <span class="thinking-emoji">🤔</span>
+        <span class="thinking-emoji">💡</span>
+        <span class="thinking-emoji">✨</span>
         <div class="thinking-text">Thinking..</div>
     `;
 
