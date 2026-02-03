@@ -16,6 +16,9 @@ import io
 import redis
 import numpy as np
 from google.cloud import speech
+from google.cloud.speech_v2 import SpeechClient as SpeechClientV2
+from google.cloud.speech_v2.types import cloud_speech as cloud_speech_v2
+from google.api_core.client_options import ClientOptions
 from datetime import datetime, timedelta
 import json
 import tempfile
@@ -124,7 +127,28 @@ if GOOGLE_CREDENTIALS_JSON:
     except Exception as e:
         logger.error(f"Failed to configure Google Cloud credentials: {e}")
 
+# Extract project ID from credentials for V2 API (Chirp 3)
+GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT')
+
+# if GOOGLE_CREDENTIALS_JSON:
+#     try:
+#         creds_data = json.loads(GOOGLE_CREDENTIALS_JSON)
+#         GOOGLE_CLOUD_PROJECT = creds_data.get('project_id')
+#         if GOOGLE_CLOUD_PROJECT:
+#             logger.info(f"Extracted project ID: {GOOGLE_CLOUD_PROJECT}")
+#     except Exception as e:
+#         logger.warning(f"Could not extract project_id from credentials: {e}")
+
+GOOGLE_STT_REGION = os.getenv('GOOGLE_STT_REGION', 'us')
+
 STT_PROVIDER = os.getenv('STT_PROVIDER', 'google')  # Default to google (options: sarvam, groq, google)
+
+# Google STT model configuration
+GOOGLE_STT_MODEL = os.getenv('GOOGLE_STT_MODEL', 'chirp_3')  # Options: chirp_3, latest_long
+
+# ASR correction configuration (Phase 4 - disabled by default)
+ENABLE_ASR_CORRECTION = os.getenv('ENABLE_ASR_CORRECTION', 'false').lower() == 'true'
+ASR_CORRECTION_TIMEOUT = float(os.getenv('ASR_CORRECTION_TIMEOUT', '2.0'))
 
 # Initialize Groq client
 try:
@@ -1049,6 +1073,30 @@ def optimize_audio_for_google_cloud(audio_data):
     # Return audio unchanged - silence trimming only works for raw PCM, not compressed formats
     return audio_data
 
+def get_speech_context_phrases(child_name=None):
+    """Build speech context phrases dynamically with child's name for better ASR accuracy"""
+    phrases = [
+        # === Existing Hindi Vocabulary ===
+        "स्कूल", "घर", "माँ", "पापा", "खेल", "किताब", "दोस्त",
+        "खुश", "अच्छा", "बुरा", "मोर", "ऊँट", "बाघ",
+        "मौसी", "मौसा", "बुआ", "फूफा",  "मिठाई",
+        "मगरमच्छ", "जामुन", "कुआँ", "परछाई", "सबीर", "मई",
+
+        # === English words children use ===
+        "book", "school", "homework", "cartoon", "TV", "video", "game",
+
+        # === Popular cartoon names ===
+        "Teen Titans", "Peppa Pig", "Paw Patrol",
+
+    ]
+
+    # Add child's name for better recognition
+    if child_name:
+        phrases.append(child_name)
+
+    return phrases
+
+
 # Initialize Google Cloud Speech client with connection pooling
 google_speech_client = None
 if GOOGLE_CLOUD_API_KEY:
@@ -1060,10 +1108,88 @@ if GOOGLE_CLOUD_API_KEY:
         logger.warning(f"Google Cloud Speech client initialization failed: {e}")
         logger.info("Will fallback to REST API with API key")
 
-def speech_to_text_hindi_google(audio_data):
-    """Convert Hindi speech to text using Google Cloud Speech-to-Text with optimizations"""
+# Initialize V2 client for Chirp 3
+google_speech_client_v2 = None
+if GOOGLE_CLOUD_PROJECT:
+    try:
+        google_speech_client_v2 = SpeechClientV2(
+            client_options=ClientOptions(
+                api_endpoint=f"{GOOGLE_STT_REGION}-speech.googleapis.com"
+            )
+        )
+        logger.info(f"Google Cloud Speech V2 client initialized (region: {GOOGLE_STT_REGION})")
+    except Exception as e:
+        logger.warning(f"V2 client initialization failed, will use V1: {e}")
+else:
+    logger.warning("GOOGLE_CLOUD_PROJECT not available, Chirp 3 disabled")
+
+
+def speech_to_text_hindi_chirp3(audio_data, child_name=None):
+    """Transcribe using Chirp 3 model (V2 API) with auto language detection"""
     stt_start_time = time.time()
-    logger.info("🎙️ GOOGLE CLOUD STT: Starting transcription...")
+    logger.info(f"🎙️ CHIRP 3 STT: Starting transcription...")
+
+    try:
+        # Build adaptation phrases for better accuracy
+        phrases = get_speech_context_phrases(child_name)
+        phrase_objects = [cloud_speech_v2.PhraseSet.Phrase(value=p) for p in phrases[:500]]  # V2 limit
+
+        # V2 config - auto_decoding_config handles WebM/Opus automatically
+        config = cloud_speech_v2.RecognitionConfig(
+            auto_decoding_config=cloud_speech_v2.AutoDetectDecodingConfig(),
+            language_codes=["hi-IN", "en-IN"],  # Multi-language for code-switching
+            model="chirp_3",
+            features=cloud_speech_v2.RecognitionFeatures(
+                enable_automatic_punctuation=True,
+            ),
+        )
+
+        # Add adaptation if we have phrases
+        if phrase_objects:
+            config.adaptation = cloud_speech_v2.SpeechAdaptation(
+                phrase_sets=[
+                    cloud_speech_v2.SpeechAdaptation.AdaptationPhraseSet(
+                        inline_phrase_set=cloud_speech_v2.PhraseSet(
+                            phrases=phrase_objects
+                        )
+                    )
+                ]
+            )
+
+        request = cloud_speech_v2.RecognizeRequest(
+            recognizer=f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_STT_REGION}/recognizers/_",
+            config=config,
+            content=audio_data,
+        )
+
+        response = google_speech_client_v2.recognize(request=request)
+
+        # Extract transcription
+        transcriptions = []
+        for result in response.results:
+            if result.alternatives:
+                transcriptions.append(result.alternatives[0].transcript)
+
+        transcription = " ".join(transcriptions) if transcriptions else None
+
+        total_time = (time.time() - stt_start_time) * 1000
+        if transcription:
+            logger.info(f"✅ CHIRP 3 STT: Success in {total_time:.1f}ms")
+        else:
+            logger.warning(f"❌ CHIRP 3 STT: No transcription in {total_time:.1f}ms")
+
+        return transcription.strip() if transcription else None
+
+    except Exception as e:
+        total_time = (time.time() - stt_start_time) * 1000
+        logger.error(f"❌ CHIRP 3 STT: Failed after {total_time:.1f}ms - {e}")
+        return None
+
+
+def speech_to_text_hindi_google_v1(audio_data, child_name=None):
+    """V1 API implementation - Convert Hindi speech to text using Google Cloud Speech-to-Text"""
+    stt_start_time = time.time()
+    logger.info(f"🎙️ GOOGLE CLOUD STT: Starting transcription with model={GOOGLE_STT_MODEL}...")
 
     try:
         # Validate audio duration (same as other providers)
@@ -1084,47 +1210,26 @@ def speech_to_text_hindi_google(audio_data):
         audio_size_kb = len(optimized_audio) / 1024
         logger.info(f"📁 Optimized audio size: {audio_size_kb:.1f} KB (preprocessing: {preprocessing_time:.1f}ms)")
 
+        # Get dynamic speech context phrases with child's name
+        context_phrases = get_speech_context_phrases(child_name)
+
         # Configure recognition with optimized settings for Hindi child speech
         config = speech.RecognitionConfig(
-            encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            sample_rate_hertz = 48000,  # Google's recommended optimal rate
-            language_code = "hi-IN",    # Hindi (India)
-            # Alternative languages for code-switching
-            # alternative_language_codes=["en-IN", "en-US"],
-            model = "latest_long",      # Latest model for better accuracy
-            use_enhanced = True,        # Enhanced model if available
-            enable_automatic_punctuation = True,
-            audio_channel_count = 1,
+            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+            sample_rate_hertz=48000,  # Google's recommended optimal rate
+            language_code="hi-IN",    # Hindi (India)
+            # Alternative languages for code-switching (helps with Hindi/English mix)
+            alternative_language_codes=["en-IN"],
+            model=GOOGLE_STT_MODEL,   # Chirp 3 for better accuracy with auto language detection
+            useEnhanced=False,
+            enable_automatic_punctuation=True,
+            audio_channel_count=1,
             # This helps with mixed language
             enable_spoken_punctuation=False,
             enable_spoken_emojis=False,
-            # Optimization for child speech
+            # Optimization for child speech with dynamic phrases
             speech_contexts=[
-                speech.SpeechContext(
-                    phrases=["स्कूल", "घर", "माँ", "पापा", "खेल", "किताब", "दोस्त", "खुश", "अच्छा", "बुरा","सबीर", "मोर", "ऊँट", "बाघ", "मई",
-                    
-                    # Family (Module 2) - High priority since these are unique Hindi terms
-                    "मौसी", "मौसा", "बुआ", "फूफा", "भाई", "बहन",
-                    
-                    # Common verbs kids will use
-                    "सुनना", "बोलना",
-                    
-                    # Food (Module 3) - Very common in conversations
-                    "सब्ज़ी", "दूध", "फल", "मिठाई",
-                    
-                    # Festivals (Module 4)
-                    "दिवाली", "होली", "राखी", "दीया", "पटाखे", "गुलाल",
-                    
-                    # Animals (Module 5)
-                    "चिड़िया",
-                    
-                    # Story-specific (Module 6)
-                    "कहानी", "जंगल", "मगरमच्छ", "जामुन", "कुआँ", "परछाई",
-                    
-                    # Places
-                    "पार्क", "मंदिर", "दुकान"
-                ]
-                )
+                speech.SpeechContext(phrases=context_phrases)
             ]
         )
 
@@ -1140,7 +1245,7 @@ def speech_to_text_hindi_google(audio_data):
             error_msg = str(api_error).lower()
             if any(keyword in error_msg for keyword in ["authentication", "credentials", "permission", "forbidden"]):
                 logger.info("🔄 GOOGLE CLOUD STT: SDK authentication failed, trying REST API with API key...")
-                return speech_to_text_hindi_google_rest(optimized_audio, stt_start_time)
+                return speech_to_text_hindi_google_rest(optimized_audio, stt_start_time, child_name)
             else:
                 raise api_error
 
@@ -1177,13 +1282,16 @@ def speech_to_text_hindi_google(audio_data):
         logger.error(f"❌ GOOGLE CLOUD STT: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
-def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
+def speech_to_text_hindi_google_rest(audio_data, stt_start_time, child_name=None):
     """Fallback REST API implementation for Google Cloud Speech-to-Text"""
     try:
-        logger.info("🌐 GOOGLE CLOUD STT: Using REST API with API key...")
+        logger.info(f"🌐 GOOGLE CLOUD STT: Using REST API with API key, model={GOOGLE_STT_MODEL}...")
 
         # Encode audio as base64
         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+
+        # Get dynamic speech context phrases with child's name
+        context_phrases = get_speech_context_phrases(child_name)
 
         # Prepare request payload
         payload = {
@@ -1191,10 +1299,14 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
                 "encoding": "WEBM_OPUS",
                 "sampleRateHertz": 48000,
                 "languageCode": "hi-IN",
-                "model": "latest_long",
-                "useEnhanced": True,
+                "alternativeLanguageCodes": ["en-IN"],  # Enable code-switching
+                "model": GOOGLE_STT_MODEL,  # Use Chirp 3 for better accuracy
+                "useEnhanced": False,
                 "enableAutomaticPunctuation": True,
-                "audioChannelCount": 1
+                "audioChannelCount": 1,
+                "speechContexts": [
+                    {"phrases": context_phrases}
+                ]
             },
             "audio": {
                 "content": audio_base64
@@ -1251,14 +1363,99 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time):
         logger.error(f"❌ GOOGLE CLOUD STT REST: Failed after {total_latency:.1f}ms - {str(e)}")
         return None
 
-def speech_to_text_hindi(audio_data):
+def speech_to_text_hindi_google(audio_data, child_name=None):
+    """Route to appropriate STT implementation based on model config"""
+
+    # Try Chirp 3 (V2) if configured and available
+    if GOOGLE_STT_MODEL == 'chirp_3' and google_speech_client_v2:
+        result = speech_to_text_hindi_chirp3(audio_data, child_name)
+        if result:
+            return result
+        # Fallback to V1 on Chirp 3 failure
+        logger.info("🔄 Chirp 3 failed, falling back to V1 API...")
+
+    # V1 fallback (latest_long model)
+    return speech_to_text_hindi_google_v1(audio_data, child_name)
+
+
+def speech_to_text_hindi(audio_data, child_name=None):
     """Convert Hindi speech to text using the configured STT provider"""
     if STT_PROVIDER.lower() == 'groq':
         return speech_to_text_hindi_groq(audio_data)
     elif STT_PROVIDER.lower() == 'google':
-        return speech_to_text_hindi_google(audio_data)
+        return speech_to_text_hindi_google(audio_data, child_name)
     else:
         return speech_to_text_hindi_sarvam(audio_data)
+
+
+def is_correction_safe(raw, corrected, confidence):
+    """Validate that ASR correction is reasonable and not too aggressive"""
+    # Low confidence corrections are risky
+    if confidence < 0.6:
+        return False
+    # Don't allow corrections that significantly expand the text
+    if len(corrected) > len(raw) * 1.5:
+        return False
+    # Don't allow corrections that significantly shrink the text
+    if len(corrected) < len(raw) * 0.5:
+        return False
+    return True
+
+
+def correct_asr_transcript(raw_transcript, conversation_history, child_name):
+    """Use Gemini to correct obvious ASR errors using conversation context.
+
+    This is Phase 4 of ASR improvement - only enabled when ENABLE_ASR_CORRECTION=true.
+    Uses LLM to fix common ASR mistakes like:
+    - English words transcribed as Hindi (e.g., "book" -> "भूख")
+    - Garbage prefixes from background noise
+    - Wrong name recognition
+    """
+    # Skip very short utterances - not enough context to correct
+    if len(raw_transcript.strip()) < 3:
+        return raw_transcript, False, 1.0
+
+    # Build conversation context from recent history
+    recent_history = conversation_history[-4:] if conversation_history else []
+    context_str = "\n".join([
+        f"{'Child' if m['role']=='user' else 'Tutor'}: {m['content']}"
+        for m in recent_history
+    ])
+
+    prompt = f"""Fix ASR errors in this Hindi child speech transcript.
+
+RAW TRANSCRIPT: "{raw_transcript}"
+CHILD'S NAME: {child_name}
+
+CONTEXT:
+{context_str or "(No prior context)"}
+
+RULES:
+1. ONLY fix obvious ASR errors (wrong words, garbage prefixes)
+2. Do NOT fix grammar or rephrase
+3. Preserve Hindi-English code-switching (e.g., "book पढ़ना है" is correct)
+4. If unsure, return original with low confidence
+
+Return JSON: {{"corrected": "text", "was_corrected": true/false, "confidence": 0.0-1.0}}"""
+
+    try:
+        result = gemini_generate_content(prompt, response_format="json")
+        data = json.loads(result)
+
+        corrected = data.get("corrected", raw_transcript)
+        was_corrected = data.get("was_corrected", False)
+        confidence = data.get("confidence", 0.5)
+
+        # Safety check - don't apply risky corrections
+        if was_corrected and not is_correction_safe(raw_transcript, corrected, confidence):
+            logger.info(f"ASR correction rejected as unsafe: '{raw_transcript}' -> '{corrected}' (conf={confidence})")
+            return raw_transcript, False, 0.0
+
+        return corrected, was_corrected, confidence
+    except Exception as e:
+        logger.error(f"ASR correction failed: {e}")
+        return raw_transcript, False, 0.0
+
 
 @app.route('/')
 def home():
@@ -1478,7 +1675,11 @@ def process_audio():
         session_data['sentences_count'] += 1
         logger.info(f"Updated sentence count: {session_data['sentences_count']}")
         session_store.save_session(session_id, session_data)
-        
+
+        # Extract child info for speech context
+        child_name = session_data.get('child_name', 'दोस्त')
+        conversation_history = session_data.get('conversation_history', [])
+
         # Use tempfile for secure file handling
         # Step 1: Save audio file
         file_start_time = time.time()
@@ -1487,13 +1688,25 @@ def process_audio():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi(f.read())
-        
+                raw_transcript = speech_to_text_hindi(f.read(), child_name=child_name)
+
         file_end_time = time.time()
         logger.info(f"📁 FILE PROCESSING: {(file_end_time - file_start_time) * 1000:.1f}ms")
-        
-        if not transcript:
+
+        if not raw_transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Optional LLM post-processing for ASR correction (Phase 4)
+        if ENABLE_ASR_CORRECTION:
+            transcript, was_corrected, conf = correct_asr_transcript(
+                raw_transcript, conversation_history, child_name
+            )
+            logger.info(f"ASR_RAW: '{raw_transcript}'")
+            if was_corrected:
+                logger.info(f"ASR_CORRECTED: '{transcript}' (conf={conf})")
+        else:
+            transcript = raw_transcript
+            logger.info(f"ASR: '{transcript}'")
 
         # Step 2: LLM Processing
         llm_start_time = time.time()
@@ -1617,15 +1830,34 @@ def process_audio_stream():
         current_count = session_data['sentences_count']
         session_store.save_session(session_id, session_data)
 
+        # Get conversation context (extract early for STT)
+        conversation_type = session_data.get('conversation_type', 'everyday')
+        conversation_history = session_data.get('conversation_history', [])
+        child_name = session_data.get('child_name', 'दोस्त')
+        child_age = session_data.get('child_age', 6)
+        child_gender = session_data.get('child_gender', 'neutral')
+
         # Process audio file
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
             audio_file = request.files['audio']
             audio_file.save(temp_file.name)
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi(f.read())
+                raw_transcript = speech_to_text_hindi(f.read(), child_name=child_name)
 
-        if not transcript:
+        if not raw_transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Optional LLM post-processing for ASR correction (Phase 4)
+        if ENABLE_ASR_CORRECTION:
+            transcript, was_corrected, conf = correct_asr_transcript(
+                raw_transcript, conversation_history, child_name
+            )
+            logger.info(f"ASR_RAW: '{raw_transcript}'")
+            if was_corrected:
+                logger.info(f"ASR_CORRECTED: '{transcript}' (conf={conf})")
+        else:
+            transcript = raw_transcript
+            logger.info(f"ASR: '{transcript}'")
 
         # Check for farewell (early termination)
         is_farewell = detect_farewell(transcript)
@@ -1633,13 +1865,6 @@ def process_audio_stream():
         # Determine should_end based on count OR farewell
         should_end = (current_count >= 11) or is_farewell
         logger.info(f"🔚 Should End Decision: current_count={current_count}, is_farewell={is_farewell}, should_end={should_end}")
-
-        # Get conversation context
-        conversation_type = session_data.get('conversation_type', 'everyday')
-        conversation_history = session_data.get('conversation_history', [])
-        child_name = session_data.get('child_name', 'दोस्त')
-        child_age = session_data.get('child_age', 6)
-        child_gender = session_data.get('child_gender', 'neutral')
 
         # Extract last talker response for evaluation
         last_talker_response = None
@@ -1894,26 +2119,35 @@ def correction_speech_to_text():
     """STT-only endpoint for correction attempts (doesn't affect conversation)"""
     correction_start_time = time.time()
     logger.info("🔄 CORRECTION STT: Request started")
-    
+
     temp_file = None
     try:
         if 'audio' not in request.files:
             return jsonify({'error': 'No audio file'}), 400
-        
+
+        # Get optional session_id for child_name context
+        session_id = request.form.get('session_id')
+        child_name = None
+        if session_id:
+            session_data = session_store.load_session(session_id)
+            if session_data:
+                child_name = session_data.get('child_name')
+
         # Use tempfile for secure file handling
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
             audio_file = request.files['audio']
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                transcript = speech_to_text_hindi(f.read())
-        
+                transcript = speech_to_text_hindi(f.read(), child_name=child_name)
+
         if not transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
 
         correction_end_time = time.time()
         total_time = (correction_end_time - correction_start_time) * 1000
         logger.info(f"✅ CORRECTION STT: Complete in {total_time:.1f}ms")
+        logger.info(f"ASR: '{transcript}'")
 
         return jsonify({
             'transcript': transcript
