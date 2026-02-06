@@ -192,6 +192,13 @@ try:
         safety_settings=safety_settings
     )
     logger.info("Gemini client initialized successfully with model: gemini-2.0-flash-lite")
+
+    # Create separate model for evaluation (more accurate for grammar detection)
+    gemini_eval_model = genai.GenerativeModel(
+        model_name='gemini-2.0-flash',
+        safety_settings=safety_settings
+    )
+    logger.info("Gemini evaluation model initialized: gemini-2.0-flash")
 except Exception as e:
     logger.error(f"Failed to initialize Gemini client: {e}")
     raise
@@ -305,7 +312,7 @@ You are nearing the end of this conversation.
     # Early/mid conversation - no special instruction needed
     return ""
 
-def gemini_generate_content(system_prompt, conversation_history=None, response_format="json"):
+def gemini_generate_content(system_prompt, conversation_history=None, response_format="json", use_eval_model=False):
     """
     Generate content using Gemini with optional JSON formatting
 
@@ -313,6 +320,7 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
         system_prompt: The system prompt
         conversation_history: Optional list of previous messages
         response_format: "json" or "text"
+        use_eval_model: Use the more accurate evaluation model (gemini-2.0-flash)
     """
     try:
         # Build the prompt with conversation history
@@ -338,8 +346,11 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
             # Only use stop_sequences for non-JSON responses
             generation_config["stop_sequences"] = ["Child:", "User:", "Tutor:", "Assistant:"]
 
+        # Select appropriate model
+        model = gemini_eval_model if use_eval_model else gemini_model
+
         # Generate content
-        response = gemini_model.generate_content(
+        response = model.generate_content(
             full_prompt,
             generation_config=generation_config
         )
@@ -403,7 +414,7 @@ def gemini_stream_content(system_prompt, conversation_history=None):
         logger.error(f"Gemini streaming error: {e}")
         raise
 
-def get_streaming_system_prompt(base_prompt, sentences_count, child_name, child_age, child_gender, is_farewell=False):
+def get_streaming_system_prompt(base_prompt, sentences_count, child_name, child_age, child_gender, is_farewell=False, recast_context=None):
     """
     Transform the base conversation prompt for streaming:
     1. Remove JSON format requirement
@@ -451,10 +462,39 @@ Just write the Hindi text directly - nothing else."""
     # Get phase-specific instruction
     phase_instruction = get_phase_instruction(sentences_count, is_farewell)
 
-    # Add phase instruction if we have one
+    # Build recast instruction if grammar error detected (amber feedback)
+    recast_instruction = ""
+    if recast_context and recast_context.get('feedback_type') == 'amber':
+        corrected = recast_context.get('corrected_response', '')
+        original = recast_context.get('original_text', '')
+        if corrected and corrected.strip() and original:
+            recast_instruction = f"""CRITICAL - NATURAL GRAMMAR RECAST:
+The child just said: "{original}"
+The grammatically correct form is: "{corrected}"
+
+You MUST naturally echo the corrected grammar as a confirmation/follow-up, BUT shift pronouns to YOUR perspective:
+- "मैं" (I) → "तुम" (you)
+- "मेरा/मेरी/मेरे" (my) → "तुम्हारा/तुम्हारी/तुम्हारे" (your)
+- "मुझे" (to me) → "तुम्हें" (to you)
+
+Do NOT explicitly correct them. Do NOT say "the correct way is..." or "you should say..."
+Just echo the corrected form naturally with shifted pronouns, then continue the conversation.
+
+Examples:
+Child: "मेरे पापा कल पार्क में गई थी" → You: "अच्छा, तुम्हारे पापा कल पार्क गए थे? वहाँ क्या किया?"
+Child: "Main kal park gaya tha" (girl) → You: "Achha, tum kal park gayi thin? Wahan kya khela?"
+"""
+            logger.info(f"🔄 Recast: '{original}' → '{corrected}'")
+
+    # Add phase instruction and recast instruction if we have them
+    prefix = ""
     if phase_instruction:
-        modified_prompt = phase_instruction + "\n\n" + modified_prompt
-    
+        prefix += phase_instruction + "\n\n"
+    if recast_instruction:
+        prefix += recast_instruction + "\n\n"
+    if prefix:
+        modified_prompt = prefix + modified_prompt
+
     return modified_prompt
 
 def generate_hints(conversation_history, conversation_type, child_name, child_age):
@@ -600,11 +640,24 @@ class ResponseEvaluator:
                 """
 
             system_prompt = f"""
-            You are a Hindi tutor evaluating this Hindi response from a 6-year-old child ONLY for:
-            1. Completeness (is it a sentence or just 1 word?) and grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
-            2. Don't evaluate from an answer correctness point of view. If the kid says he doesn't know or gives the wrong answer to the question, but the sentece is conversationally correct, then feedback_type should be green.
-            3. EXAMPLES:
-            हमने दिया जलाना अच्छा लगता है। -> This sentence should be given a low score since the correct form is हमें दीये जलाना अच्छा लगता है।
+            You are a Hindi tutor evaluating this Hindi response from a 6-year-old child for:
+            1. Completeness (is it a sentence or just 1 word?)
+            2. Grammar correctness - ESPECIALLY gender agreement errors
+            3. Grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
+
+            CRITICAL - GENDER AGREEMENT ERRORS (these are ALWAYS amber):
+            - Verb must match the gender of the subject noun
+            - "पापा" (dad) is MASCULINE → use "गए थे", "आए थे", NOT "गई थी", "आई थी"
+            - "मम्मी" (mom) is FEMININE → use "गई थी", "आई थी", NOT "गया था", "आया था"
+            - "मैं" must match the speaker's gender in past tense verbs
+            - Possessives must match: "मेरी मम्मी" (not "मेरा मम्मी"), "मेरे पापा" (not "मेरी पापा")
+
+            EXAMPLES OF ERRORS (all should be amber):
+            ❌ "मेरे पापा कल पार्क में गई थी" → ✅ "मेरे पापा कल पार्क गए थे" (पापा is masculine)
+            ❌ "मेरा मम्मी भी उधर गया था" → ✅ "मेरी मम्मी भी वहाँ गई थी" (मम्मी is feminine)
+            ❌ "हमने दिया जलाना अच्छा लगता है" → ✅ "हमें दीये जलाना अच्छा लगता है"
+
+            NOTE: Don't evaluate answer correctness. If the kid says "I don't know" or gives a wrong answer but the sentence structure is correct, that's green.
 
             {context_section}
 
@@ -613,23 +666,24 @@ class ResponseEvaluator:
                 "score": 1-10,
                 "is_complete": true/false,
                 "is_grammatically_correct": true/false,
-                "issues": ["incomplete", "grammar_error"],
-                "corrected_response": "grammatically correct answer - keep this short and crisp",
+                "issues": ["incomplete", "grammar_error", "gender_agreement"],
+                "corrected_response": "grammatically correct version in Hindi",
                 "feedback_type": "green/amber"
             }}}}
 
             Score guide:
             - 7-10: Complete, grammatically correct = green
-            - 1-6: Incomplete, grammar issues = amber
+            - 1-6: Incomplete OR any grammar/gender errors = amber
 
-            For the corrected_response, provide a short, crisp sentence in Hindi that is appropriate for a 6-8 year-old's vocabulary
+            For corrected_response, provide the corrected Hindi sentence (keep it short, age-appropriate).
             """
 
-            # Use Gemini for evaluation
+            # Use Gemini for evaluation (use more accurate model for grammar detection)
             result = gemini_generate_content(
                 system_prompt=system_prompt,
                 conversation_history=None,
-                response_format="json"
+                response_format="json",
+                use_eval_model=True
             )
 
             evaluation_data = json.loads(result)
@@ -914,7 +968,8 @@ def start_conversation():
             'conversation_history': [],
             'sentences_count': 0,
             'good_response_count': 0,
-            'reward_points': 0,
+            'reward_points': current_user.reward_points,
+            'base_reward_points': current_user.reward_points,
             'conversation_type': conversation_type,
             'child_name': child_name,
             'child_age': child_age,
@@ -964,10 +1019,10 @@ def text_to_speech_hindi(text, output_filename="response.wav"):
                     optimize_streaming_latency="4",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
-                        stability=0.8,
-                        similarity_boost=0.7,
+                        stability=0.85,
+                        similarity_boost=0.6,
                         style=0.0,
-                        use_speaker_boost=True,
+                        use_speaker_boost=False,
                         speed=0.8
                     )
                 )
@@ -1755,7 +1810,7 @@ def process_audio():
                 if conversation:
                     conversation.sentences_count = session_data['sentences_count']
                     conversation.good_response_count = controller_result['good_response_count']
-                    conversation.reward_points = session_data['reward_points']
+                    conversation.reward_points = session_data['reward_points'] - session_data.get('base_reward_points', 0)
                     conversation.conversation_data = session_data['conversation_history']
                     conversation.amber_data = session_data.get('amber_responses', [])
                     conversation.updated_at = datetime.utcnow()
@@ -1892,6 +1947,13 @@ def process_audio_stream():
                 else:
                     system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
 
+                # Prepare recast context from evaluation (only recast for amber feedback)
+                recast_context = {
+                    'feedback_type': evaluation.get('feedback_type', 'green'),
+                    'corrected_response': evaluation.get('corrected_response', ''),
+                    'original_text': transcript
+                }
+
                 # Transform prompt for streaming with phase instructions
                 system_prompt = get_streaming_system_prompt(
                     system_prompt_base,
@@ -1899,7 +1961,8 @@ def process_audio_stream():
                     child_name,
                     child_age,
                     child_gender,
-                    is_farewell
+                    is_farewell,
+                    recast_context
                 )
 
                 # Prepare conversation history for Gemini
@@ -2022,7 +2085,7 @@ def process_audio_stream():
                             if conversation:
                                 conversation.sentences_count = current_count
                                 conversation.good_response_count = session_data.get('good_response_count', 0)
-                                conversation.reward_points = session_data.get('reward_points', 0)
+                                conversation.reward_points = session_data.get('reward_points', 0) - session_data.get('base_reward_points', 0)
                                 conversation.conversation_data = session_data['conversation_history']
                                 conversation.amber_data = session_data.get('amber_responses', [])
                                 conversation.updated_at = datetime.utcnow()
@@ -2313,7 +2376,8 @@ def resume_conversation():
             'conversation_history': conversation_history,
             'sentences_count': conversation.sentences_count or 0,
             'good_response_count': conversation.good_response_count or 0,
-            'reward_points': conversation.reward_points or 0,
+            'reward_points': current_user.reward_points,
+            'base_reward_points': current_user.reward_points - (conversation.reward_points or 0),
             'amber_responses': json.loads(conversation.amber_responses) if conversation.amber_responses else [],
             'created_at': datetime.now().isoformat()  # Add required created_at field
         }
