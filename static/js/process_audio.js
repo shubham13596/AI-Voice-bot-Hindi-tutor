@@ -595,21 +595,8 @@ subtleRewardStyles.textContent = `
 
     .thinking-emoji {
         font-size: 24px;
-        opacity: 0;
-        transform: scale(0);
-        animation: emojiPopIn 0.3s ease-out forwards;
-    }
-
-    .thinking-emoji:nth-child(1) {
-        animation-delay: 0s;
-    }
-
-    .thinking-emoji:nth-child(2) {
-        animation-delay: 1s;
-    }
-
-    .thinking-emoji:nth-child(3) {
-        animation-delay: 2s;
+        display: inline-block;
+        animation: emojiCyclePop 0.3s ease-out forwards;
     }
 
     .thinking-text {
@@ -618,7 +605,7 @@ subtleRewardStyles.textContent = `
         font-weight: 400;
     }
 
-    @keyframes emojiPopIn {
+    @keyframes emojiCyclePop {
         0% {
             opacity: 0;
             transform: scale(0);
@@ -678,12 +665,24 @@ function showThinkingLoader() {
     loaderDiv.id = 'thinkingLoader';
     loaderDiv.className = 'thinking-loader';
 
+    const emojis = ['🤔', '💡', '✨', '🧐', '💭', '🌟', '🤓', '🎯', '⭐'];
+    let emojiIndex = 0;
+
     loaderDiv.innerHTML = `
-        <span class="thinking-emoji">🤔</span>
-        <span class="thinking-emoji">💡</span>
-        <span class="thinking-emoji">✨</span>
+        <span class="thinking-emoji">${emojis[0]}</span>
         <div class="thinking-text">Thinking..</div>
     `;
+
+    const emojiSpan = loaderDiv.querySelector('.thinking-emoji');
+
+    loaderDiv._emojiInterval = setInterval(() => {
+        emojiIndex = (emojiIndex + 1) % emojis.length;
+        emojiSpan.textContent = emojis[emojiIndex];
+        // Re-trigger pop animation
+        emojiSpan.style.animation = 'none';
+        emojiSpan.offsetHeight; // force reflow
+        emojiSpan.style.animation = '';
+    }, 800);
 
     conversation.appendChild(loaderDiv);
     conversation.scrollTop = conversation.scrollHeight;
@@ -696,6 +695,9 @@ function hideThinkingLoader() {
     const loader = document.getElementById('thinkingLoader');
     if (loader) {
         console.log('🗑️ Hiding thinking loader');
+        if (loader._emojiInterval) {
+            clearInterval(loader._emojiInterval);
+        }
         loader.remove();
     }
 
