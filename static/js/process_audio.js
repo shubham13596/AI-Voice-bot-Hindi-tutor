@@ -1289,6 +1289,14 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     buttonsDiv.appendChild(translateButton);
     messageDiv.appendChild(buttonsDiv);
 
+    // Add amber micro-copy indicator for grammar corrections
+    if (role === 'user' && feedbackType === 'amber') {
+        const amberIndicator = document.createElement('div');
+        amberIndicator.className = 'text-xs text-gray-400 text-left mt-1 italic';
+        amberIndicator.textContent = '📝 Note saved for review';
+        messageDiv.appendChild(amberIndicator);
+    }
+
     // Initialize message for sliding animation
     initializeMessageForSliding(messageDiv);
 
