@@ -149,6 +149,101 @@ let conversationPairs = []; // Track conversation pairs (keeping for potential f
 let mediaStream = null; // Track media stream for iOS cleanup
 
 // ============================================
+// AUTO-START / MANUAL-SEND STATE MACHINE
+// ============================================
+// States: IDLE | KIKI_SPEAKING | LISTENING | PROCESSING
+let appState = 'IDLE';
+
+// Web Audio API nodes for waveform visualization
+let analyserNode = null;
+let micSourceNode = null;
+
+// Waveform canvas rendering
+let waveformCanvas = null;
+let waveformCtx = null;
+let waveformRAF = null;
+
+// Timers
+let safetyTimeoutId = null;
+let autoStartDelayId = null;
+
+// Constants
+const NOISE_FLOOR = 15;          // visual threshold (0-255) for ignoring background noise
+const SAFETY_TIMEOUT_MS = 60000; // 60s auto-stop timer
+const AUTO_START_DELAY_MS = 500; // delay after audio ends before mic opens
+
+/**
+ * transitionTo(newState) — single source of truth for all UI state
+ */
+function transitionTo(newState) {
+    const oldState = appState;
+    appState = newState;
+    console.log(`🔄 State: ${oldState} → ${newState}`);
+
+    const recordButton = document.getElementById('recordButton');
+    const recordText = document.getElementById('recordText');
+    const recordIcon = document.getElementById('recordIcon');
+    const status = document.getElementById('status');
+    const waveformContainer = document.getElementById('waveformContainer');
+
+    switch (newState) {
+        case 'KIKI_SPEAKING':
+            if (recordButton) recordButton.style.display = 'none';
+            if (waveformContainer) waveformContainer.style.display = 'none';
+            if (status) status.textContent = 'Kiki is speaking...';
+            stopWaveform();
+            clearTimeout(safetyTimeoutId);
+            break;
+
+        case 'LISTENING':
+            if (recordButton) {
+                recordButton.style.display = 'flex';
+                recordButton.disabled = false;
+                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
+                recordButton.classList.add('im-done-btn');
+            }
+            if (recordIcon) recordIcon.textContent = '✅';
+            if (recordText) recordText.textContent = "I'm Done";
+            if (waveformContainer) waveformContainer.style.display = 'flex';
+            if (status) status.textContent = 'Listening... tap "I\'m Done" when finished';
+            startWaveform();
+            // Safety timeout: auto-stop after 60s
+            clearTimeout(safetyTimeoutId);
+            safetyTimeoutId = setTimeout(() => {
+                if (appState === 'LISTENING') {
+                    console.log('⏰ Safety timeout: auto-stopping recording');
+                    stopRecordingAndSend();
+                }
+            }, SAFETY_TIMEOUT_MS);
+            break;
+
+        case 'PROCESSING':
+            if (recordButton) recordButton.style.display = 'none';
+            if (waveformContainer) waveformContainer.style.display = 'none';
+            stopWaveform();
+            clearTimeout(safetyTimeoutId);
+            showThinkingLoader();
+            break;
+
+        case 'IDLE':
+            // Fallback manual state
+            if (recordButton) {
+                recordButton.style.display = 'flex';
+                recordButton.disabled = false;
+                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse', 'im-done-btn');
+                recordButton.classList.add('bg-green-500');
+            }
+            if (recordIcon) recordIcon.textContent = '🎤';
+            if (recordText) recordText.textContent = 'Start Speaking';
+            if (waveformContainer) waveformContainer.style.display = 'none';
+            if (status) status.textContent = 'Tap to start speaking';
+            stopWaveform();
+            clearTimeout(safetyTimeoutId);
+            break;
+    }
+}
+
+// ============================================
 // iOS/iPadOS AUDIO COMPATIBILITY FIXES
 // ============================================
 
@@ -655,6 +750,12 @@ function showThinkingLoader() {
         recordButton.style.display = 'none';
     }
 
+    // Also hide waveform container
+    const waveformContainer = document.getElementById('waveformContainer');
+    if (waveformContainer) {
+        waveformContainer.style.display = 'none';
+    }
+
     const conversation = document.getElementById('conversation');
     if (!conversation) {
         console.error('❌ Conversation element not found');
@@ -700,12 +801,7 @@ function hideThinkingLoader() {
         }
         loader.remove();
     }
-
-    // Show the record button again when thinking is done
-    const recordButton = document.getElementById('recordButton');
-    if (recordButton) {
-        recordButton.style.display = 'flex';
-    }
+    // Note: record button visibility is managed by the state machine (transitionTo)
 }
 
 // Smart conversation scrolling functionality
@@ -849,8 +945,7 @@ async function toggleRecording() {
                         console.log('Streaming failed, using fallback:', error);
                         await sendAudioToServer(audioBlob);
                     }
-
-                    audioChunks = [];
+                    // Note: audioChunks is reset in startRecordingAuto() before each new recording
                 };
 
                 mediaRecorder.onerror = (event) => {
@@ -980,12 +1075,12 @@ async function initializeRecording() {
             // ★ iOS FIX: Check for empty recording
             if (audioBlob.size < 1000) {
                 console.warn('⚠️ Audio blob too small, likely empty recording');
-                resetRecordingInterface();
-                const status = document.getElementById('status');
-                if (status) status.textContent = 'Recording was empty. Please try again.';
+                transitionTo('IDLE');
                 audioChunks = [];
                 return;
             }
+
+            transitionTo('PROCESSING');
 
             // Try streaming version first, fallback to original if needed
             try {
@@ -994,13 +1089,11 @@ async function initializeRecording() {
                 console.log('Streaming failed, using fallback:', error);
                 await sendAudioToServer(audioBlob);
             }
-
-            audioChunks = [];
+            // Note: audioChunks is reset in startRecordingAuto() before each new recording
         };
 
-        // Make sure button starts disabled
-        elements.recordButton.disabled = true;
-        elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
+        // Hide button initially — state machine will show it when appropriate
+        elements.recordButton.style.display = 'none';
 
         // ★ Show overlay to get user gesture before starting conversation (iOS/Safari/Android)
         if (isIOS || isSafari || isAndroid) {
@@ -1039,10 +1132,9 @@ async function startConversation() {
     try {
         const status = document.getElementById('status');
         const recordButton = document.getElementById('recordButton');
-        
-        // Disable button at the start
-        recordButton.disabled = true;
-        recordButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+        // Hide button at the start — state machine will manage visibility
+        recordButton.style.display = 'none';
         
         // Check if we're resuming a conversation
         const isResuming = window.isResumingConversation;
@@ -1141,15 +1233,14 @@ async function startConversation() {
             }
         }
         
-        // Play initial audio if available
+        // Play initial audio if available, then auto-start recording
         if (data.audio) {
-            playAudioResponse(data.audio);
+            await playAudioResponse(data.audio);
+            scheduleAutoStartRecording();
+        } else {
+            // No audio to play, go to IDLE for manual start
+            transitionTo('IDLE');
         }
-        
-        // Enable the button and update status
-        recordButton.disabled = false;
-        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        status.textContent = isResuming ? 'Conversation resumed! Click to continue talking.' : 'Click the button to start talking!';
         
     } catch (error) {
         console.error('Error starting conversation:', error);
@@ -1163,8 +1254,18 @@ async function startConversation() {
 function displayMessage(role, text, corrections = null, feedbackType = 'green') {
     // Determine border color based on feedback type for user messages
     let borderClass = '';
+    let bgClass = 'bg-green-100';
     if (role === 'user') {
-        borderClass = feedbackType === 'amber' ? 'border-l-4 border-amber-500' : 'border-l-4 border-green-500';
+        if (feedbackType === 'pending') {
+            borderClass = 'border-l-4 border-gray-200';
+            bgClass = 'bg-white';
+        } else if (feedbackType === 'amber') {
+            borderClass = 'border-l-4 border-amber-500';
+            bgClass = 'bg-green-100';
+        } else {
+            borderClass = 'border-l-4 border-green-500';
+            bgClass = 'bg-green-100';
+        }
     }
 
     // Calculate dynamic width for user messages based on text length
@@ -1184,7 +1285,7 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     const messageDiv = document.createElement('div');
     messageDiv.className = `p-4 rounded-lg my-2 flex flex-col ${borderClass} ${
         role === 'user'
-            ? `bg-green-100 ml-auto ${widthClass}` // Right-aligned for user messages with dynamic width
+            ? `${bgClass} ml-auto ${widthClass}` // Right-aligned for user messages with dynamic width
             : 'bg-gray-100 mr-auto max-w-[80%]'     // Left-aligned for assistant messages
     }`;
 
@@ -1471,9 +1572,11 @@ function showIOSStartOverlay(onStart) {
     debugLog('📱 iOS overlay shown - waiting for user tap');
 }
 
-// Play audio response
+// Play audio response (awaitable — resolves when audio finishes)
 async function playAudioResponse(base64Audio) {
     debugLog(`playAudioResponse called, data length: ${base64Audio ? base64Audio.length : 'NULL'}`);
+
+    transitionTo('KIKI_SPEAKING');
 
     try {
         if (!base64Audio || base64Audio.length < 100) {
@@ -1488,25 +1591,33 @@ async function playAudioResponse(base64Audio) {
             return;
         }
 
-        // Non-iOS: Use standard audio element
+        // Non-iOS: Use standard audio element, wrapped in Promise
         const audio = getSharedAudioElement();
         audio.src = `data:audio/wav;base64,${base64Audio}`;
 
         debugLog(`Audio src set, attempting play...`);
 
-        audio.onplay = () => debugLog('✅ Audio started playing!');
-        audio.onerror = (e) => debugLog(`❌ Audio error: ${e.type}`, true);
-        audio.onended = () => debugLog('Audio finished playing');
+        await new Promise((resolve, reject) => {
+            audio.onplay = () => debugLog('✅ Audio started playing!');
+            audio.onerror = (e) => {
+                debugLog(`❌ Audio error: ${e.type}`, true);
+                reject(new Error(`Audio error: ${e.type}`));
+            };
+            audio.onended = () => {
+                debugLog('Audio finished playing');
+                resolve();
+            };
 
-        const playPromise = audio.play();
-
-        if (playPromise !== undefined) {
-            playPromise
-                .then(() => debugLog('✅ Play promise resolved'))
-                .catch(error => {
-                    debugLog(`❌ Play promise rejected: ${error.name} - ${error.message}`, true);
-                });
-        }
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => debugLog('✅ Play promise resolved'))
+                    .catch(error => {
+                        debugLog(`❌ Play promise rejected: ${error.name} - ${error.message}`, true);
+                        reject(error);
+                    });
+            }
+        });
     } catch (error) {
         debugLog(`❌ Exception in playAudioResponse: ${error.message}`, true);
     }
@@ -1550,6 +1661,270 @@ async function playWithAudioContext(base64Audio) {
     });
 }
 
+
+// ============================================
+// AUTO-START / MANUAL-SEND FUNCTIONS
+// ============================================
+
+/**
+ * Schedule mic auto-start after a short delay
+ */
+function scheduleAutoStartRecording() {
+    clearTimeout(autoStartDelayId);
+    autoStartDelayId = setTimeout(() => {
+        startRecordingAuto();
+    }, AUTO_START_DELAY_MS);
+}
+
+/**
+ * Auto-start recording (called after Kiki finishes speaking)
+ */
+async function startRecordingAuto() {
+    // Guards
+    if (appState === 'LISTENING' || isRecording) {
+        console.log('⚠️ Already listening or recording, skipping auto-start');
+        return;
+    }
+
+    try {
+        if (isIOS) {
+            console.log('📱 iOS auto-start: Preparing MediaRecorder');
+
+            // Check if we need a new stream
+            const needNewStream = !mediaStream ||
+                mediaStream.getTracks().some(track => track.readyState === 'ended');
+
+            if (needNewStream) {
+                console.log('📱 Getting new audio stream...');
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (micError) {
+                    console.warn('📱 Mic access failed (no gesture?), falling back to IDLE');
+                    transitionTo('IDLE');
+                    return;
+                }
+            } else {
+                console.log('📱 Reusing existing audio stream');
+            }
+
+            // Get supported MIME type
+            const mimeType = getSupportedMimeType();
+            const options = mimeType ? { mimeType } : {};
+
+            // Create new MediaRecorder
+            mediaRecorder = new MediaRecorder(mediaStream, options);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                console.log('🛑 iOS auto MediaRecorder stopped');
+                const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunks, { type: actualMimeType });
+
+                if (audioBlob.size < 1000) {
+                    console.warn('⚠️ Audio blob too small, likely empty recording');
+                    transitionTo('IDLE');
+                    audioChunks = [];
+                    return;
+                }
+
+                transitionTo('PROCESSING');
+
+                try {
+                    await sendAudioToServerStream(audioBlob);
+                } catch (error) {
+                    console.log('Streaming failed, using fallback:', error);
+                    await sendAudioToServer(audioBlob);
+                }
+                // Note: audioChunks is reset in startRecordingAuto() before each new recording
+            };
+
+            mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event.error);
+                transitionTo('IDLE');
+            };
+        }
+        // Non-iOS: reuse existing mediaRecorder from initializeRecording()
+        // Just reset audioChunks
+        audioChunks = [];
+
+        // Connect analyser for waveform
+        connectAnalyser();
+
+        // Start recording
+        mediaRecorder.start(100);
+        isRecording = true;
+        transitionTo('LISTENING');
+
+        // Auto-collapse hints
+        const hintsContent = document.getElementById('hintsContent');
+        if (hintsContent && hintsContent.classList.contains('expanded')) {
+            hintsContent.classList.remove('expanded');
+            hintsContent.classList.add('collapsed');
+        }
+
+        console.log('🎙️ Auto-recording started');
+
+    } catch (error) {
+        console.error('Error in auto-start recording:', error);
+        transitionTo('IDLE');
+    }
+}
+
+/**
+ * Stop recording and send audio (called by "I'm Done" or safety timeout)
+ */
+function stopRecordingAndSend() {
+    if (!isRecording) {
+        console.log('⚠️ Not recording, ignoring stop');
+        return;
+    }
+
+    // iOS: warm up audio element for next playback
+    warmUpAudioElement();
+
+    // Disconnect analyser
+    disconnectAnalyser();
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+
+    isRecording = false;
+    clearTimeout(safetyTimeoutId);
+
+    // Note: transitionTo('PROCESSING') happens inside onstop handler after blob validation
+    console.log('🛑 Recording stopped via stopRecordingAndSend');
+}
+
+// ============================================
+// WAVEFORM VISUALIZATION (Web Audio API)
+// ============================================
+
+/**
+ * Connect AnalyserNode to mic stream for waveform data
+ */
+function connectAnalyser() {
+    try {
+        if (!audioContext) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+                audioContext = new AudioContextClass();
+            }
+        }
+        if (!audioContext || !mediaStream) return;
+
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 256;
+        analyserNode.smoothingTimeConstant = 0.8;
+
+        micSourceNode = audioContext.createMediaStreamSource(mediaStream);
+        micSourceNode.connect(analyserNode);
+        // NOT connected to destination — no speaker feedback
+    } catch (error) {
+        console.warn('Could not connect analyser:', error);
+    }
+}
+
+/**
+ * Disconnect analyser from mic stream
+ */
+function disconnectAnalyser() {
+    try {
+        if (micSourceNode) {
+            micSourceNode.disconnect();
+            micSourceNode = null;
+        }
+    } catch (e) {
+        console.warn('Error disconnecting analyser:', e);
+    }
+}
+
+/**
+ * Start waveform rendering on canvas
+ */
+function startWaveform() {
+    if (!waveformCanvas) {
+        waveformCanvas = document.getElementById('waveformCanvas');
+    }
+    if (!waveformCanvas) return;
+    waveformCtx = waveformCanvas.getContext('2d');
+
+    function draw() {
+        waveformRAF = requestAnimationFrame(draw);
+
+        const width = waveformCanvas.width;
+        const height = waveformCanvas.height;
+        waveformCtx.clearRect(0, 0, width, height);
+
+        if (!analyserNode) return;
+
+        const bufferLength = analyserNode.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserNode.getByteFrequencyData(dataArray);
+
+        const barCount = 32;
+        const barWidth = (width / barCount) - 2;
+        const step = Math.floor(bufferLength / barCount);
+
+        for (let i = 0; i < barCount; i++) {
+            let value = dataArray[i * step];
+
+            // Apply noise floor
+            let barHeight;
+            if (value < NOISE_FLOOR) {
+                barHeight = 3; // flatline when quiet
+            } else {
+                barHeight = ((value - NOISE_FLOOR) / (255 - NOISE_FLOOR)) * (height - 6) + 3;
+            }
+
+            const x = i * (barWidth + 2);
+            const y = (height - barHeight) / 2;
+
+            // Green gradient: darker when quiet, brighter when loud
+            const brightness = Math.floor(80 + (value / 255) * 100);
+            waveformCtx.fillStyle = `hsl(142, 70%, ${brightness}%)`;
+
+            // Draw rounded bar
+            const radius = Math.min(barWidth / 2, barHeight / 2, 3);
+            if (waveformCtx.roundRect) {
+                waveformCtx.beginPath();
+                waveformCtx.roundRect(x, y, barWidth, barHeight, radius);
+                waveformCtx.fill();
+            } else {
+                // Fallback for browsers without roundRect
+                waveformCtx.fillRect(x, y, barWidth, barHeight);
+            }
+        }
+    }
+
+    draw();
+}
+
+/**
+ * Stop waveform rendering and clear canvas
+ */
+function stopWaveform() {
+    if (waveformRAF) {
+        cancelAnimationFrame(waveformRAF);
+        waveformRAF = null;
+    }
+    if (waveformCtx && waveformCanvas) {
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+    }
+}
 
 // Add CSS for tooltip animations
 const tooltipStyle = document.createElement('style');
@@ -1673,13 +2048,34 @@ async function sendAudioToServerStream(audioBlob) {
                         const data = JSON.parse(line.slice(6));
 
                         if (data.type === 'metadata') {
-                            // Store transcript and evaluation data
+                            // Legacy: combined transcript + evaluation
                             transcript = data.transcript;
                             evaluation = data.evaluation;
-
-                            // Display user message
                             displayMessage('user', transcript, [], evaluation?.feedback_type);
                             conversationHistory.push({ role: 'user', content: transcript });
+                        }
+
+                        if (data.type === 'transcript') {
+                            // Show user message immediately with neutral/white style
+                            transcript = data.transcript;
+                            displayMessage('user', transcript, [], 'pending');
+                            conversationHistory.push({ role: 'user', content: transcript });
+                        }
+
+                        if (data.type === 'evaluation') {
+                            // Evaluation arrived — update the last user bubble's border + bg
+                            evaluation = data.evaluation;
+                            const allUserMsgs = document.querySelectorAll('#conversation .bg-white.ml-auto, #conversation .bg-green-100.ml-auto');
+                            const lastUserMsg = allUserMsgs[allUserMsgs.length - 1];
+                            if (lastUserMsg) {
+                                // Remove pending styles
+                                lastUserMsg.classList.remove('bg-white', 'border-gray-200');
+                                if (evaluation?.feedback_type === 'amber') {
+                                    lastUserMsg.classList.add('bg-green-100', 'border-amber-500');
+                                } else {
+                                    lastUserMsg.classList.add('bg-green-100', 'border-green-500');
+                                }
+                            }
                         }
 
                         if (data.type === 'words') {
@@ -1773,22 +2169,30 @@ async function sendAudioToServerStream(audioBlob) {
 
                             // Handle correction popup
                             if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
-                                showCorrectionPopup(data.amber_responses, () => {
-                                    setTimeout(() => {
+                                showCorrectionPopup(data.amber_responses, async () => {
+                                    setTimeout(async () => {
                                         // Generate and play TTS after popup closes
-                                        generateAndPlayAudio(data.final_text);
+                                        await generateAndPlayAudio(data.final_text);
                                     }, 1000);
                                 });
                             } else {
                                 // Generate and play TTS immediately
                                 const ttsStartTime = performance.now();
                                 console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
-                                generateAndPlayAudio(data.final_text);
+                                await generateAndPlayAudio(data.final_text);
 
                                 // Scroll to position user message at top after user response (small delay for DOM update)
                                 setTimeout(() => {
                                     scrollToLatestUserMessage();
                                 }, 50);
+                            }
+                        }
+
+                        if (data.type === 'hints') {
+                            // Late-arriving hints — update display
+                            if (data.hints && data.hints.length > 0) {
+                                currentHints = data.hints;
+                                updateHintsDisplay(data.hints);
                             }
                         }
 
@@ -1803,8 +2207,7 @@ async function sendAudioToServerStream(audioBlob) {
             }
         }
 
-        // Reset button state
-        resetRecordingInterface();
+        // State is managed by the state machine, no manual reset needed
 
     } catch (error) {
         console.error('Streaming Error:', error);
@@ -1920,7 +2323,7 @@ function createMessageButtons() {
     return buttonsDiv;
 }
 
-// Helper function to generate and play audio
+// Helper function to generate and play audio (now awaits playback + auto-starts)
 async function generateAndPlayAudio(text) {
     try {
         // Use existing TTS endpoint
@@ -1932,10 +2335,12 @@ async function generateAndPlayAudio(text) {
         });
         const data = await response.json();
         if (data.audio) {
-            playAudioResponse(data.audio);
+            await playAudioResponse(data.audio);
+            scheduleAutoStartRecording();
         }
     } catch (error) {
         console.error('TTS Error:', error);
+        transitionTo('IDLE');
     }
 }
 
@@ -2010,48 +2415,31 @@ async function sendAudioToServer(audioBlob) {
         // Check if correction popup should be shown FIRST
         if (data.should_show_popup && data.amber_responses && data.amber_responses.length > 0) {
             // Hold the talker response and show correction popup first
-            showCorrectionPopup(data.amber_responses, () => {
+            showCorrectionPopup(data.amber_responses, async () => {
                 // This callback runs after popup closes
-                setTimeout(() => {
-                    // Display assistant message and play audio after 1-second delay
+                setTimeout(async () => {
+                    // Display assistant message and play audio after delay
                     displayMessage('assistant', data.text, []);
                     updateRewardsDisplay(data.sentence_count, data.reward_points);
-                    playAudioResponse(data.audio);
+                    await playAudioResponse(data.audio);
+                    scheduleAutoStartRecording();
                 }, 4500);
             });
         } else {
             // No correction popup, proceed normally
             displayMessage('assistant', data.text, []);
             updateRewardsDisplay(data.sentence_count, data.reward_points);
-            playAudioResponse(data.audio);
+            await playAudioResponse(data.audio);
+            scheduleAutoStartRecording();
         }
 
-        // Reset button state
-        const recordButton = document.getElementById('recordButton');
-        const recordText = document.getElementById('recordText');
-        const recordIcon = document.getElementById('recordIcon');
-        
-        recordButton.disabled = false;
-        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        recordText.textContent = 'Start Speaking';
-        recordIcon.textContent = '🎤';
-        status.textContent = 'Ready to listen!';
-        
-        status.textContent = 'Ready to listen!';
-        
+        // State is managed by the state machine, no manual reset needed
+
     } catch (error) {
         console.error('Error:', error);
-        status.textContent = `Error: ${error.message}`;
-
-        // Reset button state even on error
-        const recordButton = document.getElementById('recordButton');
-        const recordText = document.getElementById('recordText');
-        const recordIcon = document.getElementById('recordIcon');
-        
-        recordButton.disabled = false;
-        recordButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        recordText.textContent = 'Start Speaking';
-        recordIcon.textContent = '🎤';
+        const statusEl = document.getElementById('status');
+        if (statusEl) statusEl.textContent = `Error: ${error.message}`;
+        transitionTo('IDLE');
     }
 }
 
@@ -2081,7 +2469,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 document.addEventListener('DOMContentLoaded', () => {
     const recordButton = document.getElementById('recordButton');
     if (recordButton) {
-        recordButton.addEventListener('click', toggleRecording);
+        recordButton.addEventListener('click', () => {
+            if (appState === 'LISTENING') {
+                // "I'm Done" pressed
+                stopRecordingAndSend();
+            } else if (appState === 'IDLE') {
+                // Manual fallback
+                startRecordingAuto();
+            }
+            // All other states → ignore (button hidden anyway)
+        });
     }
 
     // Setup hints toggle
@@ -2232,8 +2629,8 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
         // Clear amber responses from session
         clearAmberResponses();
 
-        // Reset main recording interface to ready state
-        resetRecordingInterface();
+        // Audio will play next via the onCloseCallback, so enter KIKI_SPEAKING
+        transitionTo('KIKI_SPEAKING');
     }
     
     renderCorrectionItem(0);
@@ -2524,32 +2921,9 @@ async function clearAmberResponses() {
 
 // Reset recording interface to ready state
 function resetRecordingInterface() {
-    const recordButton = document.getElementById('recordButton');
-    const recordText = document.getElementById('recordText');
-    const recordIcon = document.getElementById('recordIcon');
-    const status = document.getElementById('status');
-    
-    if (recordButton && recordText && recordIcon && status) {
-        // Ensure recording is not active
-        isRecording = false;
-        
-        // Reset button state
-        recordButton.disabled = false;
-        recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
-        recordButton.classList.add('bg-green-500');
-        recordText.textContent = 'Start Speaking';
-        recordIcon.textContent = '🎤';
-        status.textContent = 'Ready to listen!';
-        
-        // Remove any thinking loader
-        hideThinkingLoader();
-        
-        // Remove any recording indicators
-        const indicator = recordButton.querySelector('.recording-indicator');
-        if (indicator) {
-            indicator.remove();
-        }
-    }
+    isRecording = false;
+    hideThinkingLoader();
+    transitionTo('IDLE');
 }
 
 // Helper function to update conversation type display

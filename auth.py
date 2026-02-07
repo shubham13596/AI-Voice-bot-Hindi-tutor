@@ -122,6 +122,8 @@ def get_user_info():
     user_dict['has_conversations'] = Conversation.query.filter_by(
         user_id=current_user.id
     ).first() is not None
+    user_dict['available_stars'] = current_user.available_stars
+    user_dict['stars_spent'] = current_user.stars_spent or 0
     return jsonify(user_dict)
 
 @auth_bp.route('/api/user/child-name', methods=['POST'])

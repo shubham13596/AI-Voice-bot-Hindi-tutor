@@ -14,8 +14,14 @@ class MobileNavigation {
                 href: '/conversation-select'
             },
             {
+                id: 'album',
+                label: 'Album',
+                icon: '🎴',
+                href: '/sticker-album'
+            },
+            {
                 id: 'activity',
-                label: 'Activity', 
+                label: 'Activity',
                 icon: '📊',
                 href: '/dashboard'
             }
@@ -138,6 +144,7 @@ class ProfileAvatar {
                     <div class="dropdown-user-name" id="dropdownUserName">User</div>
                     <div class="dropdown-user-email" id="dropdownUserEmail">user@example.com</div>
                 </div>
+                <a href="/profile" class="dropdown-item">Profile</a>
                 <a href="/dashboard" class="dropdown-item">Dashboard</a>
                 <a href="/logout" class="dropdown-item danger">Sign out</a>
             </div>
@@ -233,10 +240,12 @@ class MobilePageUtils {
         
         if (path === '/conversation-select' || path === '/') {
             return 'home';
+        } else if (path === '/sticker-album') {
+            return 'album';
         } else if (path === '/dashboard') {
             return 'activity';
         }
-        
+
         return 'home'; // default
     }
 

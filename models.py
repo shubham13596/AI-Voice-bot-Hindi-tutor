@@ -14,16 +14,23 @@ class User(UserMixin, db.Model):
     child_age = db.Column(db.Integer, nullable=True)
     child_gender = db.Column(db.String(10), nullable=True)
     profile_picture = db.Column(db.String(200), nullable=True)
+    stars_spent = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     conversations = db.relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
-    
+    stickers = db.relationship('UserSticker', backref='user', lazy=True)
+
     @property
     def reward_points(self):
         """Calculate total reward points from all conversations"""
         return sum(conv.reward_points for conv in self.conversations)
+
+    @property
+    def available_stars(self):
+        """Spendable stars = total earned minus spent"""
+        return self.reward_points - (self.stars_spent or 0)
 
     def to_dict(self):
         return {
@@ -35,9 +42,20 @@ class User(UserMixin, db.Model):
             'child_gender': self.child_gender,
             'profile_picture': self.profile_picture,
             'reward_points': self.reward_points,
+            'available_stars': self.available_stars,
+            'stars_spent': self.stars_spent or 0,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+
+class UserSticker(db.Model):
+    """Tracks which stickers a user has collected"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    sticker_id = db.Column(db.String(50), nullable=False)
+    tier = db.Column(db.String(20), nullable=False)
+    unlocked_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Conversation(db.Model):
     """Conversation model to track user sessions and analytics"""

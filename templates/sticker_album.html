@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" href="/static/images/favicon.png">
+    <link rel="apple-touch-icon" href="/static/images/apple-touch-icon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#E07A5F">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Sticker Album - Your Hindi Tutor</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/css/mobile-design-system.css">
+    <script src="/static/js/mobile-navigation.js" defer></script>
+
+    <style>
+        /* Album page styles */
+        .album-content {
+            padding: var(--space-md);
+            padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
+        }
+
+        /* Header section */
+        .album-header {
+            text-align: center;
+            margin-bottom: var(--space-lg);
+        }
+
+        .album-title {
+            font-family: 'Eczar', serif;
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: var(--space-xs);
+        }
+
+        .album-progress {
+            font-size: var(--font-size-sm);
+            color: var(--text-light);
+            margin-bottom: var(--space-sm);
+        }
+
+        .album-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border-light);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-bottom: var(--space-sm);
+        }
+
+        .album-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #4ade80);
+            border-radius: var(--radius-full);
+            transition: width 0.5s ease;
+        }
+
+        .star-balance {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CC 100%);
+            border: 1px solid #FFE082;
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            color: #B8860B;
+        }
+
+        /* Pack section */
+        .packs-section {
+            margin-bottom: var(--space-xl);
+        }
+
+        .section-title {
+            font-family: 'Eczar', serif;
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: var(--space-md);
+        }
+
+        .packs-row {
+            display: flex;
+            gap: var(--space-sm);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-bottom: var(--space-xs);
+        }
+
+        .packs-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .pack-card {
+            flex: 1;
+            min-width: 110px;
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-sm);
+            text-align: center;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pack-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .pack-card:active {
+            transform: scale(0.97);
+        }
+
+        .pack-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pack-card.disabled:active {
+            transform: none;
+        }
+
+        .pack-card.completed {
+            opacity: 0.6;
+        }
+
+        .pack-emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: var(--space-xs);
+        }
+
+        .pack-name {
+            font-weight: 600;
+            font-size: var(--font-size-sm);
+            margin-bottom: 2px;
+        }
+
+        .pack-cost {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+
+        .pack-btn {
+            display: inline-block;
+            margin-top: var(--space-sm);
+            padding: 4px 14px;
+            background: rgba(255,255,255,0.25);
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+        }
+
+        .pack-card.disabled .pack-btn {
+            cursor: not-allowed;
+        }
+
+        /* Category sections */
+        .category-section {
+            margin-bottom: var(--space-lg);
+        }
+
+        .category-title {
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-sm);
+        }
+
+        .sticker-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-sm);
+        }
+
+        .sticker-card {
+            background: var(--card-white);
+            border-radius: var(--radius-md);
+            padding: var(--space-md) var(--space-sm);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .sticker-card.locked {
+            filter: grayscale(1);
+            opacity: 0.4;
+        }
+
+        .sticker-emoji {
+            font-size: 2.2rem;
+            display: block;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+
+        .sticker-name {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            line-height: 1.2;
+        }
+
+        .sticker-name-hi {
+            font-size: 0.65rem;
+            color: var(--text-light);
+        }
+
+        .tier-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .tier-badge.common { background: #22c55e; }
+        .tier-badge.rare { background: #8b5cf6; }
+        .tier-badge.legendary { background: #f59e0b; }
+
+        /* Pack opening overlay */
+        .pack-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-xl);
+        }
+
+        .pack-overlay.active {
+            display: flex;
+        }
+
+        /* Phase 1: Shaking pack */
+        .pack-shake-container {
+            text-align: center;
+        }
+
+        .pack-shake-emoji {
+            font-size: 6rem;
+            display: inline-block;
+            animation: shake 0.5s ease-in-out infinite;
+        }
+
+        .pack-tap-text {
+            color: rgba(255,255,255,0.8);
+            font-size: var(--font-size-lg);
+            margin-top: var(--space-lg);
+            animation: pulse-text 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-8deg); }
+            75% { transform: rotate(8deg); }
+        }
+
+        @keyframes pulse-text {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Phase 2: Revealed sticker */
+        .pack-reveal {
+            display: none;
+            text-align: center;
+        }
+
+        .pack-reveal.active {
+            display: block;
+        }
+
+        .revealed-emoji {
+            font-size: 7rem;
+            display: inline-block;
+            animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        .revealed-name {
+            font-family: 'Eczar', serif;
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: white;
+            margin-top: var(--space-md);
+        }
+
+        .revealed-name-hi {
+            font-size: var(--font-size-lg);
+            color: rgba(255,255,255,0.7);
+            margin-top: 4px;
+        }
+
+        .revealed-message {
+            color: #4ade80;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            margin-top: var(--space-md);
+        }
+
+        .revealed-tier {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            color: white;
+            margin-top: var(--space-sm);
+        }
+
+        .revealed-tier.common { background: #22c55e; }
+        .revealed-tier.rare { background: #8b5cf6; }
+        .revealed-tier.legendary { background: #f59e0b; }
+
+        .reveal-buttons {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-xl);
+            justify-content: center;
+        }
+
+        .reveal-btn {
+            padding: 10px 24px;
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+        }
+
+        .reveal-btn:active {
+            transform: scale(0.95);
+        }
+
+        .reveal-btn.primary {
+            background: #22c55e;
+            color: white;
+        }
+
+        .reveal-btn.secondary {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            z-index: 10000;
+            animation: confetti-fall 3s linear forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* All collected badge */
+        .tier-complete {
+            font-size: 0.7rem;
+            color: white;
+            margin-top: var(--space-xs);
+            font-weight: 600;
+        }
+
+        /* Loading state */
+        .album-loading {
+            text-align: center;
+            padding: var(--space-2xl);
+            color: var(--text-light);
+        }
+
+        @media (min-width: 400px) {
+            .sticker-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Bar -->
+        <div class="mobile-top-bar">
+            <div class="stars-display">
+                <span class="star-icon">⭐</span>
+                <span class="stars-count" id="topBarStars">0</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="mobile-main-content album-content">
+            <div class="album-loading" id="albumLoading">Loading your album...</div>
+
+            <div id="albumContainer" style="display:none;">
+                <!-- Header -->
+                <div class="album-header">
+                    <div class="album-title">Sticker Album</div>
+                    <div class="album-progress" id="albumProgress">0 of 28 collected</div>
+                    <div class="album-progress-bar">
+                        <div class="album-progress-fill" id="albumProgressFill" style="width:0%"></div>
+                    </div>
+                    <div class="star-balance">
+                        ⭐ <span id="availableStars">0</span> stars
+                    </div>
+                </div>
+
+                <!-- Pack Cards -->
+                <div class="packs-section">
+                    <div class="section-title">Open a Pack</div>
+                    <div class="packs-row" id="packsRow"></div>
+                </div>
+
+                <!-- Sticker Gallery -->
+                <div id="stickerGallery"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Pack Opening Overlay -->
+    <div class="pack-overlay" id="packOverlay">
+        <div class="pack-shake-container" id="packShake">
+            <div class="pack-shake-emoji" id="shakeEmoji">🎁</div>
+            <div class="pack-tap-text">Tap to open!</div>
+        </div>
+        <div class="pack-reveal" id="packReveal">
+            <div class="revealed-emoji" id="revealedEmoji"></div>
+            <div class="revealed-name" id="revealedName"></div>
+            <div class="revealed-name-hi" id="revealedNameHi"></div>
+            <div class="revealed-tier" id="revealedTier"></div>
+            <div class="revealed-message">Added to your album!</div>
+            <div class="reveal-buttons">
+                <button class="reveal-btn secondary" onclick="closeOverlay()">View Album</button>
+                <button class="reveal-btn primary" id="collectMoreBtn" onclick="closeOverlay()">Collect More</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let albumData = null;
+
+        document.addEventListener('DOMContentLoaded', loadAlbum);
+
+        async function loadAlbum() {
+            try {
+                // Fetch user info for top bar + album data in parallel
+                const [userRes, albumRes] = await Promise.all([
+                    fetch('/api/user'),
+                    fetch('/api/sticker-album')
+                ]);
+
+                if (!userRes.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const user = await userRes.json();
+                const topBarStars = document.getElementById('topBarStars');
+                if (topBarStars) {
+                    topBarStars.textContent = user.available_stars || 0;
+                }
+
+                if (!albumRes.ok) return;
+                albumData = await albumRes.json();
+
+                document.getElementById('albumLoading').style.display = 'none';
+                document.getElementById('albumContainer').style.display = 'block';
+
+                renderAlbum();
+            } catch (err) {
+                console.error('Error loading album:', err);
+            }
+        }
+
+        function renderAlbum() {
+            const d = albumData;
+
+            // Progress
+            document.getElementById('albumProgress').textContent =
+                `${d.owned_count} of ${d.total_count} collected`;
+            document.getElementById('albumProgressFill').style.width =
+                `${(d.owned_count / d.total_count * 100).toFixed(1)}%`;
+            document.getElementById('availableStars').textContent = d.available_stars;
+            document.getElementById('topBarStars').textContent = d.available_stars;
+
+            // Pack cards
+            renderPacks(d);
+
+            // Sticker gallery grouped by category
+            renderGallery(d);
+        }
+
+        function renderPacks(d) {
+            const row = document.getElementById('packsRow');
+            row.innerHTML = '';
+
+            const tierOrder = ['common', 'rare', 'legendary'];
+            tierOrder.forEach(tier => {
+                const pack = d.pack_tiers[tier];
+                const tierStickers = d.stickers.filter(s => s.tier === tier);
+                const ownedInTier = tierStickers.filter(s => s.owned).length;
+                const totalInTier = tierStickers.length;
+                const allOwned = ownedInTier === totalInTier;
+                const cantAfford = d.available_stars < pack.cost;
+                const isDisabled = allOwned || cantAfford;
+
+                const card = document.createElement('div');
+                card.className = `pack-card ${isDisabled ? 'disabled' : ''} ${allOwned ? 'completed' : ''}`;
+                card.style.background = `linear-gradient(135deg, ${pack.color}, ${pack.color}cc)`;
+
+                card.innerHTML = `
+                    <span class="pack-emoji">${pack.emoji}</span>
+                    <div class="pack-name">${pack.label}</div>
+                    <div class="pack-cost">${pack.cost} ⭐</div>
+                    ${allOwned
+                        ? '<div class="tier-complete">Complete!</div>'
+                        : `<div class="pack-btn">${cantAfford ? 'Need more ⭐' : 'Open!'}</div>`
+                    }
+                `;
+
+                if (!isDisabled) {
+                    card.addEventListener('click', () => openPack(tier, pack));
+                }
+
+                row.appendChild(card);
+            });
+        }
+
+        function renderGallery(d) {
+            const gallery = document.getElementById('stickerGallery');
+            gallery.innerHTML = '';
+
+            // Group by category
+            const categories = {};
+            d.stickers.forEach(s => {
+                if (!categories[s.category]) categories[s.category] = [];
+                categories[s.category].push(s);
+            });
+
+            const categoryLabels = {
+                animals: 'Animals',
+                nature: 'Nature',
+                food: 'Food',
+                heroes: 'Heroes',
+                adventure: 'Adventure',
+                treasure: 'Treasure',
+                avengers: 'Avengers'
+            };
+
+            const categoryOrder = ['animals', 'nature', 'food', 'heroes', 'adventure', 'treasure', 'avengers'];
+
+            categoryOrder.forEach(cat => {
+                const stickers = categories[cat];
+                if (!stickers) return;
+
+                const section = document.createElement('div');
+                section.className = 'category-section';
+                section.innerHTML = `<div class="category-title">${categoryLabels[cat] || cat}</div>`;
+
+                const grid = document.createElement('div');
+                grid.className = 'sticker-grid';
+
+                stickers.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = `sticker-card ${s.owned ? '' : 'locked'}`;
+                    card.id = `sticker-${s.id}`;
+                    card.innerHTML = `
+                        <span class="tier-badge ${s.tier}"></span>
+                        <span class="sticker-emoji">${s.owned ? s.emoji : '❓'}</span>
+                        <div class="sticker-name">${s.owned ? s.name : '???'}</div>
+                        <div class="sticker-name-hi">${s.owned ? s.name_hi : ''}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                section.appendChild(grid);
+                gallery.appendChild(section);
+            });
+        }
+
+        async function openPack(tier, pack) {
+            const overlay = document.getElementById('packOverlay');
+            const shakeContainer = document.getElementById('packShake');
+            const revealContainer = document.getElementById('packReveal');
+            const shakeEmoji = document.getElementById('shakeEmoji');
+
+            // Reset state
+            shakeContainer.style.display = 'block';
+            revealContainer.classList.remove('active');
+            shakeEmoji.textContent = pack.emoji;
+
+            // Show overlay
+            overlay.classList.add('active');
+
+            // Call API
+            let result;
+            try {
+                const res = await fetch('/api/open-pack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tier })
+                });
+                result = await res.json();
+
+                if (!result.success) {
+                    alert(result.error || 'Something went wrong');
+                    overlay.classList.remove('active');
+                    return;
+                }
+            } catch (err) {
+                console.error('Error opening pack:', err);
+                overlay.classList.remove('active');
+                return;
+            }
+
+            // Wait for tap to reveal
+            const tapHandler = () => {
+                shakeContainer.style.display = 'none';
+                revealSticker(result, tier);
+                overlay.removeEventListener('click', tapHandler);
+            };
+            overlay.addEventListener('click', tapHandler);
+        }
+
+        function revealSticker(result, tier) {
+            const revealContainer = document.getElementById('packReveal');
+            const sticker = result.sticker;
+
+            document.getElementById('revealedEmoji').textContent = sticker.emoji;
+            document.getElementById('revealedName').textContent = sticker.name;
+            document.getElementById('revealedNameHi').textContent = sticker.name_hi;
+
+            const tierBadge = document.getElementById('revealedTier');
+            tierBadge.className = `revealed-tier ${tier}`;
+            const tierLabels = { common: 'Common', rare: 'Rare', legendary: 'Legendary' };
+            tierBadge.textContent = tierLabels[tier] || tier;
+
+            revealContainer.classList.add('active');
+
+            // Update local data
+            albumData.available_stars = result.available_stars;
+            albumData.stars_spent = result.stars_spent;
+            albumData.owned_count += 1;
+
+            // Mark sticker as owned in local data
+            const stickerEntry = albumData.stickers.find(s => s.id === sticker.id);
+            if (stickerEntry) stickerEntry.owned = true;
+
+            // Confetti
+            createConfetti();
+        }
+
+        function closeOverlay() {
+            document.getElementById('packOverlay').classList.remove('active');
+            // Re-render with updated data
+            renderAlbum();
+        }
+
+        function createConfetti() {
+            const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#8b5cf6', '#22c55e'];
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.top = '-10px';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    confetti.style.width = (Math.random() * 8 + 6) + 'px';
+                    confetti.style.height = (Math.random() * 8 + 6) + 'px';
+                    document.body.appendChild(confetti);
+                    setTimeout(() => confetti.remove(), 4000);
+                }, i * 60);
+            }
+        }
+    </script>
+</body>
+</html>

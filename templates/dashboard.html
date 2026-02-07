@@ -44,8 +44,8 @@
 
                 // Update top bar stars
                 const topBarStarsEl = document.getElementById('topBarStars');
-                if (topBarStarsEl && user.reward_points !== undefined) {
-                    topBarStarsEl.textContent = user.reward_points || 0;
+                if (topBarStarsEl && user.available_stars !== undefined) {
+                    topBarStarsEl.textContent = user.available_stars || 0;
                 }
 
                 // Initialize dashboard data

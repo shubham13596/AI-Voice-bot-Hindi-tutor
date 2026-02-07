@@ -9,14 +9,14 @@
     <meta name="theme-color" content="#E07A5F">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Profile Setup - Your Hindi Tutor</title>
+    <title>Profile - Your Hindi Tutor</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Eczar:wght@400;600;700&family=Poppins:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/mobile-design-system.css">
 
     <style>
         * {
@@ -61,19 +61,6 @@
             margin-bottom: 2rem;
         }
 
-        .welcome-section {
-            background: #FFF4E6;
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border-left: 4px solid #E07A5F;
-        }
-
-        .welcome-text {
-            color: #3D405B;
-            font-weight: 500;
-        }
-
         .form-section {
             margin-bottom: 1.5rem;
         }
@@ -101,7 +88,6 @@
             border-color: #E07A5F;
         }
 
-        /* Gender radio buttons */
         .gender-options {
             display: flex;
             gap: 1rem;
@@ -144,7 +130,7 @@
             border-color: #E07A5F;
         }
 
-        .continue-button {
+        .save-button {
             width: 100%;
             background: #E07A5F;
             color: white;
@@ -155,20 +141,18 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            opacity: 0.5;
-            pointer-events: none;
             margin-top: 1rem;
         }
 
-        .continue-button.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .continue-button.active:hover {
+        .save-button:hover {
             transform: translateY(-2px);
             background: #d16a4f;
             box-shadow: 0 4px 12px rgba(224, 122, 95, 0.3);
+        }
+
+        .save-button:disabled {
+            opacity: 0.5;
+            pointer-events: none;
         }
 
         .error-message {
@@ -177,6 +161,17 @@
             margin-top: 0.5rem;
             display: none;
             text-align: left;
+        }
+
+        .success-message {
+            color: #16a34a;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            margin-top: 1rem;
+            display: none;
         }
 
         /* Hindi Transliteration Styles */
@@ -320,7 +315,7 @@
             background: #d16a4f;
         }
 
-        .logout-link {
+        .back-link {
             color: #6b7280;
             font-size: 0.9rem;
             text-decoration: none;
@@ -328,7 +323,7 @@
             display: inline-block;
         }
 
-        .logout-link:hover {
+        .back-link:hover {
             color: #374151;
         }
 
@@ -349,19 +344,13 @@
 </head>
 <body>
     <div class="setup-container">
-        <h1 class="title">Almost Ready!</h1>
-        <p class="subtitle">Let's set up your child's Hindi learning profile</p>
-
-        <div class="welcome-section">
-            <p class="welcome-text">
-                Welcome! 🎉 We're excited to help your child learn Hindi through fun conversations.
-            </p>
-        </div>
+        <h1 class="title">Child's Profile</h1>
+        <p class="subtitle">Update your child's learning profile</p>
 
         <form id="profileForm">
             <!-- Child Name -->
             <div class="form-section">
-                <label for="childName" class="form-label">What's your child's name?</label>
+                <label for="childName" class="form-label">Child's name</label>
                 <input type="text"
                        id="childName"
                        class="form-input"
@@ -376,16 +365,14 @@
                     <span class="hindi-label">Hindi pronunciation:</span>
                     <span id="hindiNameDisplay" class="hindi-name"></span>
                     <button type="button" id="editHindiBtn" class="edit-link">[Edit]</button>
-                    <p class="hindi-hint">This is how we'll say the name during lessons. Please verify it's correct.</p>
+                    <p class="hindi-hint">This is how we'll say the name during lessons.</p>
                 </div>
 
                 <!-- Hindi Edit Mode (State 2) -->
                 <div id="hindiEditMode" class="hindi-edit-section" style="display: none;">
                     <label class="form-label">Corrected Hindi spelling:</label>
                     <input type="text" id="hindiNameInput" class="hindi-input" placeholder="Type or use keyboard below">
-                    <div id="virtualKeyboard" class="virtual-keyboard">
-                        <!-- Keyboard rows generated by JS -->
-                    </div>
+                    <div id="virtualKeyboard" class="virtual-keyboard"></div>
                     <div class="edit-actions">
                         <button type="button" id="cancelEditBtn" class="cancel-btn">Cancel</button>
                         <button type="button" id="saveEditBtn" class="save-btn">Save</button>
@@ -395,7 +382,7 @@
 
             <!-- Child Age -->
             <div class="form-section">
-                <label for="childAge" class="form-label">How old is your child?</label>
+                <label for="childAge" class="form-label">Child's age</label>
                 <input type="number"
                        id="childAge"
                        class="form-input"
@@ -419,7 +406,7 @@
                                value="male"
                                class="gender-radio">
                         <label for="genderMale" class="gender-label">
-                            👦 Male
+                            Boy
                         </label>
                     </div>
                     <div class="gender-option">
@@ -429,7 +416,7 @@
                                value="female"
                                class="gender-radio">
                         <label for="genderFemale" class="gender-label">
-                            👧 Female
+                            Girl
                         </label>
                     </div>
                 </div>
@@ -439,18 +426,23 @@
             </div>
         </form>
 
-        <button id="continueButton" class="continue-button">
-            Start Learning Hindi
+        <button id="saveButton" class="save-button">
+            Save Changes
         </button>
 
-        <a href="/logout" class="logout-link">Sign out</a>
+        <div id="successMessage" class="success-message">
+            Profile updated successfully!
+        </div>
+
+        <a href="/conversation-select" class="back-link">Back to conversations</a>
     </div>
 
     <script>
         const childNameInput = document.getElementById('childName');
         const childAgeInput = document.getElementById('childAge');
         const genderRadios = document.querySelectorAll('input[name="childGender"]');
-        const continueButton = document.getElementById('continueButton');
+        const saveButton = document.getElementById('saveButton');
+        const successMessage = document.getElementById('successMessage');
 
         const nameError = document.getElementById('nameError');
         const ageError = document.getElementById('ageError');
@@ -466,49 +458,47 @@
         const saveEditBtn = document.getElementById('saveEditBtn');
         const virtualKeyboard = document.getElementById('virtualKeyboard');
 
+        // Track the current Hindi name (loaded from server)
+        let currentHindiName = '';
+
         // ========== TRANSLITERATION LOGIC ==========
 
-        // Matras (vowel signs) for consonant+vowel combinations
         const matras = {
-            'aa': 'ा', 'a': '', // 'a' after consonant is implicit (no matra)
-            'ee': 'ी', 'i': 'ि',
-            'oo': 'ू', 'u': 'ु',
-            'ai': 'ै', 'e': 'े',
-            'au': 'ौ', 'o': 'ो',
-            'an': 'ं', 'am': 'ं' // anusvara
+            'aa': '\u093E', 'a': '',
+            'ee': '\u0940', 'i': '\u093F',
+            'oo': '\u0942', 'u': '\u0941',
+            'ai': '\u0948', 'e': '\u0947',
+            'au': '\u094C', 'o': '\u094B',
+            'an': '\u0902', 'am': '\u0902'
         };
 
-        // Full vowels (used at word start or after vowel)
         const vowels = {
-            'aa': 'आ', 'a': 'अ',
-            'ee': 'ई', 'i': 'इ',
-            'oo': 'ऊ', 'u': 'उ',
-            'ai': 'ऐ', 'e': 'ए',
-            'au': 'औ', 'o': 'ओ',
-            'an': 'अं', 'am': 'अं'
+            'aa': '\u0906', 'a': '\u0905',
+            'ee': '\u0908', 'i': '\u0907',
+            'oo': '\u090A', 'u': '\u0909',
+            'ai': '\u0910', 'e': '\u090F',
+            'au': '\u0914', 'o': '\u0913',
+            'an': '\u0905\u0902', 'am': '\u0905\u0902'
         };
 
-        // Consonants (longer patterns first for correct matching)
         const consonants = {
-            'ksh': 'क्ष', 'gya': 'ज्ञ', 'tra': 'त्र', 'shr': 'श्र',
-            'kh': 'ख', 'gh': 'घ', 'ch': 'छ', 'jh': 'झ',
-            'th': 'थ', 'dh': 'ध', 'ph': 'फ', 'bh': 'भ',
-            'sh': 'श', 'ng': 'ङ', 'ny': 'ञ',
-            'k': 'क', 'g': 'ग', 'c': 'च', 'j': 'ज',
-            't': 'त', 'd': 'द', 'n': 'न', 'p': 'प',
-            'b': 'ब', 'm': 'म', 'y': 'य', 'r': 'र',
-            'l': 'ल', 'v': 'व', 'w': 'व', 's': 'स', 'h': 'ह',
-            'q': 'क़', 'f': 'फ़', 'z': 'ज़', 'x': 'क्स'
+            'ksh': '\u0915\u094D\u0937', 'gya': '\u091C\u094D\u091E', 'tra': '\u0924\u094D\u0930', 'shr': '\u0936\u094D\u0930',
+            'kh': '\u0916', 'gh': '\u0918', 'ch': '\u091B', 'jh': '\u091D',
+            'th': '\u0925', 'dh': '\u0927', 'ph': '\u092B', 'bh': '\u092D',
+            'sh': '\u0936', 'ng': '\u0919', 'ny': '\u091E',
+            'k': '\u0915', 'g': '\u0917', 'c': '\u091A', 'j': '\u091C',
+            't': '\u0924', 'd': '\u0926', 'n': '\u0928', 'p': '\u092A',
+            'b': '\u092C', 'm': '\u092E', 'y': '\u092F', 'r': '\u0930',
+            'l': '\u0932', 'v': '\u0935', 'w': '\u0935', 's': '\u0938', 'h': '\u0939',
+            'q': '\u0915\u093C', 'f': '\u092B\u093C', 'z': '\u091C\u093C', 'x': '\u0915\u094D\u0938'
         };
 
-        // Sort patterns by length (longest first) for correct matching
         const vowelPatterns = Object.keys(vowels).sort((a, b) => b.length - a.length);
         const matraPatterns = Object.keys(matras).sort((a, b) => b.length - a.length);
         const consonantPatterns = Object.keys(consonants).sort((a, b) => b.length - a.length);
 
         function transliterateToHindi(text) {
             if (!text) return '';
-
             text = text.toLowerCase().trim();
             let result = '';
             let i = 0;
@@ -517,7 +507,6 @@
             while (i < text.length) {
                 let matched = false;
 
-                // Skip spaces and non-alphabetic characters
                 if (!/[a-z]/.test(text[i])) {
                     result += text[i];
                     i++;
@@ -525,7 +514,6 @@
                     continue;
                 }
 
-                // Try to match consonants first
                 for (const pattern of consonantPatterns) {
                     if (text.substring(i, i + pattern.length) === pattern) {
                         result += consonants[pattern];
@@ -538,9 +526,7 @@
 
                 if (matched) continue;
 
-                // Try to match vowels
                 if (lastWasConsonant) {
-                    // After consonant, use matras
                     for (const pattern of matraPatterns) {
                         if (text.substring(i, i + pattern.length) === pattern) {
                             result += matras[pattern];
@@ -551,7 +537,6 @@
                         }
                     }
                 } else {
-                    // At start or after vowel, use full vowels
                     for (const pattern of vowelPatterns) {
                         if (text.substring(i, i + pattern.length) === pattern) {
                             result += vowels[pattern];
@@ -564,14 +549,10 @@
                 }
 
                 if (!matched) {
-                    // Unknown character, skip
                     i++;
                     lastWasConsonant = false;
                 }
             }
-
-            // Add halant (virama) at the end if last character was a consonant without vowel
-            // This is optional - some systems don't add it
 
             return result;
         }
@@ -579,11 +560,11 @@
         // ========== VIRTUAL KEYBOARD ==========
 
         const keyboardRows = [
-            ['अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ए', 'ऐ', 'ओ', 'औ', 'अं'],
-            ['क', 'ख', 'ग', 'घ', 'च', 'छ', 'ज', 'झ', 'ट', 'ठ'],
-            ['ड', 'ढ', 'ण', 'त', 'थ', 'द', 'ध', 'न', 'प', 'फ'],
-            ['ब', 'भ', 'म', 'य', 'र', 'ल', 'व', 'श', 'ष', 'स', 'ह'],
-            ['ा', 'ि', 'ी', 'ु', 'ू', 'े', 'ै', 'ो', 'ौ', 'ं', '्', '⌫']
+            ['\u0905', '\u0906', '\u0907', '\u0908', '\u0909', '\u090A', '\u090F', '\u0910', '\u0913', '\u0914', '\u0905\u0902'],
+            ['\u0915', '\u0916', '\u0917', '\u0918', '\u091A', '\u091B', '\u091C', '\u091D', '\u091F', '\u0920'],
+            ['\u0921', '\u0922', '\u0923', '\u0924', '\u0925', '\u0926', '\u0927', '\u0928', '\u092A', '\u092B'],
+            ['\u092C', '\u092D', '\u092E', '\u092F', '\u0930', '\u0932', '\u0935', '\u0936', '\u0937', '\u0938', '\u0939'],
+            ['\u093E', '\u093F', '\u0940', '\u0941', '\u0942', '\u0947', '\u0948', '\u094B', '\u094C', '\u0902', '\u094D', '\u232B']
         ];
 
         function buildKeyboard() {
@@ -594,7 +575,7 @@
                 row.forEach(key => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'key-btn' + (key === '⌫' ? ' backspace' : '');
+                    btn.className = 'key-btn' + (key === '\u232B' ? ' backspace' : '');
                     btn.textContent = key;
                     btn.addEventListener('click', () => handleKeyClick(key));
                     rowDiv.appendChild(btn);
@@ -604,7 +585,7 @@
         }
 
         function handleKeyClick(char) {
-            if (char === '⌫') {
+            if (char === '\u232B') {
                 hindiNameInput.value = hindiNameInput.value.slice(0, -1);
             } else {
                 hindiNameInput.value += char;
@@ -612,34 +593,49 @@
             hindiNameInput.focus();
         }
 
-        // Build keyboard on page load
         buildKeyboard();
 
-        // Validation function
-        function validateForm() {
-            const name = childNameInput.value.trim();
-            const age = childAgeInput.value;
-            const genderSelected = Array.from(genderRadios).some(radio => radio.checked);
+        // ========== LOAD CURRENT PROFILE ==========
 
-            const isValid = name && age && genderSelected;
+        async function loadProfile() {
+            try {
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    window.location.href = '/';
+                    return;
+                }
+                const user = await response.json();
 
-            if (isValid) {
-                continueButton.classList.add('active');
-            } else {
-                continueButton.classList.remove('active');
+                // The child_name is stored in Hindi
+                currentHindiName = user.child_name || '';
+                hindiNameDisplay.textContent = currentHindiName;
+                if (currentHindiName) {
+                    hindiPreview.style.display = 'block';
+                }
+
+                if (user.child_age) {
+                    childAgeInput.value = user.child_age;
+                }
+
+                if (user.child_gender) {
+                    const radio = document.querySelector(`input[name="childGender"][value="${user.child_gender}"]`);
+                    if (radio) radio.checked = true;
+                }
+            } catch (error) {
+                console.error('Failed to load profile:', error);
             }
-
-            return isValid;
         }
 
-        // Add event listeners to all inputs
+        loadProfile();
+
+        // ========== EVENT LISTENERS ==========
+
         childNameInput.addEventListener('input', function() {
             if (this.value.trim()) {
                 nameError.style.display = 'none';
             }
-            validateForm();
+            successMessage.style.display = 'none';
 
-            // Real-time Hindi transliteration preview
             const englishName = this.value.trim();
             if (englishName) {
                 const hindiName = transliterateToHindi(englishName);
@@ -647,12 +643,17 @@
                 hindiPreview.style.display = 'block';
                 hindiEditMode.style.display = 'none';
             } else {
-                hindiPreview.style.display = 'none';
+                // If English input cleared, restore current Hindi name
+                if (currentHindiName) {
+                    hindiNameDisplay.textContent = currentHindiName;
+                    hindiPreview.style.display = 'block';
+                } else {
+                    hindiPreview.style.display = 'none';
+                }
                 hindiEditMode.style.display = 'none';
             }
         });
 
-        // Edit button - switch to State 2
         editHindiBtn.addEventListener('click', function() {
             hindiNameInput.value = hindiNameDisplay.textContent;
             hindiPreview.style.display = 'none';
@@ -660,13 +661,11 @@
             hindiNameInput.focus();
         });
 
-        // Cancel - revert to State 1
         cancelEditBtn.addEventListener('click', function() {
             hindiEditMode.style.display = 'none';
             hindiPreview.style.display = 'block';
         });
 
-        // Save - update and return to State 1
         saveEditBtn.addEventListener('click', function() {
             const editedHindi = hindiNameInput.value.trim();
             if (editedHindi) {
@@ -681,38 +680,29 @@
             if (age >= 1 && age <= 18) {
                 ageError.style.display = 'none';
             }
-            validateForm();
+            successMessage.style.display = 'none';
         });
 
         genderRadios.forEach(radio => {
             radio.addEventListener('change', function() {
                 genderError.style.display = 'none';
-                validateForm();
+                successMessage.style.display = 'none';
             });
         });
 
-        // Handle form submission
-        continueButton.addEventListener('click', async function() {
-            const childName = childNameInput.value.trim();
+        // ========== SAVE ==========
+
+        saveButton.addEventListener('click', async function() {
+            const hindiName = hindiNameDisplay.textContent || currentHindiName;
             const childAge = childAgeInput.value;
             const selectedGender = Array.from(genderRadios).find(radio => radio.checked);
 
-            // Get the Hindi name (from preview or edited)
-            const hindiName = hindiNameDisplay.textContent || transliterateToHindi(childName);
-
-            // Hide all errors first
             nameError.style.display = 'none';
             ageError.style.display = 'none';
             genderError.style.display = 'none';
+            successMessage.style.display = 'none';
 
-            // Validate all fields
             let hasError = false;
-
-            if (!childName) {
-                nameError.textContent = 'Please enter your child\'s name';
-                nameError.style.display = 'block';
-                hasError = true;
-            }
 
             if (!hindiName) {
                 nameError.textContent = 'Hindi name is required';
@@ -733,16 +723,12 @@
                 hasError = true;
             }
 
-            if (hasError) {
-                return;
-            }
+            if (hasError) return;
 
-            // Disable button during submission
-            continueButton.disabled = true;
-            continueButton.textContent = 'Setting up...';
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
 
             try {
-                // Send Hindi name to the API (instead of English name)
                 const response = await fetch('/api/user/child-name', {
                     method: 'POST',
                     headers: {
@@ -758,10 +744,9 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Success! Redirect to conversation selection
-                    window.location.href = '/conversation-select';
+                    currentHindiName = hindiName;
+                    successMessage.style.display = 'block';
                 } else {
-                    // Show error
                     nameError.textContent = data.error || 'Failed to save profile';
                     nameError.style.display = 'block';
                 }
@@ -770,13 +755,11 @@
                 nameError.textContent = 'Something went wrong. Please try again.';
                 nameError.style.display = 'block';
             } finally {
-                // Re-enable button
-                continueButton.disabled = false;
-                continueButton.textContent = 'Start Learning Hindi';
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
             }
         });
 
-        // Handle Enter key
         childNameInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -785,14 +768,11 @@
         });
 
         childAgeInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && validateForm()) {
+            if (e.key === 'Enter') {
                 e.preventDefault();
-                continueButton.click();
+                saveButton.click();
             }
         });
-
-        // Auto-focus on name input
-        childNameInput.focus();
     </script>
 </body>
 </html>

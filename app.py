@@ -28,8 +28,9 @@ import random
 from conversation_config import CONVERSATION_TYPES, MODULES, TOPICS
 
 # Import our models and auth
-from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics
+from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics, UserSticker
 from auth import auth_bp, init_oauth
+from sticker_config import STICKER_CATALOG, PACK_TIERS
 
 
 # Configure logging first so it's available throughout the application
@@ -199,6 +200,13 @@ try:
         safety_settings=safety_settings
     )
     logger.info("Gemini evaluation model initialized: gemini-2.0-flash")
+
+    # Create model for hints (higher quality suggestions)
+    gemini_hints_model = genai.GenerativeModel(
+        model_name='gemini-2.5-flash',
+        safety_settings=safety_settings
+    )
+    logger.info("Gemini hints model initialized: gemini-2.5-flash")
 except Exception as e:
     logger.error(f"Failed to initialize Gemini client: {e}")
     raise
@@ -312,7 +320,7 @@ You are nearing the end of this conversation.
     # Early/mid conversation - no special instruction needed
     return ""
 
-def gemini_generate_content(system_prompt, conversation_history=None, response_format="json", use_eval_model=False):
+def gemini_generate_content(system_prompt, conversation_history=None, response_format="json", use_eval_model=False, model_override=None):
     """
     Generate content using Gemini with optional JSON formatting
 
@@ -321,6 +329,7 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
         conversation_history: Optional list of previous messages
         response_format: "json" or "text"
         use_eval_model: Use the more accurate evaluation model (gemini-2.0-flash)
+        model_override: Directly pass a model instance to use
     """
     try:
         # Build the prompt with conversation history
@@ -347,7 +356,12 @@ def gemini_generate_content(system_prompt, conversation_history=None, response_f
             generation_config["stop_sequences"] = ["Child:", "User:", "Tutor:", "Assistant:"]
 
         # Select appropriate model
-        model = gemini_eval_model if use_eval_model else gemini_model
+        if model_override:
+            model = model_override
+        elif use_eval_model:
+            model = gemini_eval_model
+        else:
+            model = gemini_model
 
         # Generate content
         response = model.generate_content(
@@ -523,11 +537,12 @@ Example: {{"hint": "मुझे पिज़्ज़ा पसंद है"}}
         # Get last few exchanges for context
         recent_history = conversation_history[-4:] if len(conversation_history) > 4 else conversation_history
 
-        # Use Gemini for hint generation
+        # Use Gemini 3 Flash for higher quality hints
         result = gemini_generate_content(
             system_prompt=hints_prompt,
             conversation_history=recent_history,
-            response_format="json"
+            response_format="json",
+            model_override=gemini_hints_model
         )
 
         # Parse the JSON response
@@ -658,6 +673,12 @@ class ResponseEvaluator:
             ❌ "हमने दिया जलाना अच्छा लगता है" → ✅ "हमें दीये जलाना अच्छा लगता है"
 
             NOTE: Don't evaluate answer correctness. If the kid says "I don't know" or gives a wrong answer but the sentence structure is correct, that's green.
+
+            FILLER WORDS - IGNORE for scoring:
+            - Sounds like "उम्म", "अं", "हम्म", "umm", "hmm" are normal for a 6-year-old thinking aloud
+            - Do NOT penalize fillers when evaluating completeness or grammar
+            - Evaluate only the core sentence: "उम्म... मेरे पापा... अं... ऑफिस गए थे" → evaluate as "मेरे पापा ऑफिस गए थे" = green
+            - If response is ONLY fillers with no Hindi content, mark as incomplete
 
             {context_section}
 
@@ -1270,8 +1291,7 @@ def speech_to_text_hindi_google_v1(audio_data, child_name=None):
             language_code="hi-IN",    # Hindi (India)
             # Alternative languages for code-switching (helps with Hindi/English mix)
             alternative_language_codes=["en-IN"],
-            model=GOOGLE_STT_MODEL,   # Chirp 3 for better accuracy with auto language detection
-            useEnhanced=False,
+            model='latest_long',   # Chirp 3 for better accuracy with auto language detection
             enable_automatic_punctuation=True,
             audio_channel_count=1,
             # This helps with mixed language
@@ -1519,6 +1539,14 @@ def home():
         return redirect(url_for('conversation_select'))
     return render_template('index.html')
 
+@app.route('/profile')
+@login_required
+def profile():
+    """Profile page for viewing/editing child info"""
+    if not current_user.child_name:
+        return redirect(url_for('profile_setup'))
+    return render_template('profile.html')
+
 @app.route('/profile-setup')
 @login_required
 def profile_setup():
@@ -1578,6 +1606,77 @@ def conversation():
 def dashboard():
     """User dashboard with analytics"""
     return render_template('dashboard.html')
+
+@app.route('/sticker-album')
+@login_required
+def sticker_album():
+    """Sticker album collection page"""
+    return render_template('sticker_album.html')
+
+
+@app.route('/api/sticker-album')
+@login_required
+def get_sticker_album():
+    """Return all stickers with ownership status and user star balance"""
+    owned_ids = {s.sticker_id for s in UserSticker.query.filter_by(user_id=current_user.id).all()}
+
+    stickers = []
+    for sticker_id, data in STICKER_CATALOG.items():
+        stickers.append({
+            **data,
+            'id': sticker_id,
+            'owned': sticker_id in owned_ids
+        })
+
+    return jsonify({
+        'success': True,
+        'stickers': stickers,
+        'available_stars': current_user.available_stars,
+        'total_stars_earned': current_user.reward_points,
+        'stars_spent': current_user.stars_spent or 0,
+        'owned_count': len(owned_ids),
+        'total_count': len(STICKER_CATALOG),
+        'pack_tiers': PACK_TIERS
+    })
+
+
+@app.route('/api/open-pack', methods=['POST'])
+@login_required
+def open_pack():
+    """Gacha logic — randomly awards an unowned sticker from the chosen tier"""
+    data = request.get_json()
+    tier = data.get('tier')
+
+    if tier not in PACK_TIERS:
+        return jsonify({'success': False, 'error': 'Invalid tier'}), 400
+
+    cost = PACK_TIERS[tier]['cost']
+
+    if current_user.available_stars < cost:
+        return jsonify({'success': False, 'error': 'Not enough stars!'}), 400
+
+    owned_ids = {s.sticker_id for s in UserSticker.query.filter_by(user_id=current_user.id).all()}
+    available = [(sid, s) for sid, s in STICKER_CATALOG.items()
+                 if s['tier'] == tier and sid not in owned_ids]
+
+    if not available:
+        return jsonify({'success': False, 'error': 'You already have all stickers in this tier!'}), 400
+
+    sticker_id, sticker_data = random.choice(available)
+
+    current_user.stars_spent = (current_user.stars_spent or 0) + cost
+    new_sticker = UserSticker(user_id=current_user.id, sticker_id=sticker_id, tier=tier)
+    db.session.add(new_sticker)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'sticker': {**sticker_data, 'id': sticker_id},
+        'available_stars': current_user.available_stars,
+        'stars_spent': current_user.stars_spent,
+        'remaining_in_tier': len(available) - 1
+    })
+
 
 @app.route('/completion_celebration')
 @login_required
@@ -1923,23 +2022,29 @@ def process_audio_stream():
                 last_talker_response = message.get('content')
                 break
 
-        # Run evaluation in parallel
+        # Launch evaluation in background — don't block streaming
         controller = ConversationController()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            eval_future = executor.submit(
-                controller.evaluator.evaluate_response,
-                transcript,
-                last_talker_response
-            )
-            evaluation = eval_future.result()
+        eval_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        eval_future = eval_executor.submit(
+            controller.evaluator.evaluate_response,
+            transcript,
+            last_talker_response
+        )
 
         # Streaming response generator
         def generate_streaming_response():
             nonlocal should_end
-            
+
             try:
-                # Send initial metadata
-                yield f"data: {json.dumps({'type': 'metadata', 'transcript': transcript, 'evaluation': evaluation})}\n\n"
+                # Send transcript immediately so client can show user message right away
+                yield f"data: {json.dumps({'type': 'transcript', 'transcript': transcript})}\n\n"
+
+                # Wait for evaluation result (may already be done by now)
+                evaluation = eval_future.result()
+                eval_executor.shutdown(wait=False)
+
+                # Send evaluation as separate event
+                yield f"data: {json.dumps({'type': 'evaluation', 'evaluation': evaluation})}\n\n"
 
                 # Get base system prompt for conversation type
                 if conversation_type in CONVERSATION_TYPES:
@@ -2037,22 +2142,12 @@ def process_audio_stream():
                     logger.error(f"Empty response from Groq for conversation_type={conversation_type}")
                     accumulated_text = "क्षमा करें, मुझे समझ नहीं आया। कृपया फिर से बोलें।"
 
-                # Generate hints asynchronously (only if conversation is NOT ending)
-                hints = []
-                if not should_end:
-                    # Update conversation history first for better hint context
-                    temp_history = conversation_history + [
-                        {"role": "user", "content": transcript},
-                        {"role": "assistant", "content": accumulated_text}
-                    ]
-                    hints = generate_hints(temp_history, conversation_type, child_name, child_age)
-
-                # Send completion with all data
+                # Send completion immediately — don't wait for hints
                 completion_data = {
                     'type': 'complete',
                     'final_text': accumulated_text,
                     'should_end': should_end,
-                    'hints': hints,
+                    'hints': [],
                     'should_show_popup': should_show_popup,
                     'amber_responses': session_data.get('amber_responses', []) if should_show_popup else [],
                     'is_milestone': is_milestone,
@@ -2070,6 +2165,16 @@ def process_audio_stream():
 
                 logger.info(f"📤 Sending completion data: should_end={should_end}, sentence_count={current_count}, is_milestone={is_milestone}")
                 yield f"data: {json.dumps(completion_data)}\n\n"
+
+                # Generate hints AFTER completion (non-blocking for TTS)
+                if not should_end:
+                    temp_history = conversation_history + [
+                        {"role": "user", "content": transcript},
+                        {"role": "assistant", "content": accumulated_text}
+                    ]
+                    hints = generate_hints(temp_history, conversation_type, child_name, child_age)
+                    if hints:
+                        yield f"data: {json.dumps({'type': 'hints', 'hints': hints})}\n\n"
 
                 # Update conversation history
                 session_data['conversation_history'].extend([
@@ -2688,6 +2793,14 @@ def init_database():
     with app.app_context():
         try:
             db.create_all()
+            # Migrate: add stars_spent column to user table if missing
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            user_cols = [c['name'] for c in inspector.get_columns('user')]
+            if 'stars_spent' not in user_cols:
+                db.session.execute(text('ALTER TABLE user ADD COLUMN stars_spent INTEGER DEFAULT 0'))
+                db.session.commit()
+                logger.info("Migration: added stars_spent column to user table")
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
