@@ -15,6 +15,7 @@ class User(UserMixin, db.Model):
     child_gender = db.Column(db.String(10), nullable=True)
     profile_picture = db.Column(db.String(200), nullable=True)
     stars_spent = db.Column(db.Integer, default=0)
+    transliteration_enabled = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -44,6 +45,7 @@ class User(UserMixin, db.Model):
             'reward_points': self.reward_points,
             'available_stars': self.available_stars,
             'stars_spent': self.stars_spent or 0,
+            'transliteration_enabled': self.transliteration_enabled or False,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -130,6 +132,34 @@ class Conversation(db.Model):
             'updated_at': self.updated_at.isoformat(),
             'ended_at': self.ended_at.isoformat() if self.ended_at else None
         }
+
+class ConversationAudio(db.Model):
+    """Audio recordings linked to conversations (kid audio now, bot TTS in Phase 2)"""
+    id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+    turn_index = db.Column(db.Integer, nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # 'user' or 'assistant'
+    s3_key = db.Column(db.String(500), nullable=False)
+    audio_format = db.Column(db.String(20), default='webm')
+    file_size_bytes = db.Column(db.Integer, nullable=True)
+    upload_status = db.Column(db.String(20), default='pending')  # pending / uploaded / failed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    conversation = db.relationship('Conversation', backref='audio_files')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'conversation_id': self.conversation_id,
+            'turn_index': self.turn_index,
+            'role': self.role,
+            's3_key': self.s3_key,
+            'audio_format': self.audio_format,
+            'file_size_bytes': self.file_size_bytes,
+            'upload_status': self.upload_status,
+            'created_at': self.created_at.isoformat(),
+        }
+
 
 class AnalyticsHelper:
     """Helper class for generating user analytics"""

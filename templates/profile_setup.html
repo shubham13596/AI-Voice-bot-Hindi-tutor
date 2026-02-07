@@ -758,7 +758,12 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Success! Redirect to conversation selection
+                    // For young children (3-5), ask about transliteration preference
+                    if (age <= 5) {
+                        showTransliterationPrompt();
+                        return;
+                    }
+                    // Otherwise redirect to conversation selection
                     window.location.href = '/conversation-select';
                 } else {
                     // Show error
@@ -793,6 +798,58 @@
 
         // Auto-focus on name input
         childNameInput.focus();
+
+        // Transliteration preference modal for young children
+        function showTransliterationPrompt() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:1rem;';
+
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:1.5rem;max-width:380px;width:100%;text-align:center;">
+                    <h3 style="font-size:1.15rem;font-weight:700;color:#1f2937;margin-bottom:0.25rem;">How should Hindi text look?</h3>
+                    <p style="font-size:0.85rem;color:#6b7280;margin-bottom:1.25rem;">You can always change this later</p>
+
+                    <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
+                        <button id="btnDevanagari" style="flex:1;padding:1rem 0.75rem;border:2px solid #d1d5db;border-radius:12px;background:white;cursor:pointer;transition:all 0.2s;">
+                            <div style="font-size:1.5rem;margin-bottom:0.5rem;">नमस्ते!</div>
+                            <div style="font-size:1.1rem;color:#6b7280;">कैसे हो?</div>
+                            <div style="font-size:0.75rem;color:#9ca3af;margin-top:0.5rem;font-weight:600;">Hindi Script</div>
+                        </button>
+                        <button id="btnRoman" style="flex:1;padding:1rem 0.75rem;border:2px solid #d1d5db;border-radius:12px;background:white;cursor:pointer;transition:all 0.2s;">
+                            <div style="font-size:1.5rem;margin-bottom:0.5rem;">namaste!</div>
+                            <div style="font-size:1.1rem;color:#6b7280;">kaise ho?</div>
+                            <div style="font-size:0.75rem;color:#9ca3af;margin-top:0.5rem;font-weight:600;">Roman Letters</div>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+
+            // Highlight on hover
+            const btnDev = overlay.querySelector('#btnDevanagari');
+            const btnRom = overlay.querySelector('#btnRoman');
+            [btnDev, btnRom].forEach(btn => {
+                btn.addEventListener('mouseenter', () => btn.style.borderColor = '#10b981');
+                btn.addEventListener('mouseleave', () => btn.style.borderColor = '#d1d5db');
+            });
+
+            btnDev.addEventListener('click', () => saveTransliterationAndRedirect(false));
+            btnRom.addEventListener('click', () => saveTransliterationAndRedirect(true));
+
+            async function saveTransliterationAndRedirect(enabled) {
+                try {
+                    await fetch('/api/user/transliteration', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled })
+                    });
+                } catch (e) {
+                    console.error('Failed to save transliteration pref:', e);
+                }
+                window.location.href = '/conversation-select';
+            }
+        }
     </script>
 </body>
 </html>

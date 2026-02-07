@@ -169,15 +169,46 @@ def update_child_name():
         current_user.child_name = formatted_name
         current_user.child_age = child_age
         current_user.child_gender = formatted_gender
+
+        # Optionally set transliteration preference (from profile setup modal)
+        transliteration = data.get('transliteration_enabled')
+        if transliteration is not None:
+            current_user.transliteration_enabled = bool(transliteration)
+
         db.session.commit()
 
         return jsonify({
             'success': True,
             'child_name': formatted_name,
             'child_age': child_age,
-            'child_gender': formatted_gender
+            'child_gender': formatted_gender,
+            'transliteration_enabled': current_user.transliteration_enabled
         })
 
     except Exception as e:
         print(f"Error updating child profile: {e}")
         return jsonify({'error': 'Failed to update child profile'}), 500
+
+
+@auth_bp.route('/api/user/transliteration', methods=['POST'])
+@login_required
+def toggle_transliteration():
+    """Toggle transliteration preference for the user"""
+    try:
+        data = request.get_json()
+        enabled = data.get('enabled')
+
+        if enabled is None:
+            return jsonify({'error': 'enabled field is required'}), 400
+
+        current_user.transliteration_enabled = bool(enabled)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'transliteration_enabled': current_user.transliteration_enabled
+        })
+
+    except Exception as e:
+        print(f"Error toggling transliteration: {e}")
+        return jsonify({'error': 'Failed to update transliteration preference'}), 500

@@ -49,6 +49,13 @@
                 // Store child name in sessionStorage for process_audio.js
                 sessionStorage.setItem('childName', userData.child_name);
 
+                // Initialize transliteration preference from user profile
+                if (userData.transliteration_enabled) {
+                    sessionStorage.setItem('transliterationEnabled', 'true');
+                } else {
+                    sessionStorage.removeItem('transliterationEnabled');
+                }
+
                 // Update page title with child's name and conversation type
                 const typeNames = {
                     'things_i_love': 'Things I Love',
@@ -486,6 +493,33 @@
         #conversation .ml-auto {
             transition: background-color 0.4s ease, border-color 0.4s ease;
         }
+
+        /* Transliteration toggle button */
+        .transliteration-toggle {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1.5px solid #d1d5db;
+            background: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #374151;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .transliteration-toggle:hover {
+            border-color: #9ca3af;
+            background: #f9fafb;
+        }
+        .transliteration-toggle.transliteration-active {
+            background: #ecfdf5;
+            border-color: #10b981;
+            color: #059669;
+        }
     </style>
 </head>
 <body>
@@ -503,6 +537,9 @@
         </div>
 
         <div class="header-right">
+            <button id="transliterationToggle" class="transliteration-toggle" title="Switch to Roman">
+                <span id="toggleLabel">अ</span>
+            </button>
             <div class="stars-display">
                 <span class="star-icon">⭐</span>
                 <span class="stars-count" id="starsCount">0</span>

@@ -1,6 +1,187 @@
 let audioEffects = null;
 let currentHints = [];
 
+// ─── Transliteration Engine ───────────────────────────────────────────
+let transliterationEnabled = false;
+
+const DEVANAGARI_VOWELS = {
+    'अ': 'a', 'आ': 'aa', 'इ': 'i', 'ई': 'ee', 'उ': 'u', 'ऊ': 'oo',
+    'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au', 'ऋ': 'ri', 'ॠ': 'ri',
+    'ऑ': 'o'
+};
+
+const DEVANAGARI_MATRAS = {
+    'ा': 'aa', 'ि': 'i', 'ी': 'ee', 'ु': 'u', 'ू': 'oo',
+    'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ृ': 'ri',
+    'ॉ': 'o', 'ॅ': 'e'
+};
+
+const DEVANAGARI_CONSONANTS = {
+    'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'ng',
+    'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'ny',
+    'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+    'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
+    'प': 'p', 'फ': 'ph', 'ब': 'b', 'भ': 'bh', 'म': 'm',
+    'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh',
+    'ष': 'sh', 'स': 's', 'ह': 'h'
+};
+
+// Nuqta consonants (borrowed sounds)
+const DEVANAGARI_NUQTA = {
+    'क़': 'q', 'ख़': 'kh', 'ग़': 'gh', 'ज़': 'z', 'फ़': 'f',
+    'ड़': 'r', 'ढ़': 'rh', 'श़': 'zh'
+};
+
+const DEVANAGARI_NUMBERS = {
+    '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+    '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+};
+
+const HALANT = '्';
+const ANUSVARA = 'ं';
+const VISARGA = 'ः';
+const CHANDRABINDU = 'ँ';
+const NUQTA = '़';
+
+/**
+ * Convert Devanagari text to casual Roman Hindi.
+ * Non-Devanagari characters (English, emoji, punctuation) pass through unchanged.
+ */
+function transliterateToRoman(text) {
+    if (!text) return text;
+
+    let result = '';
+    let i = 0;
+
+    while (i < text.length) {
+        const char = text[i];
+        const nextChar = text[i + 1] || '';
+        const twoChar = char + nextChar;
+
+        // 1. Check nuqta consonants (consonant + ़) first
+        if (DEVANAGARI_NUQTA[twoChar]) {
+            result += processConsonant(DEVANAGARI_NUQTA[twoChar], text, i + 2);
+            i = skipToNextUnit(text, i + 2);
+            continue;
+        }
+
+        // 2. Check if current char is a consonant with nuqta following
+        if (DEVANAGARI_CONSONANTS[char] && nextChar === NUQTA) {
+            const nuqtaCombo = char + nextChar;
+            const roman = DEVANAGARI_NUQTA[nuqtaCombo] || DEVANAGARI_CONSONANTS[char];
+            result += processConsonant(roman, text, i + 2);
+            i = skipToNextUnit(text, i + 2);
+            continue;
+        }
+
+        // 3. Standalone vowels
+        if (DEVANAGARI_VOWELS[char]) {
+            result += DEVANAGARI_VOWELS[char];
+            i++;
+            continue;
+        }
+
+        // 4. Consonants
+        if (DEVANAGARI_CONSONANTS[char]) {
+            result += processConsonant(DEVANAGARI_CONSONANTS[char], text, i + 1);
+            i = skipToNextUnit(text, i + 1);
+            continue;
+        }
+
+        // 5. Anusvara, Visarga, Chandrabindu (when appearing standalone/after vowels)
+        if (char === ANUSVARA) { result += 'n'; i++; continue; }
+        if (char === VISARGA) { result += 'h'; i++; continue; }
+        if (char === CHANDRABINDU) { result += 'n'; i++; continue; }
+
+        // 6. Devanagari numbers
+        if (DEVANAGARI_NUMBERS[char]) { result += DEVANAGARI_NUMBERS[char]; i++; continue; }
+
+        // 7. Devanagari danda (।) → period
+        if (char === '।') { result += '.'; i++; continue; }
+        if (char === '॥') { result += '.'; i++; continue; }
+
+        // 8. Pass through everything else (English, emoji, punctuation, spaces)
+        result += char;
+        i++;
+    }
+
+    return result;
+}
+
+/**
+ * Process a consonant: check if followed by matra, halant, or gets inherent 'a'.
+ */
+function processConsonant(romanBase, text, nextIndex) {
+    const nextChar = text[nextIndex] || '';
+
+    // Halant (्) — suppress inherent vowel, consonant cluster continues
+    if (nextChar === HALANT) {
+        return romanBase; // No inherent 'a'
+    }
+
+    // Matra — use the vowel sign instead of inherent 'a'
+    if (DEVANAGARI_MATRAS[nextChar]) {
+        return romanBase + DEVANAGARI_MATRAS[nextChar];
+    }
+
+    // Anusvara after consonant
+    if (nextChar === ANUSVARA) {
+        return romanBase + 'an';
+    }
+
+    // Chandrabindu after consonant
+    if (nextChar === CHANDRABINDU) {
+        return romanBase + 'an';
+    }
+
+    // Default: inherent 'a'
+    return romanBase + 'a';
+}
+
+/**
+ * Advance index past any matra/modifier that was consumed by processConsonant.
+ */
+function skipToNextUnit(text, idx) {
+    const ch = text[idx] || '';
+    if (ch === HALANT) {
+        return idx + 1; // Skip halant
+    }
+    if (DEVANAGARI_MATRAS[ch]) {
+        // Check for anusvara/chandrabindu after matra
+        const after = text[idx + 1] || '';
+        if (after === ANUSVARA || after === CHANDRABINDU) return idx + 2;
+        return idx + 1;
+    }
+    if (ch === ANUSVARA || ch === CHANDRABINDU) {
+        return idx + 1;
+    }
+    return idx;
+}
+
+/** Return text in the active script mode. */
+function displayText(text) {
+    return transliterationEnabled ? transliterateToRoman(text) : text;
+}
+
+/** Re-render all text elements that have a stored Devanagari original. */
+function reRenderAllText() {
+    document.querySelectorAll('[data-original-text]').forEach(el => {
+        el.textContent = displayText(el.getAttribute('data-original-text'));
+    });
+}
+
+/** Update the toggle button label to reflect current mode. */
+function updateTransliterationToggle() {
+    const label = document.getElementById('toggleLabel');
+    const btn = document.getElementById('transliterationToggle');
+    if (label && btn) {
+        label.textContent = transliterationEnabled ? 'A' : 'अ';
+        btn.title = transliterationEnabled ? 'Switch to Devanagari' : 'Switch to Roman';
+        btn.classList.toggle('transliteration-active', transliterationEnabled);
+    }
+}
+// ─── End Transliteration Engine ───────────────────────────────────────
+
 // First, let's add the necessary styles to the document
 const recordingStyles = document.createElement('style');
 recordingStyles.textContent = `
@@ -1237,7 +1418,8 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
     // Create text content with larger font and appropriate alignment
     const textContent = document.createElement('div');
     textContent.className = `text-lg mb-2 ${role === 'user' ? 'text-right' : ''}`; // Right-aligned text for user messages
-    textContent.textContent = text;
+    textContent.setAttribute('data-original-text', text);
+    textContent.textContent = displayText(text);
     messageDiv.appendChild(textContent);
 
     // Add correction suggestion if available and corrections exist
@@ -1931,8 +2113,8 @@ function showCorrectionDialog(correctedText) {
     const dialogHTML = `
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 class="text-lg font-medium text-center mb-4">सही वाक्य बोलें | Say the correct sentence</h3>
-                <p class="text-center text-gray-700 mb-6">${correctedText}</p>
+                <h3 class="text-lg font-medium text-center mb-4" data-original-text="सही वाक्य बोलें | Say the correct sentence">${displayText('सही वाक्य बोलें')} | Say the correct sentence</h3>
+                <p class="text-center text-gray-700 mb-6" data-original-text="${correctedText}">${displayText(correctedText)}</p>
                 <div class="flex justify-center gap-4">
                     <button class="start-recording px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600">
                         🎤 Record
@@ -1980,9 +2162,9 @@ function createCorrectionSuggestion(message, corrections, onCorrect, onDismiss) 
         const correctionItem = document.createElement('div');
         correctionItem.className = 'text-gray-600';
         correctionItem.innerHTML = `
-            <span class="text-red-500">${correction.original}</span>
+            <span class="text-red-500" data-original-text="${correction.original}">${displayText(correction.original)}</span>
             <span class="mx-2">→</span>
-            <span class="text-green-600 font-medium">${correction.corrected}</span>
+            <span class="text-green-600 font-medium" data-original-text="${correction.corrected}">${displayText(correction.corrected)}</span>
         `;
         correctionsList.appendChild(correctionItem);
     });
@@ -2099,7 +2281,8 @@ async function sendAudioToServerStream(audioBlob) {
                             }
 
                             // Update text progressively with smooth flow animation
-                            textContentDiv.textContent = data.accumulated;
+                            textContentDiv.setAttribute('data-original-text', data.accumulated);
+                            textContentDiv.textContent = displayText(data.accumulated);
                             textContentDiv.classList.add('typing');
 
                             // Add smooth flow animation for new text
@@ -2113,7 +2296,8 @@ async function sendAudioToServerStream(audioBlob) {
                             // Remove typing effect and add final smooth animation
                             if (textContentDiv) {
                                 textContentDiv.classList.remove('typing');
-                                textContentDiv.textContent = data.final_text;
+                                textContentDiv.setAttribute('data-original-text', data.final_text);
+                                textContentDiv.textContent = displayText(data.final_text);
 
                                 // Add smooth flow animation for final text
                                 textContentDiv.classList.remove('text-flow-in');
@@ -2431,6 +2615,28 @@ async function sendAudioToServer(audioBlob) {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize transliteration from stored preference
+    transliterationEnabled = sessionStorage.getItem('transliterationEnabled') === 'true';
+    updateTransliterationToggle();
+
+    // Wire up transliteration toggle button
+    const translitToggle = document.getElementById('transliterationToggle');
+    if (translitToggle) {
+        translitToggle.addEventListener('click', () => {
+            transliterationEnabled = !transliterationEnabled;
+            sessionStorage.setItem('transliterationEnabled', String(transliterationEnabled));
+            updateTransliterationToggle();
+            reRenderAllText();
+
+            // Persist to backend (fire and forget)
+            fetch('/api/user/transliteration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: transliterationEnabled })
+            }).catch(err => console.error('Failed to save transliteration pref:', err));
+        });
+    }
+
     // ★ iOS FIX: Setup early audio unlock to catch first user interaction
     if (isIOS || isSafari) {
         setupEarlyAudioUnlock();
@@ -2515,13 +2721,13 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
             
             <div class="mb-6">
                 <div class="text-sm text-gray-500 mb-2">Your original response:</div>
-                <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4">
-                    ${item.user_response}
+                <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4" data-original-text="${item.user_response}">
+                    ${displayText(item.user_response)}
                 </div>
-                
+
                 <div class="text-sm text-gray-500 mb-2">Correct response should be:</div>
-                <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium">
-                    ${item.corrected_response}
+                <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium" data-original-text="${item.corrected_response}">
+                    ${displayText(item.corrected_response)}
                 </div>
                 
                 <!-- User's current spoken words display area -->
@@ -2735,7 +2941,8 @@ async function recordCorrection(targetText, onSuccess) {
 
                     // Show what user said
                     if (userText) {
-                        spokenWords.textContent = userText;
+                        spokenWords.setAttribute('data-original-text', userText);
+                        spokenWords.textContent = displayText(userText);
                         spokenWordsArea.classList.remove('hidden');
                     }
 
@@ -2978,7 +3185,9 @@ function updateHintsDisplay(hints) {
 
     if (hints && hints.length > 0) {
         // Join hints with "या" (or) if multiple hints
-        hintsText.textContent = hints.join(' या ');
+        const originalHints = hints.join(' या ');
+        hintsText.setAttribute('data-original-text', originalHints);
+        hintsText.textContent = displayText(originalHints);
         hintsContainer.style.display = 'block';
         console.log('💡 Hints updated:', hints);
     } else {
