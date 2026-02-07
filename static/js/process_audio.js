@@ -168,7 +168,7 @@ let safetyTimeoutId = null;
 let autoStartDelayId = null;
 
 // Constants
-const NOISE_FLOOR = 15;          // visual threshold (0-255) for ignoring background noise
+const NOISE_FLOOR = 150;           // visual threshold (0-255) for ignoring background noise
 const SAFETY_TIMEOUT_MS = 60000; // 60s auto-stop timer
 const AUTO_START_DELAY_MS = 500; // delay after audio ends before mic opens
 
@@ -200,12 +200,12 @@ function transitionTo(newState) {
                 recordButton.style.display = 'flex';
                 recordButton.disabled = false;
                 recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
-                recordButton.classList.add('im-done-btn');
+                recordButton.classList.add('im-done-btn', 'w-full');
             }
-            if (recordIcon) recordIcon.textContent = '✅';
-            if (recordText) recordText.textContent = "I'm Done";
+            if (recordIcon) recordIcon.textContent = '➤';
+            if (recordText) recordText.textContent = 'Send Reply';
             if (waveformContainer) waveformContainer.style.display = 'flex';
-            if (status) status.textContent = 'Listening... tap "I\'m Done" when finished';
+            if (status) status.textContent = 'Listening... tap Send Reply';
             startWaveform();
             // Safety timeout: auto-stop after 60s
             clearTimeout(safetyTimeoutId);
@@ -230,7 +230,7 @@ function transitionTo(newState) {
             if (recordButton) {
                 recordButton.style.display = 'flex';
                 recordButton.disabled = false;
-                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse', 'im-done-btn');
+                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse', 'im-done-btn', 'w-full');
                 recordButton.classList.add('bg-green-500');
             }
             if (recordIcon) recordIcon.textContent = '🎤';
@@ -344,35 +344,6 @@ function getSupportedMimeType() {
     console.warn('⚠️ No preferred MIME type supported, using default');
     return null;
 }
-
-// Initialize recording visualization
-/*
-function initializeWaveform() {
-    // Create wave bars
-    for (let i = 0; i < 20; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'wave-bar';
-        waveform.appendChild(bar);
-    }
-}
-*/
-
-// Animate waveform during recording
-/*
-function animateWaveform() {
-    const bars = waveform.querySelectorAll('.wave-bar');
-    bars.forEach((bar, index) => {
-        const height = 10 + Math.random() * 30;
-        bar.style.height = `${height}px`;
-        bar.style.animation = 'waveAnimation 0.5s ease-in-out infinite';
-        bar.style.animationDelay = `${index * 0.05}s`;
-    });
-
-    if (isRecording) {
-        waveformAnimationFrame = requestAnimationFrame(animateWaveform);
-    }
-}
-    */
 
 
 // Show celebration overlay with improved styling
@@ -786,7 +757,7 @@ function showThinkingLoader() {
     }, 800);
 
     conversation.appendChild(loaderDiv);
-    conversation.scrollTop = conversation.scrollHeight;
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 
     console.log('✅ Thinking loader added to conversation');
 }
@@ -804,38 +775,12 @@ function hideThinkingLoader() {
     // Note: record button visibility is managed by the state machine (transitionTo)
 }
 
-// Smart conversation scrolling functionality
+// Smart conversation scrolling — scroll to bottom so "Send Reply" CTA is visible
 function scrollToLatestUserMessage() {
-    const conversation = document.getElementById('conversation');
-    const allMessages = conversation.querySelectorAll('.p-4'); // All message divs
-
-    if (allMessages.length === 0) return;
-
-    // Find the latest user message (they have 'bg-green-100' class)
-    let latestUserMessage = null;
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-        if (allMessages[i].classList.contains('bg-green-100')) {
-            latestUserMessage = allMessages[i];
-            break;
-        }
-    }
-
-    if (!latestUserMessage) return;
-
-    // Calculate the scroll position to put user message at very top of viewport
-    const messageRect = latestUserMessage.getBoundingClientRect();
-    const currentScrollY = window.scrollY;
-
-    // Target scroll position: scroll so user message appears just below header (70px from top)
-    const targetScrollY = currentScrollY + messageRect.top - 70;
-
-    // Scroll to position user message at top
     window.scrollTo({
-        top: Math.max(0, targetScrollY), // Ensure we don't scroll to negative values
+        top: document.body.scrollHeight,
         behavior: 'smooth'
     });
-
-    console.log(`📍 SCROLL: Positioned latest user message at top of viewport`);
 }
 
 function initializeMessageForSliding(messageDiv) {
@@ -1428,7 +1373,7 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
         conversation.appendChild(messageDiv);
     }
 
-    conversation.scrollTop = conversation.scrollHeight;
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
 // Function to show translation
@@ -1780,7 +1725,7 @@ async function startRecordingAuto() {
 }
 
 /**
- * Stop recording and send audio (called by "I'm Done" or safety timeout)
+ * Stop recording and send audio (called by "Send Reply" or safety timeout)
  */
 function stopRecordingAndSend() {
     if (!isRecording) {
@@ -1862,40 +1807,82 @@ function startWaveform() {
     if (!waveformCanvas) return;
     waveformCtx = waveformCanvas.getContext('2d');
 
+    // Dynamic canvas sizing — sync drawing buffer to CSS layout size with devicePixelRatio for retina
+    function syncCanvasSize() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = waveformCanvas.getBoundingClientRect();
+        waveformCanvas.width = rect.width * dpr;
+        waveformCanvas.height = rect.height * dpr;
+        waveformCtx.scale(dpr, dpr);
+    }
+    syncCanvasSize();
+
+    const barCount = 45;
+    const excitement = new Float32Array(barCount); // per-bar excitement level
+    const startTime = performance.now();
+
     function draw() {
         waveformRAF = requestAnimationFrame(draw);
 
-        const width = waveformCanvas.width;
-        const height = waveformCanvas.height;
-        waveformCtx.clearRect(0, 0, width, height);
+        const dpr = window.devicePixelRatio || 1;
+        const cssWidth = waveformCanvas.getBoundingClientRect().width;
+        const cssHeight = waveformCanvas.getBoundingClientRect().height;
 
-        if (!analyserNode) return;
+        // Re-sync if layout changed
+        if (Math.abs(waveformCanvas.width - cssWidth * dpr) > 1) {
+            syncCanvasSize();
+        }
 
-        const bufferLength = analyserNode.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        analyserNode.getByteFrequencyData(dataArray);
+        waveformCtx.clearRect(0, 0, cssWidth, cssHeight);
 
-        const barCount = 32;
-        const barWidth = (width / barCount) - 2;
-        const step = Math.floor(bufferLength / barCount);
+        const elapsed = (performance.now() - startTime) / 1000;
+        const gap = 2;
+        const barWidth = (cssWidth / barCount) - gap;
+
+        // Get average volume from analyser
+        // Note: avgVolume here is the mean of all frequency bins (0–255 each),
+        // so typical speech lands around 10–50, not 150+.
+        const AVG_NOISE_FLOOR = 8; // threshold for averaged volume
+        let avgVolume = 0;
+        if (analyserNode) {
+            const bufferLength = analyserNode.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyserNode.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let j = 0; j < bufferLength; j++) {
+                sum += dataArray[j];
+            }
+            avgVolume = sum / bufferLength;
+        }
+
+        const isSpeaking = avgVolume > AVG_NOISE_FLOOR;
 
         for (let i = 0; i < barCount; i++) {
-            let value = dataArray[i * step];
+            // Idle state: scrolling sinusoidal wave
+            const sineVal = Math.sin((i / barCount) * 1.5 * 2 * Math.PI + elapsed * 2.0);
+            const idleHeight = 0.25 + 0.2 * (sineVal * 0.5 + 0.5); // normalized 0.25–0.45
 
-            // Apply noise floor
-            let barHeight;
-            if (value < NOISE_FLOOR) {
-                barHeight = 3; // flatline when quiet
-            } else {
-                barHeight = ((value - NOISE_FLOOR) / (255 - NOISE_FLOOR)) * (height - 6) + 3;
+            // Speaking excitement: random boost proportional to volume
+            // Scale against ~60 (loud speech avg) instead of 255
+            if (isSpeaking && Math.random() < 0.3) {
+                const normalizedVol = Math.min(1.0, avgVolume / 60);
+                const boost = normalizedVol * (0.5 + Math.random() * 0.5);
+                excitement[i] = Math.min(1.0, excitement[i] + boost);
             }
 
-            const x = i * (barWidth + 2);
-            const y = (height - barHeight) / 2;
+            // Decay excitement
+            excitement[i] *= 0.92;
 
-            // Green gradient: darker when quiet, brighter when loud
-            const brightness = Math.floor(80 + (value / 255) * 100);
-            waveformCtx.fillStyle = `hsl(142, 70%, ${brightness}%)`;
+            // Final bar height: idle wave + excitement
+            const normalizedHeight = Math.min(1.0, idleHeight + excitement[i] * 0.6);
+            const barHeight = Math.max(3, normalizedHeight * (cssHeight - 6));
+
+            const x = i * (barWidth + gap);
+            const y = (cssHeight - barHeight) / 2;
+
+            // Marigold orange: brighter when excited
+            const lightness = Math.floor(35 + excitement[i] * 25);
+            waveformCtx.fillStyle = `hsl(35, 90%, ${lightness}%)`;
 
             // Draw rounded bar
             const radius = Math.min(barWidth / 2, barHeight / 2, 3);
@@ -1904,7 +1891,6 @@ function startWaveform() {
                 waveformCtx.roundRect(x, y, barWidth, barHeight, radius);
                 waveformCtx.fill();
             } else {
-                // Fallback for browsers without roundRect
                 waveformCtx.fillRect(x, y, barWidth, barHeight);
             }
         }
@@ -2109,7 +2095,7 @@ async function sendAudioToServerStream(audioBlob) {
 
                                 // Add wrapper to conversation
                                 conversation.appendChild(messageWithAvatar);
-                                conversation.scrollTop = conversation.scrollHeight;
+                                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                             }
 
                             // Update text progressively with smooth flow animation
@@ -2471,7 +2457,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recordButton) {
         recordButton.addEventListener('click', () => {
             if (appState === 'LISTENING') {
-                // "I'm Done" pressed
+                // "Send Reply" pressed
                 stopRecordingAndSend();
             } else if (appState === 'IDLE') {
                 // Manual fallback
