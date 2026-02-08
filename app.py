@@ -28,7 +28,8 @@ import random
 from conversation_config import CONVERSATION_TYPES, MODULES, TOPICS
 
 # Import our models and auth
-from models import db, User, Conversation, AnalyticsHelper, PageView, UserAction, FunnelAnalytics, UserSticker
+from models import db, User, Conversation, ConversationAudio, AnalyticsHelper, PageView, UserAction, FunnelAnalytics, UserSticker
+from s3_audio import ENABLE_AUDIO_STORAGE, generate_s3_key, upload_audio_async, generate_presigned_url
 from auth import auth_bp, init_oauth
 from sticker_config import STICKER_CATALOG, PACK_TIERS
 
@@ -1837,13 +1838,26 @@ def process_audio():
             audio_file.save(temp_file.name)
 
             with open(temp_file.name, 'rb') as f:
-                raw_transcript = speech_to_text_hindi(f.read(), child_name=child_name)
+                audio_bytes = f.read()
+                raw_transcript = speech_to_text_hindi(audio_bytes, child_name=child_name)
 
         file_end_time = time.time()
         logger.info(f"📁 FILE PROCESSING: {(file_end_time - file_start_time) * 1000:.1f}ms")
 
         if not raw_transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Submit background S3 upload for kid's audio
+        if ENABLE_AUDIO_STORAGE and 'conversation_id' in session_data:
+            turn_index = len(conversation_history)
+            upload_audio_async(
+                app, audio_bytes,
+                user_id=current_user.id,
+                conversation_id=session_data['conversation_id'],
+                turn_index=turn_index,
+                role='user',
+                audio_format='webm',
+            )
 
         # Optional LLM post-processing for ASR correction (Phase 4)
         if ENABLE_ASR_CORRECTION:
@@ -1991,10 +2005,23 @@ def process_audio_stream():
             audio_file = request.files['audio']
             audio_file.save(temp_file.name)
             with open(temp_file.name, 'rb') as f:
-                raw_transcript = speech_to_text_hindi(f.read(), child_name=child_name)
+                audio_bytes = f.read()
+                raw_transcript = speech_to_text_hindi(audio_bytes, child_name=child_name)
 
         if not raw_transcript:
             return jsonify({'error': 'Speech-to-text failed'}), 500
+
+        # Submit background S3 upload for kid's audio
+        if ENABLE_AUDIO_STORAGE and 'conversation_id' in session_data:
+            turn_index = len(conversation_history)
+            upload_audio_async(
+                app, audio_bytes,
+                user_id=current_user.id,
+                conversation_id=session_data['conversation_id'],
+                turn_index=turn_index,
+                role='user',
+                audio_format='webm',
+            )
 
         # Optional LLM post-processing for ASR correction (Phase 4)
         if ENABLE_ASR_CORRECTION:
@@ -2442,6 +2469,37 @@ def get_conversation_history():
     except Exception as e:
         logger.error(f"Conversation history API error: {e}")
         return jsonify({'error': 'Failed to fetch conversation history'}), 500
+
+@app.route('/api/conversation/<int:conversation_id>/audio', methods=['GET'])
+@login_required
+def get_conversation_audio(conversation_id):
+    """Return audio metadata + presigned playback URLs for a conversation."""
+    try:
+        # Verify ownership
+        conversation = Conversation.query.filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id,
+        ).first()
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+
+        audio_records = ConversationAudio.query.filter(
+            ConversationAudio.conversation_id == conversation_id,
+            ConversationAudio.upload_status == 'uploaded',
+        ).order_by(ConversationAudio.turn_index).all()
+
+        results = []
+        for rec in audio_records:
+            entry = rec.to_dict()
+            entry['playback_url'] = generate_presigned_url(rec.s3_key)
+            results.append(entry)
+
+        return jsonify({'success': True, 'audio': results})
+
+    except Exception as e:
+        logger.error(f"Get conversation audio error: {e}")
+        return jsonify({'error': 'Failed to fetch audio files'}), 500
+
 
 @app.route('/api/resume_conversation', methods=['POST'])
 @login_required
