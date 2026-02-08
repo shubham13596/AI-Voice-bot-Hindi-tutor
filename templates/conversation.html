@@ -12,6 +12,19 @@
     <title>आपका हिंदी मित्र - Your Hindi Tutor</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script
+      src="https://browser.sentry-cdn.com/8.45.0/bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      if (window.Sentry) {
+        Sentry.init({
+          dsn: "{{ sentry_dsn_frontend }}",
+          environment: "{{ sentry_environment }}",
+          tracesSampleRate: 0.1,
+        });
+      }
+    </script>
     <script src="/static/js/process_audio.js" defer></script>
     
     <script>
@@ -40,6 +53,9 @@
                 }
 
                 userData = await response.json();
+                if (window.Sentry) {
+                    Sentry.setUser({ id: String(userData.id), username: userData.child_name });
+                }
                 if (!userData.child_name) {
                     // User authenticated but no child name, redirect to profile setup
                     window.location.href = '/profile-setup';
@@ -354,46 +370,6 @@
             width: 100%;
         }
 
-        .hints-toggle {
-            width: auto;
-            min-width: fit-content;
-            margin: 0 auto;
-            background: linear-gradient(135deg, #FFF4E6 0%, #FFE4D6 100%);
-            border: 1.5px solid rgba(237, 137, 54, 0.2);
-            padding: 0.4rem 1rem;
-            border-radius: 9999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: #3D405B;
-            box-shadow: 0 1px 4px rgba(237, 137, 54, 0.08);
-        }
-
-        .hints-toggle:hover {
-            background: linear-gradient(135deg, #FFE4D6 0%, #FFD4C6 100%);
-            border-color: rgba(237, 137, 54, 0.3);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(237, 137, 54, 0.15);
-        }
-
-        .hints-toggle:active {
-            transform: translateY(0);
-        }
-
-        .bulb-icon {
-            font-size: 1.2rem;
-            transition: transform 0.3s ease;
-        }
-
-        .hints-toggle:hover .bulb-icon {
-            transform: scale(1.1);
-        }
-
         .hints-content {
             max-height: 0;
             overflow: hidden;
@@ -431,23 +407,19 @@
         }
 
         @media (max-width: 640px) {
-            .hints-toggle {
-                font-size: 0.75rem;
-                padding: 0.35rem 0.85rem;
-            }
-
             .hints-text {
                 font-size: 0.9rem;
             }
         }
 
-        /* Waveform container */
+        /* Waveform container — centered within content card via parent flex */
         .waveform-container {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 12px;
-            width: 100%;
+            width: auto;
+            max-width: 280px;
         }
 
         .waveform-kiki-avatar {
@@ -461,37 +433,136 @@
         #waveformCanvas {
             border-radius: 12px;
             background: transparent;
-            flex: 1;
-            min-width: 0;
-            height: 60px;
-        }
-
-        /* "Send Reply" button styling — marigold orange, full-width primary CTA */
-        .im-done-btn {
-            background: linear-gradient(135deg, #F59E0B, #D97706) !important;
-            color: white;
-            animation: gentlePulse 2s ease-in-out infinite;
-            width: 100% !important;
-            max-width: 100%;
-            padding: 0.9rem 1.5rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            justify-content: center;
-            border-radius: 9999px;
-        }
-
-        @keyframes gentlePulse {
-            0%, 100% {
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
-            }
-            50% {
-                box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
-            }
+            width: 200px;
+            height: 48px;
         }
 
         /* Smooth transition for user message bubble color change (pending → green/amber) */
         #conversation .ml-auto {
             transition: background-color 0.4s ease, border-color 0.4s ease;
+        }
+
+        /* Controls container */
+        .controls-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        /* Speak prompt dashed box — right-aligned, spans from ~middle to right edge */
+        .speak-prompt {
+            border: 1.5px dashed #d1d5db;
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            width: 55%;
+            margin-left: auto;
+        }
+
+        .speak-prompt-text {
+            font-size: 0.95rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .hints-bulb-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .hints-bulb-btn:hover {
+            background: rgba(245, 158, 11, 0.1);
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+        }
+
+        /* Action buttons row */
+        .action-buttons {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 1.75rem;
+            min-height: 64px;
+            width: 100%;
+        }
+
+        /* Cancel button */
+        .cancel-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1.5px solid #ef4444;
+            background: transparent;
+            color: #ef4444;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Record button (green mic) */
+        .record-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .record-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+        }
+
+        .record-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Send mode — orange circle with paper plane */
+        .record-btn.send-mode {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+            animation: sendGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes sendGlow {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+            }
         }
 
         /* Transliteration toggle button */
@@ -559,29 +630,34 @@
             <div id="conversation" class="mt-6 mb-6 space-y-4">
             </div>
 
-            <!-- Button Controls Container -->
-            <div class="flex flex-col items-center gap-4">
-                <!-- Waveform visualization (visible in LISTENING state) -->
-                <div id="waveformContainer" class="waveform-container" style="display: none;">
-                    <img src="/static/illustrations/Kiki_listening.png" alt="Kiki" class="waveform-kiki-avatar">
-                    <canvas id="waveformCanvas"></canvas>
+            <!-- Controls Container -->
+            <div class="controls-container">
+                <!-- "Speak now..." / "Press Record" prompt with hint bulb -->
+                <div id="speakPrompt" class="speak-prompt" style="display: none;">
+                    <span id="speakPromptText" class="speak-prompt-text">Press Record</span>
+                    <button id="hintsBulbBtn" class="hints-bulb-btn" type="button" style="display: none;">💡</button>
                 </div>
 
-                <!-- Hints Section -->
+                <!-- Hints accordion (toggled by bulb) -->
                 <div id="hintsContainer" class="hints-section" style="display: none;">
-                    <button id="hintsToggle" class="hints-toggle" type="button">
-                        <span>🔍 See hints</span>
-                    </button>
                     <div id="hintsContent" class="hints-content collapsed">
                         <p class="hints-text">Try saying: <span id="hintsText" class="hints-value"></span></p>
                     </div>
                 </div>
 
-                <button id="recordButton"
-                        class="bg-green-500 text-white px-6 py-3 rounded-full flex items-center gap-2 justify-center hover:bg-green-600 transition-colors disabled:opacity-50">
-                    <span id="recordIcon">🎤</span>
-                    <span id="recordText">Start Speaking</span>
-                </button>
+                <!-- Kiki avatar + compact waveform -->
+                <div id="waveformContainer" class="waveform-container" style="display: none;">
+                    <img src="/static/illustrations/Kiki_listening.png" alt="Kiki" class="waveform-kiki-avatar">
+                    <canvas id="waveformCanvas"></canvas>
+                </div>
+
+                <!-- Circular action buttons: cancel + send/mic -->
+                <div class="action-buttons">
+                    <button id="cancelButton" class="cancel-btn" type="button" style="display: none;">✕</button>
+                    <button id="recordButton" class="record-btn" type="button">
+                        <span id="recordIcon">🎤</span>
+                    </button>
+                </div>
             </div>
         </div>
     </main>

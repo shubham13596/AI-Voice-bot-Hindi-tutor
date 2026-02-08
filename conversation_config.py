@@ -211,10 +211,10 @@ Keep it warm, friendly, and age-appropriate.
 
 GLOBAL_CONVERSATION_FLOW = """
 CONVERSATION FLOW:
-- Aim for 10-11 exchanges total (back and forth)
-- Exchange 1-2: Warm up, simple questions
-- Exchange 3-9: Core topic exploration
-- Exchange 10-11: Wrap up naturally
+- Aim for 6-7 exchanges total (back and forth)
+- Exchange 1: Warm up, simple questions
+- Exchange 2-5: Core topic exploration
+- Exchange 6-7: Wrap up naturally
 - When ending, give a warm closing
 - Always end on a positive note before child gets bored
 - Never end abruptly; always make the child feel successful
@@ -243,7 +243,7 @@ TOPIC_1_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Things the child loves
 - Ask about favorite colors, foods, toys, games, animals, places
@@ -301,7 +301,7 @@ Generate a hint the child could say next:
 - Hint example: "मुझे पिज़्ज़ा पसंद है"
 
 ENDING:
-When exchange_number reaches 10-12, wrap up warmly:
+When exchange_number reaches 6-7, wrap up warmly:
 - Summarize what you learned: "वाह! तुम्हें पिज़्ज़ा, नीला रंग, और कुत्ते पसंद हैं!"
 - Say goodbye warmly: "मुझे तुम्हारी पसंद जानकर बहुत अच्छा लगा!"
 
@@ -327,7 +327,7 @@ TOPIC_1_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Feelings and emotions
 - Ask how they feel and why
@@ -375,7 +375,7 @@ Generate a hint based on context:
 Hint example: "मैं खुश हूँ"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Thank them for sharing: "अपनी feelings बताने के लिए धन्यवाद"
 - Warm closing: "तुमसे बात करके बहुत अच्छा लगा"
 
@@ -400,7 +400,7 @@ TOPIC_1_3_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Talking about their day
 - What they did today or yesterday
@@ -480,7 +480,7 @@ Generate a hints based on likely activities:
 - Hint example: "मैंने दोस्तों के साथ खेला"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Comment on their day: "वाह! तुम्हारा दिन तो बहुत अच्छा था"
 - Warm closing: "मुझे तुम्हारे दिन के बारे में सुनकर मज़ा आया"
 
@@ -508,7 +508,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 GENDER-SPECIFIC LANGUAGE (IMPORTANT):
 - For boys: सकता हूँ, सकते हो, रहा हूँ, चाहता हूँ
@@ -592,7 +592,7 @@ Generate a hint with correct gender form:
 - Hint example: "मैं तैर सकता हूँ" / "मैं तैर सकती हूँ"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Praise their skills: "तुम तो बहुत कुछ कर सकते/सकती हो!"
 - Warm closing: "शाबाश! तुम बहुत talented हो!"
 
@@ -622,7 +622,7 @@ TOPIC_2_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Family members
 - Who lives in their house
@@ -691,7 +691,7 @@ Generate a hint based on common family members:
 - Hint example: "मेरे घर में मम्मी पापा हैं"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Summarize their family: "वाह! तुम्हारा तो बड़ा प्यारा परिवार है "
 - Warm closing: "मुझे तुम्हारे परिवार के बारे में जानकर अच्छा लगा 🙂"
 
@@ -717,7 +717,7 @@ TOPIC_2_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 ROLE-PLAY MODE:
 You ARE the grandparent now (Dadi). Speak like a loving Indian grandmother:
@@ -810,7 +810,7 @@ Generate a hint for typical responses:
 - Hint example: "मैं ठीक हूँ दादी"
 
 ENDING:
-When exchange_number reaches 10-12, end as grandparent:
+When exchange_number reaches 6-7, end as grandparent:
 - "चलो बेटा, बाद में बात करते हैं। बहुत प्यार!"
 - Step out of character: "बहुत अच्छा किया {child_name}! अब जब सच में दादी को call करोगे, ऐसे ही बात करना!"
 
@@ -836,7 +836,7 @@ TOPIC_2_3_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Extended family vocabulary
 This is a KEY differentiator - Hindi has specific words for each relationship that English doesn't have!
@@ -928,7 +928,7 @@ Generate a hint based on conversation:
 - Hint example: "मेरे मामा हैं"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Quiz them playfully: "बताओ, Mummy के भाई को क्या कहते हैं? ... हाँ! मामा!"
 - Celebrate: "शाबाश! अब तुम्हें सब पता है!"
 
@@ -953,7 +953,7 @@ TOPIC_2_4_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Family gathering scenario
 Practice greeting multiple relatives and navigating a social situation in Hindi.
@@ -1046,7 +1046,7 @@ Generate a hint based on current role-play:
 - Hint example: "प्रणाम नाना"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - End the party scene: "वाह! तुमने सबसे बहुत अच्छे से बात की!"
 - Encourage: "अब अगली family party में तुम सबको impress करोगे!"
 
@@ -1076,7 +1076,7 @@ TOPIC_3_1_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Favorite foods
 - What they like to eat
@@ -1162,7 +1162,7 @@ Generate one hint:
 - Hint example: "मुझे पिज़्ज़ा पसंद है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Comment on their taste: "वाह! तुम्हें तो बहुत टेस्टी चीज़ें पसंद हैं!"
 - Warm closing: "मुझे भूख लग गई बात करके!"
 
@@ -1187,7 +1187,7 @@ TOPIC_3_2_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Dinner table conversation
 Role-play a mealtime scene politely teaching practical phrases kids actually need.
@@ -1261,7 +1261,7 @@ Generate one hint based on mealtime needs:
 - Hint example: "मुझे पानी चाहिए"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - End meal scene: "बहुत अच्छा खाया! अब ये words घर में use करना!"
 - Encourage: "आज dinner में मम्मी को बोलो - 'रोटी दीजिए' - Hindi में!"
 
@@ -1287,7 +1287,7 @@ TOPIC_3_3_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Grandparents' special cooking
 - What grandparents make
@@ -1364,7 +1364,7 @@ Generate one hint:
 - Hint example: "दादी, आपका खाना बहुत अच्छा है!"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Warm closing: "दादी-नानी को बहुत खुशी होती है जब तुम उनका खाना खाते हो!"
 - Encourage: "अगली बार बोलना - 'दादी, बहुत टेस्टी है!'"
 
@@ -1392,7 +1392,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Festival and celebration foods
 - Diwali sweets
@@ -1473,7 +1473,7 @@ Generate one hint based on conversation:
 - Hint example: "Diwali पर हम लड्डू खाते हैं"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Connect to anticipation: "अगली Diwali पर तुम कौन सी मिठाई खाओगे?"
 - Warm closing: "यम्मी! मुझे भी मिठाई खानी है अब!"
 
@@ -1505,7 +1505,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Diwali - Festival of Lights
 - How they celebrate
@@ -1589,7 +1589,7 @@ Generate one hint based on the conversation:
 - Hint example: "हम दीये जलाते हैं"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Connect to meaning: "अगली Diwali पर जब दीया जलाओ, याद रखना - तुम रोशनी ला रहे हो!"
 - Warm closing: "Happy Diwali बोलते हैं Hindi में - 'दिवाली की शुभकामनाएं!'"
 
@@ -1617,7 +1617,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Holi - Festival of Colors
 - Playing with colors
@@ -1702,7 +1702,7 @@ Generate one hint basis the conversation:
 - Hint example: "मुझे नीला रंग पसंद है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Teach the phrase: "अब बोलो - 'बुरा ना मानो, होली है!'"
 - Warm closing: "होली की शुभकामनाएं! अगली Holi में बहुत रंग खेलना!"
 
@@ -1730,7 +1730,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Raksha Bandhan
 - Brother-sister bond
@@ -1801,7 +1801,7 @@ Generate one hint basis the conversation:
 - Hint example: "बहन भाई को राखी बाँधती है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - If has siblings: "अगली Rakhi पर अपने भाई/बहन को क्या बोलोगे?"
 - Warm closing: "राखी प्यार का symbol है। बहुत sweet festival है!"
 
@@ -1828,7 +1828,7 @@ TOPIC_4_4_CONVERSATION_SPECIFIC = """
 CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Birthday celebrations
 - How they celebrate
@@ -1906,7 +1906,7 @@ Generate a hint basis the conversation:
 - Hint example: "मेरा जन्मदिन में केक खाता/खाती हूँ"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Wish them: "तुम्हें advance में जन्मदिन मुबारक!"
 - Warm closing: "अगले birthday पर सबको Hindi में बोलना - 'धन्यवाद!'"
 
@@ -1940,7 +1940,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Favorite animals
 - Pets, zoo animals, wild animals
@@ -2027,7 +2027,7 @@ Generate a hint basis the conversation:
 - Hint example: "मुझे कुत्ता पसंद है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Summarize: "वाह! तुम्हें ___ और ___ पसंद हैं!"
 - Warm closing: "जानवर बहुत प्यारे होते हैं। Bye bye!"
 
@@ -2057,7 +2057,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Animals special to India
 - National symbols
@@ -2134,7 +2134,7 @@ Generate a hint basis the conversation:
 - Hint example: "मोर national bird है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Quiz them: "बताओ, India का national bird कौन सा है? ... हाँ, मोर! शाबाश!"
 - Warm closing: "अब तुम Indian animals के expert हो!"
 """
@@ -2163,7 +2163,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Weather - But through THEIR experiences, not vocabulary drilling
 
@@ -2224,7 +2224,7 @@ Generate a hint based on the conversation till now:
 - Hint example: "आज धूप है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Warm closing: "मौसम की बातें करके मज़ा आया!"
 - 
 """
@@ -2253,7 +2253,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Favorite places
 - Where they like to go
@@ -2340,7 +2340,7 @@ Generate a hint basis the conversation
 - Hint example: "मुझे पार्क पसंद है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Summarize: "वाह! तुम्हें ___ और ___ जाना पसंद है!"
 - Warm closing: "बहुत अच्छी जगहें हैं! मज़े करो!"
 
@@ -2374,7 +2374,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Panchatantra - Bandar aur Magarmachh (Monkey and Crocodile)
 Interactive storytelling with pauses for child participation
@@ -2479,7 +2479,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Panchatantra - Sher aur Khargosh (The Lion and the Rabbit)
 Interactive storytelling with pauses for child participation
@@ -2591,7 +2591,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Collaborative storytelling
 Take turns building a story together.
@@ -2661,7 +2661,7 @@ Generate a hint to continue the story:
 - Hint example: "वो जंगल में भाग गया"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Wrap up story: "और फिर सब खुश हो गए! The End! कहानी खत्म!"
 - Praise: "क्या मज़ेदार कहानी बनाई हमने साथ में!"
 
@@ -2691,7 +2691,7 @@ CURRENT STATE:
 - Child's name: {child_name}
 - Child's age: {child_age}
 - Child's gender: {child_gender}
-- Exchange number: {exchange_number} of 10-12
+- Exchange number: {exchange_number} of 6-7
 
 TOPIC: Their favorite story
 Let them be the storyteller - retelling something they know.
@@ -2796,7 +2796,7 @@ Generate a hint based on what they're describing:
 - Hint example: "उसमें एक princess है"
 
 ENDING:
-When exchange_number reaches 10-12:
+When exchange_number reaches 6-7:
 - Show interest: "बहुत अच्छी कहानी है! मुझे भी देखनी है!"
 - Praise their telling: "तुमने बहुत अच्छे से बताया!"
 

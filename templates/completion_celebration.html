@@ -232,6 +232,66 @@
             }
         }
 
+        /* Share section */
+        .share-section {
+            width: 100%;
+            margin-bottom: 2rem;
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 0.8s forwards;
+        }
+
+        .share-section h2 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .share-card {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .share-transcript {
+            font-size: 1.15rem;
+            font-style: italic;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .share-card audio {
+            width: 100%;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .share-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.85rem 2rem;
+            border: 2px solid white;
+            border-radius: 2rem;
+            background: rgba(255,255,255,0.9);
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .share-btn:hover {
+            background: white;
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .share-loading {
+            font-size: 0.95rem;
+            opacity: 0.8;
+        }
+
         /* Responsive design for mobile */
         @media (max-width: 640px) {
             .related-topics-title {
@@ -257,11 +317,6 @@
     </style>
 </head>
 <body>
-    <!-- Audio element for celebration sound -->
-    <audio id="celebrationSound" preload="auto">
-        <source src="/static/audio/videogame_sound_compressed.wav" type="audio/wav">
-    </audio>
-
     <div class="celebration-container">
         <div class="celebration-content">
             <div class="celebration-icon">🎉</div>
@@ -271,6 +326,16 @@
                 Your Hindi conversation was excellent 😃!
             </p>
 
+            <div id="shareSection" class="share-section" style="display:none;">
+                <h2>Share your best moment!</h2>
+                <div class="share-card">
+                    <div class="share-transcript" id="shareTranscript"></div>
+                    <audio id="bestAudio" controls></audio>
+                    <div>
+                        <button id="shareBtn" class="share-btn">Share</button>
+                    </div>
+                </div>
+            </div>
 
             {% if related_topics %}
             <div class="related-topics-section">
@@ -319,21 +384,73 @@
             }
         }
 
+        const CHILD_NAME = {{ child_name | tojson }};
+
+        // Load best audio for sharing
+        async function loadBestAudio() {
+            const params = new URLSearchParams(window.location.search);
+            const conversationId = params.get('conversation_id');
+            if (!conversationId) return;
+
+            try {
+                const res = await fetch(`/api/conversation/${conversationId}/best-audio`);
+                const data = await res.json();
+                if (!data.success) return;
+
+                const section = document.getElementById('shareSection');
+                const transcript = document.getElementById('shareTranscript');
+                const audio = document.getElementById('bestAudio');
+
+                transcript.textContent = `"${data.transcript}"`;
+                audio.src = data.playback_url;
+                section.style.display = '';
+
+                // Set up share button
+                document.getElementById('shareBtn').addEventListener('click', async () => {
+                    const shareText = `${CHILD_NAME} said: "${data.transcript}" \u2014 practicing Hindi with Kiki!`;
+
+                    if (navigator.share) {
+                        try {
+                            // Try sharing with audio file
+                            const audioRes = await fetch(data.playback_url);
+                            const blob = await audioRes.blob();
+                            const ext = data.audio_format || 'webm';
+                            const file = new File([blob], `hindi-moment.${ext}`, { type: blob.type });
+
+                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                await navigator.share({ text: shareText, files: [file] });
+                            } else {
+                                await navigator.share({ text: shareText });
+                            }
+                        } catch (err) {
+                            if (err.name !== 'AbortError') {
+                                // Fallback to text-only share
+                                try { await navigator.share({ text: shareText }); } catch (_) {}
+                            }
+                        }
+                    } else {
+                        // Fallback: download the audio
+                        const a = document.createElement('a');
+                        a.href = data.playback_url;
+                        a.download = `hindi-moment.${data.audio_format || 'webm'}`;
+                        a.click();
+                    }
+                });
+            } catch (err) {
+                console.log('Best audio load failed:', err);
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            // Play celebration sound
-            const celebrationSound = document.getElementById('celebrationSound');
-            if (celebrationSound) {
-                celebrationSound.play().catch(error => {
-                    console.log('Audio autoplay was prevented:', error);
-                });
-            }
-
             // Start confetti animation
             createConfetti();
 
             // Repeat confetti every 3 seconds
             setInterval(createConfetti, 3000);
+
+            // Load best audio for sharing
+            loadBestAudio();
 
             // Initialize mobile navigation if available
             if (typeof MobileNavigation !== 'undefined') {

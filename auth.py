@@ -1,10 +1,14 @@
 import os
 import json
+import logging
 from flask import Blueprint, request, redirect, url_for, session, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from authlib.integrations.flask_client import OAuth
 from models import User, db
 import secrets
+import sentry_sdk
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -100,7 +104,8 @@ def callback():
                 return redirect(url_for('conversation_select'))
     
     except Exception as e:
-        print(f"OAuth callback error: {e}")
+        sentry_sdk.capture_exception(e)
+        logger.error(f"OAuth callback error: {e}")
         flash('Authentication failed. Please try again.', 'error')
         return redirect(url_for('home'))
 

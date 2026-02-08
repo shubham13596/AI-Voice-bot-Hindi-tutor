@@ -424,6 +424,34 @@
                     Please select a gender
                 </div>
             </div>
+
+            <!-- Script Preference -->
+            <div class="form-section">
+                <label class="form-label">Hindi script preference</label>
+                <div class="gender-options">
+                    <div class="gender-option">
+                        <input type="radio"
+                               id="scriptDevanagari"
+                               name="scriptPref"
+                               value="devanagari"
+                               class="gender-radio">
+                        <label for="scriptDevanagari" class="gender-label">
+                            <span style="font-family:'Noto Sans Devanagari',serif">नमस्ते</span>&nbsp;Devanagari
+                        </label>
+                    </div>
+                    <div class="gender-option">
+                        <input type="radio"
+                               id="scriptRoman"
+                               name="scriptPref"
+                               value="roman"
+                               class="gender-radio">
+                        <label for="scriptRoman" class="gender-label">
+                            namaste — Roman
+                        </label>
+                    </div>
+                </div>
+                <p style="font-size:0.85rem;color:#9ca3af;margin-top:0.5rem;text-align:left;">How Hindi text appears in conversations</p>
+            </div>
         </form>
 
         <button id="saveButton" class="save-button">
@@ -444,6 +472,7 @@
         const saveButton = document.getElementById('saveButton');
         const successMessage = document.getElementById('successMessage');
 
+        const scriptRadios = document.querySelectorAll('input[name="scriptPref"]');
         const nameError = document.getElementById('nameError');
         const ageError = document.getElementById('ageError');
         const genderError = document.getElementById('genderError');
