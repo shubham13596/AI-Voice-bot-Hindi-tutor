@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, Response
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, current_user
-import openai
 from groq import Groq
 import google.generativeai as genai
 import logging
@@ -14,7 +13,6 @@ from dotenv import load_dotenv
 from elevenlabs import ElevenLabs, VoiceSettings
 import io
 import redis
-import numpy as np
 from google.cloud import speech
 from google.cloud.speech_v2 import SpeechClient as SpeechClientV2
 from google.cloud.speech_v2.types import cloud_speech as cloud_speech_v2
@@ -127,7 +125,6 @@ def set_sentry_user_context():
         sentry_sdk.set_user(None)
 
 # Configure API keys from environment variables
-openai.api_key = os.getenv('OPENAI_API_KEY')  # Keep as fallback
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 SARVAM_API_KEY = os.getenv('SARVAM_API_KEY')
 DEEPGRAM_API_KEY = os.getenv('DEEPGRAM_API_KEY')
@@ -1171,19 +1168,22 @@ def trim_audio_silence(audio_data):
     Remove silence from beginning and end of audio to reduce processing time
     """
     try:
-        # Convert audio data to numpy array for processing
-        audio_array = np.frombuffer(audio_data, dtype=np.uint8)
-
-        # Find first and last non-zero bytes (rough silence detection)
-        # Use a threshold to identify "silence" (low amplitude)
+        # Find first and last bytes above silence threshold
         silence_threshold = 10
-        non_silence_indices = np.where(audio_array > silence_threshold)[0]
+        audio_bytes = audio_data if isinstance(audio_data, (bytes, bytearray)) else bytes(audio_data)
+        first_idx = -1
+        last_idx = -1
+        for i, b in enumerate(audio_bytes):
+            if b > silence_threshold:
+                if first_idx == -1:
+                    first_idx = i
+                last_idx = i
 
-        if len(non_silence_indices) > 0:
+        if first_idx != -1:
             # Keep small buffer around speech to avoid cutting off words
             buffer_size = 100
-            start_idx = max(0, non_silence_indices[0] - buffer_size)
-            end_idx = min(len(audio_data), non_silence_indices[-1] + buffer_size)
+            start_idx = max(0, first_idx - buffer_size)
+            end_idx = min(len(audio_data), last_idx + buffer_size)
 
             trimmed_audio = audio_data[start_idx:end_idx]
 
