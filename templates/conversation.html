@@ -417,9 +417,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            width: auto;
-            max-width: 280px;
+            position: relative;
+            width: 200px;
         }
 
         .waveform-kiki-avatar {
@@ -428,6 +427,8 @@
             border-radius: 50%;
             object-fit: cover;
             flex-shrink: 0;
+            position: absolute;
+            right: calc(100% + 12px);
         }
 
         #waveformCanvas {
@@ -495,7 +496,7 @@
             flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 1.75rem;
+            position: relative;
             min-height: 64px;
             width: 100%;
         }
@@ -516,6 +517,8 @@
             justify-content: center;
             transition: all 0.2s ease;
             flex-shrink: 0;
+            position: absolute;
+            right: calc(50% + 48px);
         }
 
         .cancel-btn:hover {
