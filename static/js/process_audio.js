@@ -163,11 +163,46 @@ function displayText(text) {
     return transliterationEnabled ? transliterateToRoman(text) : text;
 }
 
-/** Re-render all text elements that have a stored Devanagari original. */
+/** Re-render all text elements that have a stored Devanagari original.
+ *  Prefers API-quality roman text (data-roman-text) over JS transliteration. */
 function reRenderAllText() {
     document.querySelectorAll('[data-original-text]').forEach(el => {
-        el.textContent = displayText(el.getAttribute('data-original-text'));
+        if (transliterationEnabled) {
+            // Prefer Sarvam API roman text if available, fall back to JS
+            const apiRoman = el.getAttribute('data-roman-text');
+            el.textContent = apiRoman || transliterateToRoman(el.getAttribute('data-original-text'));
+        } else {
+            el.textContent = el.getAttribute('data-original-text');
+        }
     });
+}
+
+/**
+ * Upgrade the last message of a given role with API-quality transliterated text.
+ * Keeps data-original-text as Devanagari, replaces visible text with API roman.
+ * If romanText is provided, uses it; otherwise falls back to displayText().
+ */
+function upgradeLastMessageText(romanText, originalDevanagari, role = 'assistant') {
+    if (!romanText) return;
+    const selector = role === 'user'
+        ? '#conversation .ml-auto'
+        : '#conversation .flex.items-start.gap-3:last-of-type .text-content, #conversation .bg-gray-100.mr-auto:last-of-type .text-lg';
+    const candidates = document.querySelectorAll(
+        role === 'user' ? '#conversation .ml-auto' : '#conversation .bg-gray-100'
+    );
+    const lastMsg = candidates[candidates.length - 1];
+    if (!lastMsg) return;
+
+    const textEl = lastMsg.querySelector('[data-original-text]') || lastMsg.querySelector('.text-lg');
+    if (textEl) {
+        if (originalDevanagari) {
+            textEl.setAttribute('data-original-text', originalDevanagari);
+        }
+        textEl.setAttribute('data-roman-text', romanText);
+        if (transliterationEnabled) {
+            textEl.textContent = romanText;
+        }
+    }
 }
 
 /** Update the toggle button label to reflect current mode. */
@@ -311,11 +346,9 @@ function createApplauseSound() {
 function initializeDOMElements() {
     return {
         recordButton: document.getElementById('recordButton'),
-        recordText: document.getElementById('recordText'),
         recordIcon: document.getElementById('recordIcon'),
         status: document.getElementById('status'),
         conversation: document.getElementById('conversation')
-        //waveform: document.getElementById('waveform')
     };
 }
 
@@ -328,6 +361,7 @@ let sessionId = null;
 let waveformAnimationFrame;
 let conversationPairs = []; // Track conversation pairs (keeping for potential future use)
 let mediaStream = null; // Track media stream for iOS cleanup
+let recordingCancelled = false; // Flag for cancel-recording flow
 
 // ============================================
 // AUTO-START / MANUAL-SEND STATE MACHINE
@@ -362,31 +396,43 @@ function transitionTo(newState) {
     console.log(`🔄 State: ${oldState} → ${newState}`);
 
     const recordButton = document.getElementById('recordButton');
-    const recordText = document.getElementById('recordText');
     const recordIcon = document.getElementById('recordIcon');
     const status = document.getElementById('status');
     const waveformContainer = document.getElementById('waveformContainer');
+    const speakPrompt = document.getElementById('speakPrompt');
+    const speakPromptText = document.getElementById('speakPromptText');
+    const hintsBulbBtn = document.getElementById('hintsBulbBtn');
+    const cancelButton = document.getElementById('cancelButton');
+    const hintsContainer = document.getElementById('hintsContainer');
 
     switch (newState) {
         case 'KIKI_SPEAKING':
-            if (recordButton) recordButton.style.display = 'none';
+            if (speakPrompt) speakPrompt.style.display = 'none';
+            if (hintsBulbBtn) hintsBulbBtn.style.display = 'none';
             if (waveformContainer) waveformContainer.style.display = 'none';
+            if (cancelButton) cancelButton.style.display = 'none';
+            if (recordButton) recordButton.style.display = 'none';
+            if (hintsContainer) hintsContainer.style.display = 'none';
             if (status) status.textContent = 'Kiki is speaking...';
             stopWaveform();
             clearTimeout(safetyTimeoutId);
             break;
 
         case 'LISTENING':
+            // Clear stale no-speech messages
+            document.querySelectorAll('.no-speech-msg').forEach(el => el.remove());
+            if (speakPrompt) speakPrompt.style.display = 'flex';
+            if (speakPromptText) speakPromptText.textContent = 'Speak now...';
+            if (hintsBulbBtn) hintsBulbBtn.style.display = currentHints.length > 0 ? 'flex' : 'none';
+            if (waveformContainer) waveformContainer.style.display = 'flex';
+            if (cancelButton) cancelButton.style.display = 'flex';
             if (recordButton) {
                 recordButton.style.display = 'flex';
                 recordButton.disabled = false;
-                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse');
-                recordButton.classList.add('im-done-btn', 'w-full');
+                recordButton.classList.add('send-mode');
             }
             if (recordIcon) recordIcon.textContent = '➤';
-            if (recordText) recordText.textContent = 'Send Reply';
-            if (waveformContainer) waveformContainer.style.display = 'flex';
-            if (status) status.textContent = 'Listening... tap Send Reply';
+            if (status) status.textContent = '';
             startWaveform();
             // Safety timeout: auto-stop after 60s
             clearTimeout(safetyTimeoutId);
@@ -399,25 +445,30 @@ function transitionTo(newState) {
             break;
 
         case 'PROCESSING':
-            if (recordButton) recordButton.style.display = 'none';
+            document.querySelectorAll('.no-speech-msg').forEach(el => el.remove());
+            if (speakPrompt) speakPrompt.style.display = 'none';
             if (waveformContainer) waveformContainer.style.display = 'none';
+            if (cancelButton) cancelButton.style.display = 'none';
+            if (recordButton) recordButton.style.display = 'none';
+            if (hintsContainer) hintsContainer.style.display = 'none';
             stopWaveform();
             clearTimeout(safetyTimeoutId);
             showThinkingLoader();
             break;
 
         case 'IDLE':
-            // Fallback manual state
+            if (speakPrompt) speakPrompt.style.display = 'flex';
+            if (speakPromptText) speakPromptText.textContent = 'Press Record';
+            if (hintsBulbBtn) hintsBulbBtn.style.display = 'none';
+            if (waveformContainer) waveformContainer.style.display = 'none';
+            if (cancelButton) cancelButton.style.display = 'none';
             if (recordButton) {
                 recordButton.style.display = 'flex';
                 recordButton.disabled = false;
-                recordButton.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-red-500', 'recording-pulse', 'im-done-btn', 'w-full');
-                recordButton.classList.add('bg-green-500');
+                recordButton.classList.remove('send-mode');
             }
             if (recordIcon) recordIcon.textContent = '🎤';
-            if (recordText) recordText.textContent = 'Start Speaking';
-            if (waveformContainer) waveformContainer.style.display = 'none';
-            if (status) status.textContent = 'Tap to start speaking';
+            if (status) status.textContent = '';
             stopWaveform();
             clearTimeout(safetyTimeoutId);
             break;
@@ -813,6 +864,12 @@ subtleRewardStyles.textContent = `
         transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    .message-enter {
+        opacity: 0;
+        transform: translateY(14px);
+        transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+    }
+
     .message-visible {
         opacity: 1;
         transform: translateY(0);
@@ -841,7 +898,7 @@ subtleRewardStyles.textContent = `
     }
 
     .thinking-emoji {
-        font-size: 24px;
+        font-size: 16px;
         display: inline-block;
         animation: emojiCyclePop 0.3s ease-out forwards;
     }
@@ -896,17 +953,15 @@ function showThinkingLoader() {
     // Remove any existing loader
     hideThinkingLoader();
 
-    // Hide the record button completely when thinking
+    // Hide controls when thinking
     const recordButton = document.getElementById('recordButton');
-    if (recordButton) {
-        recordButton.style.display = 'none';
-    }
-
-    // Also hide waveform container
+    if (recordButton) recordButton.style.display = 'none';
     const waveformContainer = document.getElementById('waveformContainer');
-    if (waveformContainer) {
-        waveformContainer.style.display = 'none';
-    }
+    if (waveformContainer) waveformContainer.style.display = 'none';
+    const speakPrompt = document.getElementById('speakPrompt');
+    if (speakPrompt) speakPrompt.style.display = 'none';
+    const cancelButton = document.getElementById('cancelButton');
+    if (cancelButton) cancelButton.style.display = 'none';
 
     const conversation = document.getElementById('conversation');
     if (!conversation) {
@@ -918,24 +973,27 @@ function showThinkingLoader() {
     loaderDiv.id = 'thinkingLoader';
     loaderDiv.className = 'thinking-loader';
 
-    const emojis = ['🤔', '💡', '✨', '🧐', '💭', '🌟', '🤓', '🎯', '⭐'];
-    let emojiIndex = 0;
+    const emojis = ['🤔', '💡', '✨'];
 
     loaderDiv.innerHTML = `
         <span class="thinking-emoji">${emojis[0]}</span>
         <div class="thinking-text">Thinking..</div>
     `;
 
-    const emojiSpan = loaderDiv.querySelector('.thinking-emoji');
-
+    // Append remaining emojis one by one, then stop
+    let emojiIndex = 1;
+    const textEl = loaderDiv.querySelector('.thinking-text');
     loaderDiv._emojiInterval = setInterval(() => {
-        emojiIndex = (emojiIndex + 1) % emojis.length;
-        emojiSpan.textContent = emojis[emojiIndex];
-        // Re-trigger pop animation
-        emojiSpan.style.animation = 'none';
-        emojiSpan.offsetHeight; // force reflow
-        emojiSpan.style.animation = '';
-    }, 800);
+        if (emojiIndex >= emojis.length) {
+            clearInterval(loaderDiv._emojiInterval);
+            return;
+        }
+        const span = document.createElement('span');
+        span.className = 'thinking-emoji';
+        span.textContent = emojis[emojiIndex];
+        loaderDiv.insertBefore(span, textEl);
+        emojiIndex++;
+    }, 1000);
 
     conversation.appendChild(loaderDiv);
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -964,12 +1022,10 @@ function scrollToLatestUserMessage() {
     });
 }
 
-function initializeMessageForSliding(messageDiv) {
-    // Add classes for smooth transitions
-    messageDiv.classList.add('message-visible');
-
-    // Ensure proper display
-    messageDiv.style.display = '';
+function initializeMessageForSliding(element) {
+    // Start hidden — the element gets appended to the DOM first,
+    // then we flip to visible on the next frame for a smooth slide-up.
+    element.classList.add('message-enter');
 }
 
 
@@ -982,7 +1038,6 @@ async function toggleRecording() {
 
     const elements = {
         recordButton: document.getElementById('recordButton'),
-        recordText: document.getElementById('recordText'),
         recordIcon: document.getElementById('recordIcon'),
         status: document.getElementById('status'),
         conversation: document.getElementById('conversation')
@@ -1043,6 +1098,8 @@ async function toggleRecording() {
                 };
 
                 mediaRecorder.onstop = async () => {
+                    if (recordingCancelled) { recordingCancelled = false; audioChunks = []; return; }
+
                     console.log('🛑 MediaRecorder stopped');
                     console.log('=== AUDIO DEBUG ===');
                     console.log('Number of chunks:', audioChunks.length);
@@ -1059,8 +1116,8 @@ async function toggleRecording() {
                     // Check for empty recording
                     if (audioBlob.size < 1000) {
                         console.warn('⚠️ Audio blob too small, likely empty recording');
-                        resetRecordingInterface();
-                        elements.status.textContent = 'Recording was empty. Please try again.';
+                        displayNoSpeechMessage();
+                        transitionTo('IDLE');
                         audioChunks = [];
                         return;
                     }
@@ -1085,9 +1142,7 @@ async function toggleRecording() {
             mediaRecorder.start(100); // Collect data every 100ms
 
             isRecording = true;
-            elements.recordText.textContent = 'Stop Speaking';
-            elements.recordIcon.textContent = '⏹️';
-            elements.recordButton.classList.add('bg-red-500', 'recording-pulse');
+            transitionTo('LISTENING');
 
             // Auto-collapse hints
             const hintsContent = document.getElementById('hintsContent');
@@ -1095,17 +1150,6 @@ async function toggleRecording() {
                 hintsContent.classList.remove('expanded');
                 hintsContent.classList.add('collapsed');
             }
-
-            // Add recording indicator
-            const indicator = document.createElement('div');
-            indicator.className = 'recording-indicator';
-            indicator.innerHTML = `
-                <div class="recording-dot"></div>
-                <span class="text-red-500 text-sm font-medium">Recording...</span>
-            `;
-            elements.recordButton.appendChild(indicator);
-
-            elements.conversation.style.boxShadow = 'inset 0 0 10px rgba(239, 68, 68, 0.1)';
 
             console.log('🎙️ Recording started');
 
@@ -1129,19 +1173,6 @@ async function toggleRecording() {
         }
 
         isRecording = false;
-
-        elements.recordButton.disabled = true;
-        elements.recordButton.classList.add('opacity-50', 'cursor-not-allowed');
-        elements.recordButton.classList.remove('bg-red-500', 'recording-pulse');
-        elements.recordText.textContent = 'Start Speaking';
-        elements.recordIcon.textContent = '🎤';
-
-        const indicator = elements.recordButton.querySelector('.recording-indicator');
-        if (indicator) {
-            indicator.remove();
-        }
-
-        elements.conversation.style.boxShadow = '';
         showThinkingLoader();
 
         console.log('🛑 Recording stopped, processing...');
@@ -1188,6 +1219,8 @@ async function initializeRecording() {
         };
 
         mediaRecorder.onstop = async () => {
+            if (recordingCancelled) { recordingCancelled = false; audioChunks = []; return; }
+
             // ★ iOS FIX: Use actual MIME type from recorder, not hardcoded 'audio/wav'
             const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
             const audioBlob = new Blob(audioChunks, { type: actualMimeType });
@@ -1201,6 +1234,7 @@ async function initializeRecording() {
             // ★ iOS FIX: Check for empty recording
             if (audioBlob.size < 1000) {
                 console.warn('⚠️ Audio blob too small, likely empty recording');
+                displayNoSpeechMessage();
                 transitionTo('IDLE');
                 audioChunks = [];
                 return;
@@ -1348,11 +1382,16 @@ async function startConversation() {
             // New conversation - display initial message
             if (data.text) {
                 displayMessage('assistant', data.text, null);
-                
+
+                // Upgrade to API-quality transliteration if available
+                if (data.text_roman && transliterationEnabled) {
+                    upgradeLastMessageText(data.text_roman, data.text);
+                }
+
                 // Add to conversation history
-                conversationHistory.push({ 
-                    role: 'assistant', 
-                    content: data.text 
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: data.text
                 });
             } else {
                 throw new Error('No initial message received');
@@ -1370,6 +1409,7 @@ async function startConversation() {
         
     } catch (error) {
         console.error('Error starting conversation:', error);
+        if (window.Sentry) Sentry.captureException(error);
         status.textContent = `Error: ${error.message}. Please refresh the page.`;
         // Add a refresh button
         addRefreshButton();
@@ -1527,33 +1567,41 @@ function displayMessage(role, text, corrections = null, feedbackType = 'green') 
         messageDiv.appendChild(amberIndicator);
     }
 
-    // Initialize message for sliding animation
-    initializeMessageForSliding(messageDiv);
-
     // For assistant messages, wrap with Kiki avatar
+    // The element that gets appended to the conversation (and animated) may
+    // be the wrapper (assistant) or messageDiv itself (user).
+    let animTarget;
+
     if (role === 'assistant') {
         const messageWithAvatar = document.createElement('div');
         messageWithAvatar.className = 'flex items-start gap-3 my-2';
 
-        // Create Kiki avatar
         const avatar = document.createElement('img');
         avatar.src = '/static/illustrations/Kiki.png';
         avatar.className = 'w-12 h-12 rounded-full object-cover flex-shrink-0';
         avatar.alt = 'Kiki';
 
-        // Add avatar and message to container
         messageWithAvatar.appendChild(avatar);
         messageWithAvatar.appendChild(messageDiv);
 
-        // Remove my-2 from messageDiv since it's now on the wrapper
         messageDiv.classList.remove('my-2');
 
-        // Add the wrapper to conversation
+        // Apply enter class to the wrapper so the whole row slides in
+        initializeMessageForSliding(messageWithAvatar);
         conversation.appendChild(messageWithAvatar);
+        animTarget = messageWithAvatar;
     } else {
-        // User messages don't need avatar wrapper
+        initializeMessageForSliding(messageDiv);
         conversation.appendChild(messageDiv);
+        animTarget = messageDiv;
     }
+
+    // Trigger the transition on the next frame (element must be in the DOM first)
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            animTarget.classList.add('message-visible');
+        });
+    });
 
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
@@ -1852,12 +1900,15 @@ async function startRecordingAuto() {
             };
 
             mediaRecorder.onstop = async () => {
+                if (recordingCancelled) { recordingCancelled = false; audioChunks = []; return; }
+
                 console.log('🛑 iOS auto MediaRecorder stopped');
                 const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
                 const audioBlob = new Blob(audioChunks, { type: actualMimeType });
 
                 if (audioBlob.size < 1000) {
                     console.warn('⚠️ Audio blob too small, likely empty recording');
+                    displayNoSpeechMessage();
                     transitionTo('IDLE');
                     audioChunks = [];
                     return;
@@ -1932,6 +1983,47 @@ function stopRecordingAndSend() {
     console.log('🛑 Recording stopped via stopRecordingAndSend');
 }
 
+/**
+ * Cancel recording — discard audio and return to IDLE
+ */
+function cancelRecording() {
+    recordingCancelled = true;
+    disconnectAnalyser();
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+
+    isRecording = false;
+    clearTimeout(safetyTimeoutId);
+    transitionTo('IDLE');
+    console.log('❌ Recording cancelled by user');
+}
+
+/**
+ * Display a "couldn't hear you" message bubble in the conversation
+ */
+function displayNoSpeechMessage() {
+    const conversation = document.getElementById('conversation');
+    if (!conversation) return;
+
+    // Remove any previous no-speech messages first
+    conversation.querySelectorAll('.no-speech-msg').forEach(el => el.remove());
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'no-speech-msg bg-orange-50 border border-orange-200 rounded-lg p-3 text-center text-sm text-orange-700 my-2';
+    msgDiv.textContent = "Sorry, we couldn't hear you. Please try recording again.";
+    conversation.appendChild(msgDiv);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+    // Auto-expand hints if available
+    const hintsContent = document.getElementById('hintsContent');
+    if (hintsContent && !hintsContent.classList.contains('expanded') && currentHints.length > 0) {
+        hintsContent.classList.remove('collapsed');
+        hintsContent.classList.add('expanded');
+    }
+}
+
 // ============================================
 // WAVEFORM VISUALIZATION (Web Audio API)
 // ============================================
@@ -1980,7 +2072,7 @@ function disconnectAnalyser() {
 }
 
 /**
- * Start waveform rendering on canvas
+ * Start waveform rendering on canvas — compact dot-based visualization
  */
 function startWaveform() {
     if (!waveformCanvas) {
@@ -1999,9 +2091,14 @@ function startWaveform() {
     }
     syncCanvasSize();
 
-    const barCount = 45;
-    const excitement = new Float32Array(barCount); // per-bar excitement level
+    const barCount = 21;
+    const DOT_RADIUS = 2.5;
+    const MAX_BAR_HEIGHT = 28;
+    const barWidth = 5;
+    const gap = 6;
+    const excitement = new Float32Array(barCount);
     const startTime = performance.now();
+    const centerIndex = Math.floor(barCount / 2);
 
     function draw() {
         waveformRAF = requestAnimationFrame(draw);
@@ -2010,7 +2107,6 @@ function startWaveform() {
         const cssWidth = waveformCanvas.getBoundingClientRect().width;
         const cssHeight = waveformCanvas.getBoundingClientRect().height;
 
-        // Re-sync if layout changed
         if (Math.abs(waveformCanvas.width - cssWidth * dpr) > 1) {
             syncCanvasSize();
         }
@@ -2018,13 +2114,9 @@ function startWaveform() {
         waveformCtx.clearRect(0, 0, cssWidth, cssHeight);
 
         const elapsed = (performance.now() - startTime) / 1000;
-        const gap = 2;
-        const barWidth = (cssWidth / barCount) - gap;
 
         // Get average volume from analyser
-        // Note: avgVolume here is the mean of all frequency bins (0–255 each),
-        // so typical speech lands around 10–50, not 150+.
-        const AVG_NOISE_FLOOR = 8; // threshold for averaged volume
+        const AVG_NOISE_FLOOR = 8;
         let avgVolume = 0;
         if (analyserNode) {
             const bufferLength = analyserNode.frequencyBinCount;
@@ -2038,36 +2130,43 @@ function startWaveform() {
         }
 
         const isSpeaking = avgVolume > AVG_NOISE_FLOOR;
+        const totalWidth = barCount * barWidth + (barCount - 1) * gap;
+        const startX = (cssWidth - totalWidth) / 2;
 
         for (let i = 0; i < barCount; i++) {
-            // Idle state: scrolling sinusoidal wave
-            const sineVal = Math.sin((i / barCount) * 1.5 * 2 * Math.PI + elapsed * 2.0);
-            const idleHeight = 0.25 + 0.2 * (sineVal * 0.5 + 0.5); // normalized 0.25–0.45
+            const distFromCenter = Math.abs(i - centerIndex);
 
-            // Speaking excitement: random boost proportional to volume
-            // Scale against ~60 (loud speech avg) instead of 255
-            if (isSpeaking && Math.random() < 0.3) {
+            // Idle: only middle 2-3 bars get tiny sin oscillation
+            let idleExtra = 0;
+            if (distFromCenter <= 1) {
+                const sineVal = Math.sin(elapsed * 2.5 + i * 0.5);
+                idleExtra = (sineVal * 0.5 + 0.5) * 3; // 0–3px
+            }
+
+            // Speaking excitement: center bars react most
+            if (isSpeaking && distFromCenter <= 3 && Math.random() < 0.4) {
+                const proximityFactor = 1.0 - distFromCenter / 4;
                 const normalizedVol = Math.min(1.0, avgVolume / 60);
-                const boost = normalizedVol * (0.5 + Math.random() * 0.5);
+                const boost = normalizedVol * proximityFactor * (0.5 + Math.random() * 0.5);
                 excitement[i] = Math.min(1.0, excitement[i] + boost);
             }
 
-            // Decay excitement
-            excitement[i] *= 0.92;
+            // Snappier decay
+            excitement[i] *= 0.88;
 
-            // Final bar height: idle wave + excitement
-            const normalizedHeight = Math.min(1.0, idleHeight + excitement[i] * 0.6);
-            const barHeight = Math.max(3, normalizedHeight * (cssHeight - 6));
+            // Bar height: dot minimum + idle + excitement
+            const excitedHeight = excitement[i] * MAX_BAR_HEIGHT;
+            const barHeight = Math.max(DOT_RADIUS * 2, DOT_RADIUS * 2 + idleExtra + excitedHeight);
 
-            const x = i * (barWidth + gap);
+            const x = startX + i * (barWidth + gap);
             const y = (cssHeight - barHeight) / 2;
 
             // Marigold orange: brighter when excited
             const lightness = Math.floor(35 + excitement[i] * 25);
             waveformCtx.fillStyle = `hsl(35, 90%, ${lightness}%)`;
 
-            // Draw rounded bar
-            const radius = Math.min(barWidth / 2, barHeight / 2, 3);
+            // Draw rounded bar (pill shape)
+            const radius = Math.min(barWidth / 2, barHeight / 2);
             if (waveformCtx.roundRect) {
                 waveformCtx.beginPath();
                 waveformCtx.roundRect(x, y, barWidth, barHeight, radius);
@@ -2194,6 +2293,18 @@ async function sendAudioToServerStream(audioBlob) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Check for no_speech JSON response (not a stream)
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const jsonData = await response.json();
+            if (jsonData.error === 'no_speech') {
+                displayNoSpeechMessage();
+                transitionTo('IDLE');
+                return;
+            }
+            throw new Error(jsonData.message || 'Unknown error');
+        }
+
         // Handle the streaming response
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -2228,6 +2339,11 @@ async function sendAudioToServerStream(audioBlob) {
                             transcript = data.transcript;
                             displayMessage('user', transcript, [], 'pending');
                             conversationHistory.push({ role: 'user', content: transcript });
+
+                            // Upgrade to API-quality transliteration if available
+                            if (data.transcript_roman && transliterationEnabled) {
+                                upgradeLastMessageText(data.transcript_roman, transcript, 'user');
+                            }
                         }
 
                         if (data.type === 'evaluation') {
@@ -2240,6 +2356,13 @@ async function sendAudioToServerStream(audioBlob) {
                                 lastUserMsg.classList.remove('bg-white', 'border-gray-200');
                                 if (evaluation?.feedback_type === 'amber') {
                                     lastUserMsg.classList.add('bg-green-100', 'border-amber-500');
+                                    // Add amber micro-copy indicator
+                                    if (!lastUserMsg.querySelector('.text-gray-400.italic')) {
+                                        const amberIndicator = document.createElement('div');
+                                        amberIndicator.className = 'text-xs text-gray-400 text-left mt-1 italic';
+                                        amberIndicator.textContent = '📝 Note saved for review';
+                                        lastUserMsg.appendChild(amberIndicator);
+                                    }
                                 } else {
                                     lastUserMsg.classList.add('bg-green-100', 'border-green-500');
                                 }
@@ -2275,8 +2398,14 @@ async function sendAudioToServerStream(audioBlob) {
                                 messageWithAvatar.appendChild(avatar);
                                 messageWithAvatar.appendChild(messageDiv);
 
-                                // Add wrapper to conversation
+                                // Slide-in animation
+                                initializeMessageForSliding(messageWithAvatar);
                                 conversation.appendChild(messageWithAvatar);
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => {
+                                        messageWithAvatar.classList.add('message-visible');
+                                    });
+                                });
                                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                             }
 
@@ -2308,12 +2437,9 @@ async function sendAudioToServerStream(audioBlob) {
                             // Add to conversation history
                             conversationHistory.push({ role: 'assistant', content: data.final_text });
 
-                            // Check for function calls in structured conversations
-                            if (data.function_call) {
-                                console.log('Function call detected:', data.function_call);
-                                handleFunctionCall(data.function_call);
-                                return; // Don't continue with normal flow
-                            }
+                            // Store function_call for after TTS plays
+                            const pendingFunctionCall = data.function_call;
+                            const pendingConversationId = data.conversation_id;
 
                             // Handle celebrations and rewards
                             if (data.is_milestone && data.new_rewards > 10) {
@@ -2332,7 +2458,7 @@ async function sendAudioToServerStream(audioBlob) {
                             updateRewardsDisplay(data.sentence_count, data.reward_points);
 
                             // Update hints display
-                            if (data.hints && data.hints.length > 0) {
+                            if (!pendingFunctionCall && data.hints && data.hints.length > 0) {
                                 currentHints = data.hints;
                                 updateHintsDisplay(data.hints);
                             }
@@ -2342,19 +2468,27 @@ async function sendAudioToServerStream(audioBlob) {
                                 showCorrectionPopup(data.amber_responses, async () => {
                                     setTimeout(async () => {
                                         // Generate and play TTS after popup closes
-                                        await generateAndPlayAudio(data.final_text);
+                                        await generateAndPlayAudio(data.final_text, { skipAutoRecord: !!pendingFunctionCall });
+                                        if (pendingFunctionCall) {
+                                            handleFunctionCall(pendingFunctionCall, pendingConversationId);
+                                        }
                                     }, 1000);
                                 });
                             } else {
-                                // Generate and play TTS immediately
+                                // Generate and play TTS (skip auto-record if conversation is ending)
                                 const ttsStartTime = performance.now();
                                 console.log(`🔊 TTS START: Beginning audio generation at ${ttsStartTime.toFixed(1)}ms after page load`);
-                                await generateAndPlayAudio(data.final_text);
+                                await generateAndPlayAudio(data.final_text, { skipAutoRecord: !!pendingFunctionCall });
 
-                                // Scroll to position user message at top after user response (small delay for DOM update)
-                                setTimeout(() => {
-                                    scrollToLatestUserMessage();
-                                }, 50);
+                                if (pendingFunctionCall) {
+                                    console.log('Function call detected, redirecting after TTS:', pendingFunctionCall);
+                                    handleFunctionCall(pendingFunctionCall, pendingConversationId);
+                                } else {
+                                    // Scroll to position user message at top after user response (small delay for DOM update)
+                                    setTimeout(() => {
+                                        scrollToLatestUserMessage();
+                                    }, 50);
+                                }
                             }
                         }
 
@@ -2363,6 +2497,33 @@ async function sendAudioToServerStream(audioBlob) {
                             if (data.hints && data.hints.length > 0) {
                                 currentHints = data.hints;
                                 updateHintsDisplay(data.hints);
+                            }
+                        }
+
+                        if (data.type === 'transliteration') {
+                            // API-quality response transliteration — arrives ~200ms after complete
+                            if (transliterationEnabled) {
+                                if (data.final_text_roman) {
+                                    upgradeLastMessageText(data.final_text_roman, null, 'assistant');
+                                }
+                                if (data.amber_responses_roman) {
+                                    window._amberTranslitRoman = data.amber_responses_roman;
+                                }
+                            }
+                            // Always cache for later toggle use
+                            if (data.final_text_roman && textContentDiv) {
+                                textContentDiv.setAttribute('data-roman-text', data.final_text_roman);
+                            }
+                        }
+
+                        if (data.type === 'hints_transliteration') {
+                            // API-quality hints transliteration (arrives after hints)
+                            const hintsText = document.getElementById('hintsText');
+                            if (hintsText && data.hints_roman) {
+                                hintsText.setAttribute('data-roman-text', data.hints_roman);
+                                if (transliterationEnabled) {
+                                    hintsText.textContent = data.hints_roman;
+                                }
                             }
                         }
 
@@ -2381,6 +2542,7 @@ async function sendAudioToServerStream(audioBlob) {
 
     } catch (error) {
         console.error('Streaming Error:', error);
+        if (window.Sentry) Sentry.captureException(error);
 
         // Fallback to original method
         console.log('Falling back to original sendAudioToServer');
@@ -2494,7 +2656,7 @@ function createMessageButtons() {
 }
 
 // Helper function to generate and play audio (now awaits playback + auto-starts)
-async function generateAndPlayAudio(text) {
+async function generateAndPlayAudio(text, options = {}) {
     try {
         // Use existing TTS endpoint
         const formData = new FormData();
@@ -2506,7 +2668,9 @@ async function generateAndPlayAudio(text) {
         const data = await response.json();
         if (data.audio) {
             await playAudioResponse(data.audio);
-            scheduleAutoStartRecording();
+            if (!options.skipAutoRecord) {
+                scheduleAutoStartRecording();
+            }
         }
     } catch (error) {
         console.error('TTS Error:', error);
@@ -2568,12 +2732,9 @@ async function sendAudioToServer(audioBlob) {
             { role: 'assistant', content: data.text }
         );
 
-        // Check for function calls in structured conversations
-        if (data.function_call) {
-            console.log('Function call detected:', data.function_call);
-            handleFunctionCall(data.function_call);
-            return; // Don't continue with normal flow
-        }
+        // Store function_call for after TTS plays
+        const pendingFunctionCall = data.function_call;
+        const pendingConversationId = data.conversation_id;
 
         displayMessage('user', data.transcript, data.corrections, data.evaluation?.feedback_type);
 
@@ -2592,7 +2753,11 @@ async function sendAudioToServer(audioBlob) {
                     displayMessage('assistant', data.text, []);
                     updateRewardsDisplay(data.sentence_count, data.reward_points);
                     await playAudioResponse(data.audio);
-                    scheduleAutoStartRecording();
+                    if (pendingFunctionCall) {
+                        handleFunctionCall(pendingFunctionCall, pendingConversationId);
+                    } else {
+                        scheduleAutoStartRecording();
+                    }
                 }, 4500);
             });
         } else {
@@ -2600,7 +2765,12 @@ async function sendAudioToServer(audioBlob) {
             displayMessage('assistant', data.text, []);
             updateRewardsDisplay(data.sentence_count, data.reward_points);
             await playAudioResponse(data.audio);
-            scheduleAutoStartRecording();
+            if (pendingFunctionCall) {
+                console.log('Function call detected, redirecting after TTS:', pendingFunctionCall);
+                handleFunctionCall(pendingFunctionCall, pendingConversationId);
+            } else {
+                scheduleAutoStartRecording();
+            }
         }
 
         // State is managed by the state machine, no manual reset needed
@@ -2649,6 +2819,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (error) {
         console.error('Failed to initialize application:', error);
+        if (window.Sentry) Sentry.captureException(error);
         // Show a user-friendly error message
         const status = document.getElementById('status');
         if (status) {
@@ -2673,11 +2844,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Setup hints toggle
-    const hintsToggle = document.getElementById('hintsToggle');
-    if (hintsToggle) {
-        hintsToggle.addEventListener('click', toggleHints);
-        console.log('💡 Hints toggle button initialized');
+    // Setup hints bulb toggle
+    const hintsBulbBtn = document.getElementById('hintsBulbBtn');
+    if (hintsBulbBtn) {
+        hintsBulbBtn.addEventListener('click', toggleHints);
+        console.log('💡 Hints bulb button initialized');
+    }
+
+    // Setup cancel button
+    const cancelButton = document.getElementById('cancelButton');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', cancelRecording);
+        console.log('❌ Cancel button initialized');
     }
 });
 
@@ -2713,21 +2891,28 @@ function showCorrectionPopup(amberResponses, onCloseCallback = null) {
         }
         
         const item = amberResponses[index];
+        // Prefer API-quality roman text if available
+        const amberRoman = window._amberTranslitRoman && window._amberTranslitRoman[index];
+        const userResponseDisplay = (transliterationEnabled && amberRoman?.user_response_roman)
+            ? amberRoman.user_response_roman : displayText(item.user_response);
+        const correctedResponseDisplay = (transliterationEnabled && amberRoman?.corrected_response_roman)
+            ? amberRoman.corrected_response_roman : displayText(item.corrected_response);
+
         popup.innerHTML = `
             <div class="text-center mb-4">
                 <h3 class="text-lg font-bold text-green-600">Let's improve your Hindi!</h3>
                 <p class="text-sm text-gray-600">Complete all corrections to earn more stars 🏆</p>
             </div>
-            
+
             <div class="mb-6">
                 <div class="text-sm text-gray-500 mb-2">Your original response:</div>
                 <div class="bg-red-50 p-3 rounded border-l-4 border-red-300 mb-4" data-original-text="${item.user_response}">
-                    ${displayText(item.user_response)}
+                    ${userResponseDisplay}
                 </div>
 
                 <div class="text-sm text-gray-500 mb-2">Correct response should be:</div>
                 <div class="bg-green-50 p-3 rounded border-l-4 border-green-500 mb-4 font-medium" data-original-text="${item.corrected_response}">
-                    ${displayText(item.corrected_response)}
+                    ${correctedResponseDisplay}
                 </div>
                 
                 <!-- User's current spoken words display area -->
@@ -3166,15 +3351,19 @@ function updateConversationTypeDisplay(conversationType) {
 }
 
 // Handle function calls from structured conversations
-function handleFunctionCall(functionCall) {
+function handleFunctionCall(functionCall, conversationId) {
     console.log('Handling function call:', functionCall);
 
     if (functionCall.action === 'redirect' && functionCall.page === 'completion_celebration') {
         // Show completion celebration
         setTimeout(() => {
             const conversationType = window.conversationType || '';
-            window.location.href = `/completion_celebration?topic=${conversationType}`;
-        }, 2000); // Give 2 seconds to read the final message
+            let url = `/completion_celebration?topic=${conversationType}`;
+            if (conversationId) {
+                url += `&conversation_id=${conversationId}`;
+            }
+            window.location.href = url;
+        }, 1000); // Short delay since TTS farewell has already played
     }
 }
 
@@ -3182,6 +3371,7 @@ function handleFunctionCall(functionCall) {
 function updateHintsDisplay(hints) {
     const hintsContainer = document.getElementById('hintsContainer');
     const hintsText = document.getElementById('hintsText');
+    const hintsBulbBtn = document.getElementById('hintsBulbBtn');
 
     if (hints && hints.length > 0) {
         // Join hints with "या" (or) if multiple hints
@@ -3189,22 +3379,24 @@ function updateHintsDisplay(hints) {
         hintsText.setAttribute('data-original-text', originalHints);
         hintsText.textContent = displayText(originalHints);
         hintsContainer.style.display = 'block';
+        // Show bulb button in LISTENING state
+        if (hintsBulbBtn && appState === 'LISTENING') {
+            hintsBulbBtn.style.display = 'flex';
+        }
         console.log('💡 Hints updated:', hints);
     } else {
         hintsContainer.style.display = 'none';
+        if (hintsBulbBtn) hintsBulbBtn.style.display = 'none';
     }
 }
 
 function toggleHints() {
     const hintsContent = document.getElementById('hintsContent');
-    const hintsToggle = document.getElementById('hintsToggle');
 
     if (hintsContent.classList.contains('expanded')) {
-        // Collapse
         hintsContent.classList.remove('expanded');
         hintsContent.classList.add('collapsed');
     } else {
-        // Expand
         hintsContent.classList.remove('collapsed');
         hintsContent.classList.add('expanded');
     }

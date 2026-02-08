@@ -32,7 +32,15 @@ from models import db, User, Conversation, ConversationAudio, AnalyticsHelper, P
 from s3_audio import ENABLE_AUDIO_STORAGE, generate_s3_key, upload_audio_async, generate_presigned_url
 from auth import auth_bp, init_oauth
 from sticker_config import STICKER_CATALOG, PACK_TIERS
+import sentry_sdk
 
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
+    traces_sample_rate=0.1,
+    send_default_pii=False,
+    release=os.getenv("HEROKU_SLUG_COMMIT", "dev"),
+)
 
 # Configure logging first so it's available throughout the application
 logging.config.dictConfig({
@@ -107,6 +115,17 @@ auth.google = google
 # Register authentication blueprint
 app.register_blueprint(auth_bp)
 
+@app.before_request
+def set_sentry_user_context():
+    if current_user.is_authenticated:
+        sentry_sdk.set_user({
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "username": current_user.child_name or current_user.name,
+        })
+    else:
+        sentry_sdk.set_user(None)
+
 # Configure API keys from environment variables
 openai.api_key = os.getenv('OPENAI_API_KEY')  # Keep as fallback
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
@@ -132,18 +151,14 @@ if GOOGLE_CREDENTIALS_JSON:
 # Extract project ID from credentials for V2 API (Chirp 3)
 GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT')
 
-# if GOOGLE_CREDENTIALS_JSON:
-#     try:
-#         creds_data = json.loads(GOOGLE_CREDENTIALS_JSON)
-#         GOOGLE_CLOUD_PROJECT = creds_data.get('project_id')
-#         if GOOGLE_CLOUD_PROJECT:
-#             logger.info(f"Extracted project ID: {GOOGLE_CLOUD_PROJECT}")
-#     except Exception as e:
-#         logger.warning(f"Could not extract project_id from credentials: {e}")
+# Configurable conversation length (env var now, per-school model later)
+MAX_CONVERSATION_TURNS = int(os.getenv('MAX_CONVERSATION_TURNS', '6'))
+
 
 GOOGLE_STT_REGION = os.getenv('GOOGLE_STT_REGION', 'us')
 
 STT_PROVIDER = os.getenv('STT_PROVIDER', 'google')  # Default to google (options: sarvam, groq, google)
+TTS_PROVIDER = os.getenv('TTS_PROVIDER', 'elevenlabs')  # Options: elevenlabs, sarvam
 
 # Google STT model configuration
 GOOGLE_STT_MODEL = os.getenv('GOOGLE_STT_MODEL', 'chirp_3')  # Options: chirp_3, latest_long
@@ -256,6 +271,40 @@ MODULES = {
 # Sarvam AI API endpoints
 SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
+SARVAM_TRANSLITERATE_URL = "https://api.sarvam.ai/transliterate"
+
+
+def transliterate_to_roman(text):
+    """Convert Devanagari Hindi text to Roman script via Sarvam API.
+    Returns the transliterated text, or empty string on failure."""
+    if not text or not text.strip() or not SARVAM_API_KEY:
+        return ''
+    start_ms = time.time()
+    try:
+        resp = requests.post(
+            SARVAM_TRANSLITERATE_URL,
+            headers={
+                'api-subscription-key': SARVAM_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            json={
+                'input': text,
+                'source_language_code': 'hi-IN',
+                'target_language_code': 'en-IN'
+            },
+            timeout=5
+        )
+        elapsed = (time.time() - start_ms) * 1000
+        if resp.status_code == 200:
+            result = resp.json().get('transliterated_text', '')
+            logger.info(f"🔤 SARVAM TRANSLITERATE: {elapsed:.0f}ms for '{text[:40]}…' → '{result[:40]}…'")
+            return result
+        logger.warning(f"Sarvam transliterate returned {resp.status_code} in {elapsed:.0f}ms: {resp.text[:200]}")
+        return ''
+    except Exception as e:
+        elapsed = (time.time() - start_ms) * 1000
+        logger.warning(f"Sarvam transliterate failed in {elapsed:.0f}ms: {e}")
+        return ''
 
 # Initialize ElevenLabs client
 eleven_labs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
@@ -297,7 +346,7 @@ The child is saying goodbye. This is your FINAL response.
 - Do NOT ask any new questions
 """
     
-    if sentences_count >= 10:
+    if sentences_count >= MAX_CONVERSATION_TURNS:
         return """
 IMPORTANT - FINAL RESPONSE:
 This is your FINAL response in this conversation.
@@ -307,8 +356,8 @@ This is your FINAL response in this conversation.
 - Do NOT ask any new questions
 - Make the child feel proud and successful
 """
-    
-    if sentences_count == 9:
+
+    if sentences_count == MAX_CONVERSATION_TURNS - 1:
         return f"""
 CONVERSATION PHASE - WRAPPING UP:
 You are nearing the end of this conversation.
@@ -831,12 +880,10 @@ class ConversationController:
                 evaluation = eval_future.result()
                 conversation_response = conv_future.result()
 
-            # Check if conversation should end
+            # Check if conversation should end (server-side override based on count)
             should_end = conversation_response.get('should_end', False) if isinstance(conversation_response, dict) else False
-
-            # If conversation should end, return completion page
-            if should_end:
-                return show_completion_page()
+            if session_data['sentences_count'] >= MAX_CONVERSATION_TURNS:
+                should_end = True
 
             # Extract just the text response for backwards compatibility
             response_text = conversation_response.get('response') if isinstance(conversation_response, dict) else conversation_response
@@ -852,8 +899,9 @@ class ConversationController:
                 }
                 session_data.setdefault('amber_responses', []).append(amber_entry)
 
-            # Check if correction popup should trigger (every 4 interactions, and we have amber responses)
+            # Check if correction popup should trigger (every 4 interactions, suppress on final turn)
             should_show_popup = (
+                not should_end and
                 session_data['sentences_count'] % 4 == 0 and
                 session_data['sentences_count'] > 0 and
                 len(session_data.get('amber_responses', [])) > 0
@@ -875,6 +923,9 @@ class ConversationController:
                 'good_response_count': session_data.get('good_response_count', 0),
                 'should_end': should_end
             }
+
+            if should_end:
+                result['function_call'] = show_completion_page()
 
             return result
             
@@ -958,9 +1009,14 @@ def start_conversation():
         child_gender = current_user.child_gender or 'neutral'
 
         initial_message = get_initial_conversation(child_name, child_age, child_gender, conversation_type)
-        
-        logger.info("Converting text to speech")
-        audio_response = text_to_speech_hindi(initial_message)
+
+        # Run TTS and transliteration in parallel (transliteration ~200ms finishes within TTS ~500ms)
+        logger.info("Converting text to speech + transliterating in parallel")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as startup_executor:
+            tts_future = startup_executor.submit(text_to_speech_hindi, initial_message)
+            translit_future = startup_executor.submit(transliterate_to_roman, initial_message)
+            audio_response = tts_future.result()
+            text_roman = translit_future.result()
 
         if not audio_response:
             raise Exception("Failed to generate audio response")
@@ -1013,67 +1069,78 @@ def start_conversation():
         
         return jsonify({
             'text': initial_message,
+            'text_roman': text_roman,
             'audio': audio_response,
             'session_id': session_id,
             'corrections': None  # Explicitly include corrections as None
         })
         
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Error in start_conversation: {str(e)}")
         logger.exception("Full traceback:")
         return jsonify({'error': str(e)}), 500
     
 
-def text_to_speech_hindi(text, output_filename="response.wav"):
+def text_to_speech_hindi_elevenlabs(text, output_filename="response.wav"):
     """Convert text to speech using ElevenLabs"""
     tts_function_start = time.time()
     logger.info(f"🔊 ELEVENLABS TTS: Starting synthesis for '{text[:50]}...'")
-    
+
     try:
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 audio_stream = eleven_labs.text_to_speech.convert_as_stream(
                     text=text,
-                    model_id="eleven_flash_v2_5",
+                    model_id="eleven_multilingual_v2",
                     language_code="hi",
                     voice_id="Sm1seazb4gs7RSlUVw7c", #
-                    optimize_streaming_latency="4",
+                    optimize_streaming_latency="2",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
-                        stability=0.85,
-                        similarity_boost=0.6,
-                        style=0.0,
+                        stability=0.75,
+                        similarity_boost=0.75,
+                        style=0.05,
                         use_speaker_boost=False,
                         speed=0.8
                     )
                 )
-                
+
                 audio_data = io.BytesIO()
                 for chunk in audio_stream:
                     audio_data.write(chunk)
-                
+
                 audio_base64 = base64.b64encode(audio_data.getvalue()).decode('utf-8')
-                
+
                 if output_filename:
                     with open(output_filename, 'wb') as f:
                         f.write(audio_data.getvalue())
-                
+
                 tts_function_end = time.time()
                 api_time = (tts_function_end - tts_function_start) * 1000
                 logger.info(f"✅ ELEVENLABS TTS: Success in {api_time:.1f}ms")
-                        
+
                 return audio_base64
-                
+
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise
                 logger.warning(f"TTS attempt {attempt + 1} failed: {e}")
                 time.sleep(0.1 * (attempt + 1))
-        
+
     except Exception as e:
-        print(f"TTS Error: {str(e)}")
+        sentry_sdk.capture_exception(e)
+        logger.error(f"TTS Error: {str(e)}")
         return None
+
+
+def text_to_speech_hindi(text, output_filename="response.wav"):
+    """Route TTS to the configured provider"""
+    if TTS_PROVIDER.lower() == 'sarvam':
+        return text_to_speech_hindi_sarvam(text, output_filename)
+    else:
+        return text_to_speech_hindi_elevenlabs(text, output_filename)
 
 
 def validate_audio_duration(audio_data, min_duration=0.05, max_duration=15.0):
@@ -1145,30 +1212,6 @@ def optimize_audio_for_google_cloud(audio_data):
     # Return audio unchanged - silence trimming only works for raw PCM, not compressed formats
     return audio_data
 
-def get_speech_context_phrases(child_name=None):
-    """Build speech context phrases dynamically with child's name for better ASR accuracy"""
-    phrases = [
-        # === Existing Hindi Vocabulary ===
-        "स्कूल", "घर", "माँ", "पापा", "खेल", "किताब", "दोस्त",
-        "खुश", "अच्छा", "बुरा", "मोर", "ऊँट", "बाघ",
-        "मौसी", "मौसा", "बुआ", "फूफा",  "मिठाई",
-        "मगरमच्छ", "जामुन", "कुआँ", "परछाई", "सबीर", "मई",
-
-        # === English words children use ===
-        "book", "school", "homework", "cartoon", "TV", "video", "game",
-
-        # === Popular cartoon names ===
-        "Teen Titans", "Peppa Pig", "Paw Patrol",
-
-    ]
-
-    # Add child's name for better recognition
-    if child_name:
-        phrases.append(child_name)
-
-    return phrases
-
-
 # Initialize Google Cloud Speech client with connection pooling
 google_speech_client = None
 if GOOGLE_CLOUD_API_KEY:
@@ -1202,10 +1245,6 @@ def speech_to_text_hindi_chirp3(audio_data, child_name=None):
     logger.info(f"🎙️ CHIRP 3 STT: Starting transcription...")
 
     try:
-        # Build adaptation phrases for better accuracy
-        phrases = get_speech_context_phrases(child_name)
-        phrase_objects = [cloud_speech_v2.PhraseSet.Phrase(value=p) for p in phrases[:500]]  # V2 limit
-
         # V2 config - auto_decoding_config handles WebM/Opus automatically
         config = cloud_speech_v2.RecognitionConfig(
             auto_decoding_config=cloud_speech_v2.AutoDetectDecodingConfig(),
@@ -1215,18 +1254,6 @@ def speech_to_text_hindi_chirp3(audio_data, child_name=None):
                 enable_automatic_punctuation=True,
             ),
         )
-
-        # Add adaptation if we have phrases
-        if phrase_objects:
-            config.adaptation = cloud_speech_v2.SpeechAdaptation(
-                phrase_sets=[
-                    cloud_speech_v2.SpeechAdaptation.AdaptationPhraseSet(
-                        inline_phrase_set=cloud_speech_v2.PhraseSet(
-                            phrases=phrase_objects
-                        )
-                    )
-                ]
-            )
 
         request = cloud_speech_v2.RecognizeRequest(
             recognizer=f"projects/{GOOGLE_CLOUD_PROJECT}/locations/{GOOGLE_STT_REGION}/recognizers/_",
@@ -1282,9 +1309,6 @@ def speech_to_text_hindi_google_v1(audio_data, child_name=None):
         audio_size_kb = len(optimized_audio) / 1024
         logger.info(f"📁 Optimized audio size: {audio_size_kb:.1f} KB (preprocessing: {preprocessing_time:.1f}ms)")
 
-        # Get dynamic speech context phrases with child's name
-        context_phrases = get_speech_context_phrases(child_name)
-
         # Configure recognition with optimized settings for Hindi child speech
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
@@ -1298,10 +1322,6 @@ def speech_to_text_hindi_google_v1(audio_data, child_name=None):
             # This helps with mixed language
             enable_spoken_punctuation=False,
             enable_spoken_emojis=False,
-            # Optimization for child speech with dynamic phrases
-            speech_contexts=[
-                speech.SpeechContext(phrases=context_phrases)
-            ]
         )
 
         # Create audio object
@@ -1361,9 +1381,6 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time, child_name=None
         # Encode audio as base64
         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
 
-        # Get dynamic speech context phrases with child's name
-        context_phrases = get_speech_context_phrases(child_name)
-
         # Prepare request payload
         payload = {
             "config": {
@@ -1375,9 +1392,6 @@ def speech_to_text_hindi_google_rest(audio_data, stt_start_time, child_name=None
                 "useEnhanced": False,
                 "enableAutomaticPunctuation": True,
                 "audioChannelCount": 1,
-                "speechContexts": [
-                    {"phrases": context_phrases}
-                ]
             },
             "audio": {
                 "content": audio_base64
@@ -1600,7 +1614,11 @@ def conversation():
     # Track conversation start action
     track_user_action('conversation_start', 'conversation', {'conversation_type': conversation_type})
     
-    return render_template('conversation.html', conversation_type=conversation_type)
+    return render_template('conversation.html',
+        conversation_type=conversation_type,
+        sentry_dsn_frontend=os.getenv('SENTRY_DSN_FRONTEND', ''),
+        sentry_environment=os.getenv('SENTRY_ENVIRONMENT', 'development'),
+    )
 
 @app.route('/dashboard')
 @login_required
@@ -1684,6 +1702,7 @@ def open_pack():
 def completion_celebration():
     """Celebration page for completing structured conversations"""
     completed_topic = request.args.get('topic', None)
+    conversation_id = request.args.get('conversation_id', None)
     related_topics = []
 
     if completed_topic and completed_topic in CONVERSATION_TYPES:
@@ -1703,7 +1722,9 @@ def completion_celebration():
 
     return render_template('completion_celebration.html',
                          related_topics=related_topics,
-                         completed_topic=completed_topic)
+                         completed_topic=completed_topic,
+                         conversation_id=conversation_id,
+                         child_name=current_user.child_name or 'My kid')
 
 @app.route('/about')
 def about():
@@ -1845,7 +1866,7 @@ def process_audio():
         logger.info(f"📁 FILE PROCESSING: {(file_end_time - file_start_time) * 1000:.1f}ms")
 
         if not raw_transcript:
-            return jsonify({'error': 'Speech-to-text failed'}), 500
+            return jsonify({'error': 'no_speech', 'message': "Sorry, we couldn't hear you. Please try recording again."}), 200
 
         # Submit background S3 upload for kid's audio
         if ENABLE_AUDIO_STORAGE and 'conversation_id' in session_data:
@@ -1955,8 +1976,13 @@ def process_audio():
             'new_rewards': new_rewards,
             'is_milestone': controller_result['is_milestone'],
             'should_show_popup': controller_result['should_show_popup'],
-            'amber_responses': controller_result['amber_responses']
+            'amber_responses': controller_result['amber_responses'],
+            'should_end': controller_result.get('should_end', False)
         }
+
+        if controller_result.get('function_call'):
+            response_data['function_call'] = controller_result['function_call']
+            response_data['conversation_id'] = session_data.get('conversation_id')
 
         return jsonify(response_data)
         
@@ -2009,7 +2035,7 @@ def process_audio_stream():
                 raw_transcript = speech_to_text_hindi(audio_bytes, child_name=child_name)
 
         if not raw_transcript:
-            return jsonify({'error': 'Speech-to-text failed'}), 500
+            return jsonify({'error': 'no_speech', 'message': "Sorry, we couldn't hear you. Please try recording again."}), 200
 
         # Submit background S3 upload for kid's audio
         if ENABLE_AUDIO_STORAGE and 'conversation_id' in session_data:
@@ -2039,7 +2065,7 @@ def process_audio_stream():
         is_farewell = detect_farewell(transcript)
 
         # Determine should_end based on count OR farewell
-        should_end = (current_count >= 11) or is_farewell
+        should_end = (current_count >= MAX_CONVERSATION_TURNS) or is_farewell
         logger.info(f"🔚 Should End Decision: current_count={current_count}, is_farewell={is_farewell}, should_end={should_end}")
 
         # Extract last talker response for evaluation
@@ -2049,22 +2075,26 @@ def process_audio_stream():
                 last_talker_response = message.get('content')
                 break
 
-        # Launch evaluation in background — don't block streaming
+        # Launch evaluation + transcript transliteration in parallel
         controller = ConversationController()
-        eval_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        eval_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         eval_future = eval_executor.submit(
             controller.evaluator.evaluate_response,
             transcript,
             last_talker_response
         )
+        transcript_translit_future = eval_executor.submit(transliterate_to_roman, transcript)
 
         # Streaming response generator
         def generate_streaming_response():
             nonlocal should_end
 
             try:
-                # Send transcript immediately so client can show user message right away
-                yield f"data: {json.dumps({'type': 'transcript', 'transcript': transcript})}\n\n"
+                # Wait for transcript transliteration (~200ms, eval runs in parallel ~1-2s)
+                transcript_roman = transcript_translit_future.result(timeout=5)
+
+                # Send transcript with roman version so client can show user message
+                yield f"data: {json.dumps({'type': 'transcript', 'transcript': transcript, 'transcript_roman': transcript_roman})}\n\n"
 
                 # Wait for evaluation result (may already be done by now)
                 evaluation = eval_future.result()
@@ -2147,8 +2177,9 @@ def process_audio_stream():
                     }
                     session_data.setdefault('amber_responses', []).append(amber_entry)
 
-                # Calculate popup and milestone status
+                # Calculate popup and milestone status (suppress on final turn)
                 should_show_popup = (
+                    not should_end and
                     current_count % 4 == 0 and
                     current_count > 0 and
                     len(session_data.get('amber_responses', [])) > 0
@@ -2188,20 +2219,57 @@ def process_audio_stream():
                 if should_end:
                     completion_page_data = show_completion_page()
                     completion_data['function_call'] = completion_page_data
+                    completion_data['conversation_id'] = session_data.get('conversation_id')
                     logger.info(f"🎉 Conversation ending - added function_call to redirect to completion_celebration")
 
                 logger.info(f"📤 Sending completion data: should_end={should_end}, sentence_count={current_count}, is_milestone={is_milestone}")
                 yield f"data: {json.dumps(completion_data)}\n\n"
 
-                # Generate hints AFTER completion (non-blocking for TTS)
+                # Fire response + amber transliteration immediately (~200ms)
+                # Send BEFORE hints so the frontend swaps text while TTS is still playing
+                translit_executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+                response_translit_future = translit_executor.submit(transliterate_to_roman, accumulated_text)
+
+                # Collect amber correction texts for batch transliteration
+                amber_for_popup = completion_data.get('amber_responses', [])
+                amber_translit_futures = {}
+                for idx, amber in enumerate(amber_for_popup):
+                    amber_translit_futures[f'user_{idx}'] = translit_executor.submit(
+                        transliterate_to_roman, amber.get('user_response', ''))
+                    amber_translit_futures[f'corrected_{idx}'] = translit_executor.submit(
+                        transliterate_to_roman, amber.get('corrected_response', ''))
+
+                # Wait for response+amber transliteration (~200ms) and send immediately
+                translit_data = {'type': 'transliteration'}
+                translit_data['final_text_roman'] = response_translit_future.result(timeout=5)
+
+                if amber_for_popup:
+                    translit_data['amber_responses_roman'] = []
+                    for idx in range(len(amber_for_popup)):
+                        translit_data['amber_responses_roman'].append({
+                            'user_response_roman': amber_translit_futures[f'user_{idx}'].result(timeout=5),
+                            'corrected_response_roman': amber_translit_futures[f'corrected_{idx}'].result(timeout=5)
+                        })
+
+                yield f"data: {json.dumps(translit_data)}\n\n"
+
+                # Generate hints AFTER transliteration is sent (non-blocking for TTS)
+                hints = []
                 if not should_end:
                     temp_history = conversation_history + [
                         {"role": "user", "content": transcript},
                         {"role": "assistant", "content": accumulated_text}
                     ]
-                    hints = generate_hints(temp_history, conversation_type, child_name, child_age)
+                    hints = generate_hints(temp_history, conversation_type, child_name, child_age) or []
                     if hints:
                         yield f"data: {json.dumps({'type': 'hints', 'hints': hints})}\n\n"
+                        # Transliterate hints and send as separate event
+                        hints_joined = ' या '.join(hints)
+                        hints_roman = transliterate_to_roman(hints_joined)
+                        if hints_roman:
+                            yield f"data: {json.dumps({'type': 'hints_transliteration', 'hints_roman': hints_roman})}\n\n"
+
+                translit_executor.shutdown(wait=False)
 
                 # Update conversation history
                 session_data['conversation_history'].extend([
@@ -2228,6 +2296,7 @@ def process_audio_stream():
                 session_store.save_session(session_id, session_data)
 
             except Exception as e:
+                sentry_sdk.capture_exception(e)
                 logger.error(f"Streaming error: {str(e)}")
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
             finally:
@@ -2332,7 +2401,7 @@ def correction_speech_to_text():
                 transcript = speech_to_text_hindi(f.read(), child_name=child_name)
 
         if not transcript:
-            return jsonify({'error': 'Speech-to-text failed'}), 500
+            return jsonify({'error': 'no_speech', 'message': "Sorry, we couldn't hear you. Please try recording again."}), 200
 
         correction_end_time = time.time()
         total_time = (correction_end_time - correction_start_time) * 1000
@@ -2499,6 +2568,94 @@ def get_conversation_audio(conversation_id):
     except Exception as e:
         logger.error(f"Get conversation audio error: {e}")
         return jsonify({'error': 'Failed to fetch audio files'}), 500
+
+
+@app.route('/api/conversation/<int:conversation_id>/best-audio', methods=['GET'])
+@login_required
+def get_best_audio(conversation_id):
+    """Identify the kid's cleanest Hindi response and return its audio URL."""
+    try:
+        if not ENABLE_AUDIO_STORAGE:
+            return jsonify({'success': False, 'reason': 'no_audio'})
+
+        # Verify ownership
+        conversation = Conversation.query.filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id,
+        ).first()
+        if not conversation:
+            return jsonify({'success': False, 'reason': 'not_found'}), 404
+
+        # Load user audio records
+        audio_records = ConversationAudio.query.filter(
+            ConversationAudio.conversation_id == conversation_id,
+            ConversationAudio.role == 'user',
+            ConversationAudio.upload_status == 'uploaded',
+        ).order_by(ConversationAudio.turn_index).all()
+
+        if not audio_records:
+            return jsonify({'success': False, 'reason': 'no_audio'})
+
+        # Build map of turn_index -> audio record
+        audio_by_turn = {rec.turn_index: rec for rec in audio_records}
+
+        # Extract user turns from conversation transcript
+        transcript_data = conversation.conversation_data
+        user_turns = []
+        for i, msg in enumerate(transcript_data):
+            if msg.get('role') == 'user' and i in audio_by_turn:
+                user_turns.append({'turn_index': i, 'text': msg.get('content', '')})
+
+        if not user_turns:
+            return jsonify({'success': False, 'reason': 'no_audio'})
+
+        # If only one user turn with audio, skip Gemini call
+        reason = ''
+        if len(user_turns) == 1:
+            best_turn = user_turns[0]
+        else:
+            # Ask Gemini to pick the best Hindi response
+            numbered_responses = '\n'.join(
+                f"{idx + 1}. \"{t['text']}\"" for idx, t in enumerate(user_turns)
+            )
+            prompt = f"""You are evaluating a child's Hindi conversation responses. Pick the SINGLE best response that demonstrates the cleanest Hindi — good grammar, complete sentence, minimal English code-switching.
+
+Here are the child's responses (numbered):
+{numbered_responses}
+
+Return ONLY a JSON object: {{"best_turn": <number>, "reason": "<brief reason in English>"}}"""
+
+            try:
+                result = gemini_generate_content(
+                    prompt,
+                    response_format="json",
+                    model_override=gemini_hints_model
+                )
+                parsed = json.loads(result)
+                best_index = int(parsed.get('best_turn', 1)) - 1  # Convert 1-based to 0-based
+                best_index = max(0, min(best_index, len(user_turns) - 1))
+                best_turn = user_turns[best_index]
+                reason = parsed.get('reason', '')
+            except Exception as e:
+                logger.warning(f"Gemini best-audio pick failed, defaulting to last turn: {e}")
+                best_turn = user_turns[-1]
+                reason = ''
+
+        # Generate presigned URL for the best audio
+        audio_record = audio_by_turn[best_turn['turn_index']]
+        playback_url = generate_presigned_url(audio_record.s3_key)
+
+        return jsonify({
+            'success': True,
+            'transcript': best_turn['text'],
+            'playback_url': playback_url,
+            'reason': reason,
+            'audio_format': audio_record.audio_format,
+        })
+
+    except Exception as e:
+        logger.error(f"Get best audio error: {e}")
+        return jsonify({'success': False, 'reason': 'error'}), 500
 
 
 @app.route('/api/resume_conversation', methods=['POST'])
@@ -2859,6 +3016,10 @@ def init_database():
                 db.session.execute(text('ALTER TABLE user ADD COLUMN stars_spent INTEGER DEFAULT 0'))
                 db.session.commit()
                 logger.info("Migration: added stars_spent column to user table")
+            if 'transliteration_enabled' not in user_cols:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN transliteration_enabled BOOLEAN DEFAULT 0'))
+                db.session.commit()
+                logger.info("Migration: added transliteration_enabled column to user table")
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
