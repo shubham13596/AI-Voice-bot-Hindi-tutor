@@ -362,6 +362,7 @@ let waveformAnimationFrame;
 let conversationPairs = []; // Track conversation pairs (keeping for potential future use)
 let mediaStream = null; // Track media stream for iOS cleanup
 let recordingCancelled = false; // Flag for cancel-recording flow
+let maxTurns = 6; // Updated from server on start
 
 // ============================================
 // AUTO-START / MANUAL-SEND STATE MACHINE
@@ -736,6 +737,16 @@ function showCelebration(type, message, playSound = true, useApplause = false) {
             setTimeout(() => overlay.remove(), 500);
         }
     }, 3000);
+}
+
+// Update conversation progress bar
+function updateProgressBar(sentenceCount) {
+    const fill = document.getElementById('progressBarFill');
+    if (!fill) return;
+    const pct = Math.min(100, (sentenceCount / maxTurns) * 100);
+    fill.style.width = pct + '%';
+    // Shift gradient position as progress increases
+    fill.style.backgroundPosition = (100 - pct) + '% 0';
 }
 
 // Update rewards display with animation
@@ -1325,7 +1336,11 @@ async function startConversation() {
         
         // Store the session ID
         sessionId = data.session_id;
-        
+
+        // Store max turns and init progress bar
+        if (data.max_turns) maxTurns = data.max_turns;
+        updateProgressBar(data.sentence_count || 0);
+
         // Handle resumed conversation differently
         if (isResuming && data.conversation_history) {
             // Load existing conversation history
@@ -2584,6 +2599,7 @@ async function sendAudioToServerStream(audioBlob) {
 
                             // Update rewards display
                             updateRewardsDisplay(data.sentence_count, data.reward_points);
+                            updateProgressBar(data.sentence_count);
 
                             // Update hints display
                             if (!pendingFunctionCall && data.hints && data.hints.length > 0) {
@@ -2880,6 +2896,7 @@ async function sendAudioToServer(audioBlob) {
                     // Display assistant message and play audio after delay
                     displayMessage('assistant', data.text, []);
                     updateRewardsDisplay(data.sentence_count, data.reward_points);
+                    updateProgressBar(data.sentence_count);
                     await playAudioResponse(data.audio);
                     if (pendingFunctionCall) {
                         handleFunctionCall(pendingFunctionCall, pendingConversationId);
@@ -2892,6 +2909,7 @@ async function sendAudioToServer(audioBlob) {
             // No correction popup, proceed normally
             displayMessage('assistant', data.text, []);
             updateRewardsDisplay(data.sentence_count, data.reward_points);
+            updateProgressBar(data.sentence_count);
             await playAudioResponse(data.audio);
             if (pendingFunctionCall) {
                 console.log('Function call detected, redirecting after TTS:', pendingFunctionCall);

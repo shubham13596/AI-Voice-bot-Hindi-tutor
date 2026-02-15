@@ -1103,7 +1103,8 @@ def start_conversation():
             'text_roman': text_roman,
             'audio': audio_response,
             'session_id': session_id,
-            'corrections': None  # Explicitly include corrections as None
+            'corrections': None,  # Explicitly include corrections as None
+            'max_turns': MAX_CONVERSATION_TURNS
         })
         
     except Exception as e:
@@ -2770,8 +2771,9 @@ def resume_conversation():
             'conversation_type': conversation.conversation_type,
             'conversation_history': conversation_history,
             'text': None,  # No continuation message to avoid duplication
-            'sentences_count': conversation.sentences_count or 0,
-            'reward_points': conversation.reward_points or 0
+            'sentence_count': conversation.sentences_count or 0,
+            'reward_points': conversation.reward_points or 0,
+            'max_turns': MAX_CONVERSATION_TURNS
         })
         
     except Exception as e:
