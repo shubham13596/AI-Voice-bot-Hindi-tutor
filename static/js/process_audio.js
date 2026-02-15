@@ -315,7 +315,7 @@ function initializeAudioEffects() {
 function createApplauseSound() {
     try {
         const audio = new Audio('/static/audio/applause_v1.wav');
-        audio.volume = 0.3; // Set volume to 30%
+        audio.volume = 0.5;
         
         return {
             play: () => {
@@ -644,7 +644,7 @@ function showCelebration(type, message, playSound = true, useApplause = false) {
         } else if (audioEffects[type]) {
             // Use default type-specific sound
             const audio = audioEffects[type];
-            if (audio.volume !== undefined) audio.volume = 0.3; // Reduce volume if it's a regular audio element
+            if (audio.volume !== undefined) audio.volume = 0.5;
             audio.play().catch(e => console.log('Audio playback failed:', e));
         }
     }
@@ -1902,14 +1902,10 @@ async function playAudioResponse(base64Audio) {
             return;
         }
 
-        // ★ iOS FIX: Use AudioContext for proper media volume routing
-        if ((isIOS || isSafari) && audioContext) {
-            debugLog('🔊 Using AudioContext for iOS volume control');
-            await playWithAudioContext(base64Audio);
-            return;
-        }
-
-        // Non-iOS: Use standard audio element, wrapped in Promise
+        // Use the shared <audio> element on all platforms.
+        // On iOS/Safari this is already warmed up via warmUpAudioElement()
+        // during the user gesture, so it plays in the "media" audio category
+        // and respects hardware volume buttons.
         const audio = getSharedAudioElement();
         audio.src = `data:audio/wav;base64,${base64Audio}`;
 
@@ -1939,44 +1935,6 @@ async function playAudioResponse(base64Audio) {
     } catch (error) {
         debugLog(`❌ Exception in playAudioResponse: ${error.message}`, true);
     }
-}
-
-/**
- * ★ iOS FIX: Play audio through AudioContext
- * AudioContext routes to "media" channel which respects volume buttons
- */
-async function playWithAudioContext(base64Audio) {
-    // Ensure context is active
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-        debugLog('AudioContext resumed');
-    }
-
-    // Convert base64 to ArrayBuffer
-    const binaryString = atob(base64Audio);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // Decode the audio data
-    debugLog('Decoding audio data...');
-    const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
-
-    // Create and play source
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-
-    return new Promise((resolve) => {
-        source.onended = () => {
-            debugLog('✅ AudioContext playback finished');
-            resolve();
-        };
-        source.start(0);
-        debugLog('✅ AudioContext playback started');
-    });
 }
 
 
