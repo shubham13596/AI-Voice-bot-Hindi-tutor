@@ -628,25 +628,34 @@ def get_educator_topic_prompts(educator_topic, prompt_type='conversation'):
     Uses full stored prompts when available, falls back to dynamic composition.
     prompt_type: 'initial' or 'conversation'"""
 
+    topic_key = getattr(educator_topic, 'topic_key', 'unknown')
+    educator_id = getattr(educator_topic, 'educator_id', 'unknown')
+
     if prompt_type == 'initial':
         topic_specific = educator_topic.prompt_initial
         if topic_specific:
-            return (
+            prompt = (
                 GLOBAL_TUTOR_IDENTITY +
                 GLOBAL_LANGUAGE_RULES +
                 topic_specific +
                 INITIAL_RESPONSE_FORMAT
             )
+            logger.info(f"[EDU_PROMPT] educator={educator_id} topic={topic_key} type=initial source=stored_prompt len={len(topic_specific)}")
+            logger.info(f"[EDU_PROMPT_FULL] topic={topic_key} type=initial\n--- TOPIC-SPECIFIC PROMPT ---\n{topic_specific}\n--- END ---")
+            return prompt
     else:
         topic_specific = educator_topic.prompt_conversation
         if topic_specific:
-            return (
+            prompt = (
                 GLOBAL_TUTOR_IDENTITY +
                 GLOBAL_LANGUAGE_RULES +
                 GLOBAL_CONVERSATION_FLOW +
                 topic_specific +
                 GLOBAL_RESPONSE_FORMAT
             )
+            logger.info(f"[EDU_PROMPT] educator={educator_id} topic={topic_key} type=conversation source=stored_prompt len={len(topic_specific)}")
+            logger.info(f"[EDU_PROMPT_FULL] topic={topic_key} type=conversation\n--- TOPIC-SPECIFIC PROMPT ---\n{topic_specific}\n--- END ---")
+            return prompt
 
     # Fallback: dynamically compose from topic_focus + key_vocabulary
     vocab_section = ""
@@ -672,6 +681,8 @@ EDUCATOR TOPIC FOCUS:
 YOUR TASK:
 Create a warm greeting related to this topic. Be genuinely curious and excited to talk about it with the child.
 """
+        logger.warning(f"[EDU_PROMPT] educator={educator_id} topic={topic_key} type=initial source=FALLBACK (no stored prompt_initial)")
+        logger.info(f"[EDU_PROMPT_FULL] topic={topic_key} type=initial (fallback)\n--- FALLBACK PROMPT ---\n{fallback}\n--- END ---")
         return (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
@@ -694,6 +705,8 @@ CONVERSATION GOALS:
 2. Use the key vocabulary naturally when possible
 3. Make it feel like a natural conversation, not a test
 """
+        logger.warning(f"[EDU_PROMPT] educator={educator_id} topic={topic_key} type=conversation source=FALLBACK (no stored prompt_conversation)")
+        logger.info(f"[EDU_PROMPT_FULL] topic={topic_key} type=conversation (fallback)\n--- FALLBACK PROMPT ---\n{fallback}\n--- END ---")
         return (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
@@ -797,6 +810,9 @@ def get_initial_conversation(child_name="दोस्त", child_age=6, child_ge
                 child_gender=child_gender,
                 exchange_number=1
             )
+
+        if conversation_type.startswith('edu_'):
+            logger.info(f"[EDU_PROMPT_FINAL] topic={conversation_type} type=initial\n--- FINAL SYSTEM PROMPT TO GEMINI ---\n{system_prompt}\n--- END ---")
 
         logger.info(f"Making Gemini API call for initial {conversation_type} conversation")
 
@@ -2436,6 +2452,10 @@ def process_audio_stream():
                     is_farewell,
                     recast_context
                 )
+
+                # Log final prompt for educator topics
+                if conversation_type.startswith('edu_'):
+                    logger.info(f"[EDU_PROMPT_FINAL] topic={conversation_type} exchange={current_count}\n--- FINAL SYSTEM PROMPT TO GEMINI ---\n{system_prompt}\n--- END ---")
 
                 # Prepare conversation history for Gemini
                 gemini_history = conversation_history + [{"role": "user", "content": transcript}]
