@@ -3,6 +3,7 @@
 Usage:
     python create_educator.py create "greenwood" "Greenwood International School" --hindi "ग्रीनवुड स्कूल" --color "#059669"
     python create_educator.py add-topic "greenwood" "school_trip" "My School Trip" "Talk about our school trip!" --focus "..." --vocab '["चिड़ियाघर","शेर"]' --icon "🚌"
+    python create_educator.py update-topic "greenwood" "school_trip" --prompt-initial-file prompts/school_trip_initial.txt --prompt-conversation-file prompts/school_trip_conversation.txt
     python create_educator.py list
     python create_educator.py list-topics "greenwood"
 """
@@ -16,6 +17,10 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app import app
 from models import db, Educator, EducatorTopic
+
+# Ensure tables exist (dev: SQLite auto-creates)
+with app.app_context():
+    db.create_all()
 
 
 def create_educator(args):
@@ -84,6 +89,51 @@ def add_topic(args):
         print(f"Added topic: {topic.name} (key: {topic.full_key})")
 
 
+def update_topic(args):
+    with app.app_context():
+        educator = Educator.query.filter_by(short_code=args.code).first()
+        if not educator:
+            print(f"Error: No educator found with code '{args.code}'")
+            sys.exit(1)
+
+        topic = EducatorTopic.query.filter_by(
+            educator_id=educator.id, topic_key=args.topic_key
+        ).first()
+        if not topic:
+            print(f"Error: Topic '{args.topic_key}' not found for educator '{args.code}'")
+            sys.exit(1)
+
+        updated = []
+        if args.prompt_initial_file:
+            with open(args.prompt_initial_file, 'r', encoding='utf-8') as f:
+                topic.prompt_initial = f.read()
+            updated.append('prompt_initial')
+        if args.prompt_conversation_file:
+            with open(args.prompt_conversation_file, 'r', encoding='utf-8') as f:
+                topic.prompt_conversation = f.read()
+            updated.append('prompt_conversation')
+        if args.focus:
+            topic.topic_focus = args.focus
+            updated.append('topic_focus')
+        if args.vocab:
+            try:
+                vocab_list = json.loads(args.vocab)
+                if not isinstance(vocab_list, list):
+                    raise ValueError("Must be a JSON array")
+                topic.key_vocabulary = args.vocab
+                updated.append('key_vocabulary')
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error: Invalid vocab JSON: {e}")
+                sys.exit(1)
+
+        if not updated:
+            print("Nothing to update. Use --prompt-initial-file, --prompt-conversation-file, --focus, or --vocab.")
+            sys.exit(1)
+
+        db.session.commit()
+        print(f"Updated topic '{topic.full_key}': {', '.join(updated)}")
+
+
 def list_educators(args):
     with app.app_context():
         educators = Educator.query.all()
@@ -140,6 +190,16 @@ def main():
     p_topic.add_argument('--vocab', help='JSON array of key vocabulary', default=None)
     p_topic.add_argument('--icon', help='Emoji icon (default: 📚)', default='📚')
     p_topic.set_defaults(func=add_topic)
+
+    # update-topic
+    p_update = subparsers.add_parser('update-topic', help='Update prompts on an existing topic')
+    p_update.add_argument('code', help='Educator short code')
+    p_update.add_argument('topic_key', help='Topic slug (e.g. "school_trip")')
+    p_update.add_argument('--prompt-initial-file', help='Path to file with full initial prompt text')
+    p_update.add_argument('--prompt-conversation-file', help='Path to file with full conversation prompt text')
+    p_update.add_argument('--focus', help='Update topic_focus text', default=None)
+    p_update.add_argument('--vocab', help='Update key_vocabulary JSON array', default=None)
+    p_update.set_defaults(func=update_topic)
 
     # list
     p_list = subparsers.add_parser('list', help='List all educators')

@@ -623,7 +623,30 @@ def get_educator_topic(conversation_type):
 
 def get_educator_topic_prompts(educator_topic, prompt_type='conversation'):
     """Build system prompts for an educator topic, mirroring built-in topic structure.
+    Uses full stored prompts when available, falls back to dynamic composition.
     prompt_type: 'initial' or 'conversation'"""
+
+    if prompt_type == 'initial':
+        topic_specific = educator_topic.prompt_initial
+        if topic_specific:
+            return (
+                GLOBAL_TUTOR_IDENTITY +
+                GLOBAL_LANGUAGE_RULES +
+                topic_specific +
+                INITIAL_RESPONSE_FORMAT
+            )
+    else:
+        topic_specific = educator_topic.prompt_conversation
+        if topic_specific:
+            return (
+                GLOBAL_TUTOR_IDENTITY +
+                GLOBAL_LANGUAGE_RULES +
+                GLOBAL_CONVERSATION_FLOW +
+                topic_specific +
+                GLOBAL_RESPONSE_FORMAT
+            )
+
+    # Fallback: dynamically compose from topic_focus + key_vocabulary
     vocab_section = ""
     if educator_topic.key_vocabulary:
         try:
@@ -633,7 +656,8 @@ def get_educator_topic_prompts(educator_topic, prompt_type='conversation'):
         except json.JSONDecodeError:
             pass
 
-    topic_specific_initial = f"""
+    if prompt_type == 'initial':
+        fallback = f"""
 CONTEXT:
 - Child's name: {{child_name}}
 - Child's age: {{child_age}}
@@ -646,8 +670,14 @@ EDUCATOR TOPIC FOCUS:
 YOUR TASK:
 Create a warm greeting related to this topic. Be genuinely curious and excited to talk about it with the child.
 """
-
-    topic_specific_conversation = f"""
+        return (
+            GLOBAL_TUTOR_IDENTITY +
+            GLOBAL_LANGUAGE_RULES +
+            fallback +
+            INITIAL_RESPONSE_FORMAT
+        )
+    else:
+        fallback = f"""
 CURRENT STATE:
 - Child's name: {{child_name}}
 - Child's age: {{child_age}}
@@ -662,20 +692,11 @@ CONVERSATION GOALS:
 2. Use the key vocabulary naturally when possible
 3. Make it feel like a natural conversation, not a test
 """
-
-    if prompt_type == 'initial':
-        return (
-            GLOBAL_TUTOR_IDENTITY +
-            GLOBAL_LANGUAGE_RULES +
-            topic_specific_initial +
-            INITIAL_RESPONSE_FORMAT
-        )
-    else:
         return (
             GLOBAL_TUTOR_IDENTITY +
             GLOBAL_LANGUAGE_RULES +
             GLOBAL_CONVERSATION_FLOW +
-            topic_specific_conversation +
+            fallback +
             GLOBAL_RESPONSE_FORMAT
         )
 
@@ -2329,6 +2350,18 @@ def process_audio_stream():
         )
         transcript_translit_future = eval_executor.submit(transliterate_to_roman, transcript)
 
+        # Pre-resolve system prompt base (DB queries need request context, generator won't have it)
+        if conversation_type.startswith('edu_'):
+            edu_topic = get_educator_topic(conversation_type)
+            if edu_topic:
+                system_prompt_base = get_educator_topic_prompts(edu_topic, 'conversation')
+            else:
+                system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+        elif conversation_type in CONVERSATION_TYPES:
+            system_prompt_base = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
+        else:
+            system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+
         # Streaming response generator
         def generate_streaming_response():
             nonlocal should_end
@@ -2346,18 +2379,6 @@ def process_audio_stream():
 
                 # Send evaluation as separate event
                 yield f"data: {json.dumps({'type': 'evaluation', 'evaluation': evaluation})}\n\n"
-
-                # Get base system prompt for conversation type
-                if conversation_type.startswith('edu_'):
-                    edu_topic = get_educator_topic(conversation_type)
-                    if edu_topic:
-                        system_prompt_base = get_educator_topic_prompts(edu_topic, 'conversation')
-                    else:
-                        system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
-                elif conversation_type in CONVERSATION_TYPES:
-                    system_prompt_base = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
-                else:
-                    system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
 
                 # Prepare recast context from evaluation (only recast for amber feedback)
                 recast_context = {

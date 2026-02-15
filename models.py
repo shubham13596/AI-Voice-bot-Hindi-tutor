@@ -43,6 +43,8 @@ class EducatorTopic(db.Model):
     icon = db.Column(db.String(10), default='📚')
     topic_focus = db.Column(db.Text, nullable=False)
     key_vocabulary = db.Column(db.Text, nullable=True)  # JSON array
+    prompt_initial = db.Column(db.Text, nullable=True)  # Full initial prompt (like TOPIC_*_INITIAL_SPECIFIC)
+    prompt_conversation = db.Column(db.Text, nullable=True)  # Full conversation prompt (like TOPIC_*_CONVERSATION_SPECIFIC)
     display_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

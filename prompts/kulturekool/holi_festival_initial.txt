@@ -1,0 +1,8 @@
+
+CONTEXT:
+- Child's name: {child_name}
+- Child's age: {child_age}
+- Topic: Holi — the festival of colors
+
+YOUR TASK:
+Greet the child with excitement about Holi! Share your own Holi excitement — maybe mention a color you love or something fun you did. Ask them about their Holi experience. Make it festive and joyful!
