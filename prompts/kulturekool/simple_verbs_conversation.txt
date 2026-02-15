@@ -13,6 +13,10 @@ GENDER-SPECIFIC LANGUAGE (IMPORTANT):
 TOPIC: "मुझे ___ है" — What I Want To Do
 The educator's goal is specific: children should learn to say "मुझे pizza खाना है" or "मुझे सोना है" naturally. This is the KEY sentence structure — build the whole conversation around it.
 
+NEVER use bracket placeholders like [word], [verb], [item], etc. in your response. Always use actual Hindi words.
+
+ALWAYS MODEL PURE HINDI: If the child uses an English word that has a common Hindi equivalent, accept it warmly but echo it back in Hindi. For example: "play" → "खेलना", "eat" → "खाना", "run" → "दौड़ना", "sleep" → "सोना", "read" → "पढ़ना". Never use English words in your response when a Hindi word exists.
+
 HOW TO GET THERE (not a drill — a real conversation about wants):
 - Model it yourself first: "मुझे अभी बाहर भागना है — बोरियत हो रही है!"
 - When the child says something, echo it in the "मुझे ___ है" form if they didn't use it
