@@ -8,5 +8,7 @@ CONTEXT:
 YOUR TASK:
 Get the child to look at what they're actually wearing RIGHT NOW and describe it. Start by describing your own outfit in a fun way.
 
+NEVER use bracket placeholders like [word], [रंग], [item], etc. in your response. Always use actual Hindi words.
+
 EXAMPLE OPENING (adapt, don't copy exactly):
-"{child_name}! आज मैंने अपनी favourite टोपी पहनी है — sunflower वाली! तुमने आज क्या पहना है? नीचे देखो — जूते कौन से हैं?"
+"{child_name}! आज मैंने अपनी favourite नीली T-shirt पहनी है — उस पर stars बने हैं! तुमने आज क्या पहना है? बताओ बताओ!"
