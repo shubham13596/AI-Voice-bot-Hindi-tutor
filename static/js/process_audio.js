@@ -1199,73 +1199,12 @@ async function initializeRecording() {
         // Initialize audio effects
         audioEffects = initializeAudioEffects();
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        // ★ iOS FIX: Detect supported MIME type
-        const mimeType = getSupportedMimeType();
-        const options = mimeType ? { mimeType } : {};
-
-        console.log('🎤 Creating MediaRecorder with options:', options);
-
-        mediaRecorder = new MediaRecorder(stream, options);
-        mediaStream = stream; // ★ Store stream reference for iOS cleanup
-
-        mediaRecorder.ondataavailable = (event) => {
-            // ★ iOS FIX: Only add chunks with data
-            if (event.data && event.data.size > 0) {
-                audioChunks.push(event.data);
-                console.log('📦 Audio chunk received, size:', event.data.size);
-            }
-        };
-
-        mediaRecorder.onstop = async () => {
-            if (recordingCancelled) { recordingCancelled = false; audioChunks = []; return; }
-
-            // ★ iOS FIX: Use actual MIME type from recorder, not hardcoded 'audio/wav'
-            const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
-            const audioBlob = new Blob(audioChunks, { type: actualMimeType });
-
-            console.log('=== AUDIO DEBUG ===');
-            console.log('Number of chunks:', audioChunks.length);
-            console.log('Total blob size:', audioBlob.size);
-            console.log('MIME type:', actualMimeType);
-            console.log('==================');
-
-            // ★ iOS FIX: Check for empty recording
-            if (audioBlob.size < 1000) {
-                console.warn('⚠️ Audio blob too small, likely empty recording');
-                displayNoSpeechMessage();
-                transitionTo('IDLE');
-                audioChunks = [];
-                return;
-            }
-
-            transitionTo('PROCESSING');
-
-            // Try streaming version first, fallback to original if needed
-            try {
-                await sendAudioToServerStream(audioBlob);
-            } catch (error) {
-                console.log('Streaming failed, using fallback:', error);
-                await sendAudioToServer(audioBlob);
-            }
-            // Note: audioChunks is reset in startRecordingAuto() before each new recording
-        };
-
         // Hide button initially — state machine will show it when appropriate
         elements.recordButton.style.display = 'none';
 
-        // ★ Show overlay to get user gesture before starting conversation (iOS/Safari/Android)
-        if (isIOS || isSafari || isAndroid) {
-            elements.status.textContent = 'Tap "Let\'s Go" to start!';
-            showIOSStartOverlay(async () => {
-                elements.status.textContent = 'Starting conversation...';
-                await startConversation();
-            });
-        } else {
-            elements.status.textContent = 'Starting conversation...';
-            await startConversation();
-        }
+        // Show start overlay on ALL platforms (mic permission requested on button tap)
+        elements.status.textContent = 'Tap to start your conversation!';
+        showStartOverlay();
 
         return true;
     } catch (error) {
@@ -1278,13 +1217,53 @@ async function initializeRecording() {
             status.textContent = `Error: ${error.message}. Please refresh and try again.`;
         }
 
-        // Also check if error is due to microphone permissions
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            status.textContent = 'Please allow microphone access to use this application.';
-        }
-
         return false;
     }
+}
+
+// Set up MediaRecorder handlers on the current mediaRecorder instance
+function setupMediaRecorderHandlers() {
+    mediaRecorder.ondataavailable = (event) => {
+        // ★ iOS FIX: Only add chunks with data
+        if (event.data && event.data.size > 0) {
+            audioChunks.push(event.data);
+            console.log('📦 Audio chunk received, size:', event.data.size);
+        }
+    };
+
+    mediaRecorder.onstop = async () => {
+        if (recordingCancelled) { recordingCancelled = false; audioChunks = []; return; }
+
+        // ★ iOS FIX: Use actual MIME type from recorder, not hardcoded 'audio/wav'
+        const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: actualMimeType });
+
+        console.log('=== AUDIO DEBUG ===');
+        console.log('Number of chunks:', audioChunks.length);
+        console.log('Total blob size:', audioBlob.size);
+        console.log('MIME type:', actualMimeType);
+        console.log('==================');
+
+        // ★ iOS FIX: Check for empty recording
+        if (audioBlob.size < 1000) {
+            console.warn('⚠️ Audio blob too small, likely empty recording');
+            displayNoSpeechMessage();
+            transitionTo('IDLE');
+            audioChunks = [];
+            return;
+        }
+
+        transitionTo('PROCESSING');
+
+        // Try streaming version first, fallback to original if needed
+        try {
+            await sendAudioToServerStream(audioBlob);
+        } catch (error) {
+            console.log('Streaming failed, using fallback:', error);
+            await sendAudioToServer(audioBlob);
+        }
+        // Note: audioChunks is reset in startRecordingAuto() before each new recording
+    };
 }
 
 // Start the initial conversation
@@ -1674,12 +1653,13 @@ function warmUpAudioElement() {
 }
 
 /**
- * ★ iOS FIX: Show "Let's Go" overlay for iOS/Safari
- * This ensures we have a user gesture before any audio plays
+ * Show start overlay on all platforms before requesting mic permission.
+ * The user gesture (button tap) triggers getUserMedia, ensuring the user
+ * understands why mic access is needed before the browser prompt appears.
  */
-function showIOSStartOverlay(onStart) {
+function showStartOverlay() {
     const overlay = document.createElement('div');
-    overlay.id = 'iosStartOverlay';
+    overlay.id = 'startOverlay';
     overlay.style.cssText = `
         position: fixed;
         inset: 0;
@@ -1694,11 +1674,11 @@ function showIOSStartOverlay(onStart) {
     `;
 
     overlay.innerHTML = `
-        <div style="text-align: center; color: white; padding: 20px;">
+        <div id="startOverlayContent" style="text-align: center; color: white; padding: 20px;">
             <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
-            <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 600;">Ready to practice Hindi?</h2>
-            <p style="font-size: 16px; opacity: 0.8; margin-bottom: 24px;">Tap below to start your conversation with Kiki</p>
-            <button id="iosStartButton" style="
+            <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 600;">Ready to talk with Kiki?</h2>
+            <p style="font-size: 16px; opacity: 0.8; margin-bottom: 24px;">Kiki needs your microphone to hear you speak Hindi</p>
+            <button id="startButton" style="
                 background: linear-gradient(135deg, #22c55e, #16a34a);
                 color: white;
                 border: none;
@@ -1709,13 +1689,13 @@ function showIOSStartOverlay(onStart) {
                 cursor: pointer;
                 box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
                 transition: transform 0.2s, box-shadow 0.2s;
-            ">Let's Go! 🚀</button>
+            ">Start Talking! 🎙️</button>
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-    const button = document.getElementById('iosStartButton');
+    const button = document.getElementById('startButton');
 
     // Add hover effect
     button.addEventListener('mouseenter', () => {
@@ -1728,23 +1708,171 @@ function showIOSStartOverlay(onStart) {
     });
 
     button.addEventListener('click', async () => {
-        debugLog('🚀 iOS Start button clicked - warming up audio');
+        debugLog('🚀 Start button clicked - requesting microphone access');
 
-        // ★ This is the user gesture - warm up audio NOW
-        await unlockAudioContext();
-        warmUpAudioElement();
+        // Disable button to prevent double-tap
+        button.disabled = true;
+        button.textContent = 'Connecting...';
 
-        // Remove overlay with fade
-        overlay.style.transition = 'opacity 0.3s';
-        overlay.style.opacity = '0';
-        setTimeout(() => {
-            overlay.remove();
-            // Now start the conversation
-            onStart();
-        }, 300);
+        try {
+            // 1. Request mic permission (triggers browser prompt)
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // 2. Create MediaRecorder
+            const mimeType = getSupportedMimeType();
+            const options = mimeType ? { mimeType } : {};
+            console.log('🎤 Creating MediaRecorder with options:', options);
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaStream = stream;
+
+            // 3. Attach recording handlers
+            setupMediaRecorderHandlers();
+
+            // 4. iOS/Safari audio warmup (must happen in user gesture)
+            if (isIOS || isSafari) {
+                await unlockAudioContext();
+                warmUpAudioElement();
+            }
+
+            // 5. Fade out overlay and start conversation
+            overlay.style.transition = 'opacity 0.3s';
+            overlay.style.opacity = '0';
+            setTimeout(async () => {
+                overlay.remove();
+                const status = document.getElementById('status');
+                if (status) status.textContent = 'Starting conversation...';
+                await startConversation();
+            }, 300);
+
+        } catch (error) {
+            console.error('Mic permission error:', error);
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                showPermissionDeniedUI(overlay);
+            } else {
+                showMicErrorUI(overlay, error.message);
+            }
+        }
     });
 
-    debugLog('📱 iOS overlay shown - waiting for user tap');
+    debugLog('🎙️ Start overlay shown - waiting for user tap');
+}
+
+/**
+ * Show recovery UI when microphone permission is denied.
+ * Replaces overlay content with instructions to re-enable mic access.
+ */
+function showPermissionDeniedUI(overlay) {
+    const content = document.getElementById('startOverlayContent');
+    if (!content) return;
+
+    content.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">🔇</div>
+        <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 600;">Kiki can't hear you</h2>
+        <p style="font-size: 16px; opacity: 0.8; margin-bottom: 16px;">Please allow microphone access so Kiki can hear you speak Hindi</p>
+        <p style="font-size: 14px; opacity: 0.7; margin-bottom: 24px; line-height: 1.5;">
+            Tap the 🔒 icon in your browser's address bar<br>
+            → Set Microphone to <strong>Allow</strong><br>
+            → Then tap "Try Again" below
+        </p>
+        <button id="retryMicButton" style="
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border: none;
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        ">Try Again 🎙️</button>
+    `;
+
+    const retryButton = document.getElementById('retryMicButton');
+
+    retryButton.addEventListener('mouseenter', () => {
+        retryButton.style.transform = 'scale(1.05)';
+        retryButton.style.boxShadow = '0 6px 20px rgba(34, 197, 94, 0.5)';
+    });
+    retryButton.addEventListener('mouseleave', () => {
+        retryButton.style.transform = 'scale(1)';
+        retryButton.style.boxShadow = '0 4px 15px rgba(34, 197, 94, 0.4)';
+    });
+
+    retryButton.addEventListener('click', async () => {
+        retryButton.disabled = true;
+        retryButton.textContent = 'Connecting...';
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const mimeType = getSupportedMimeType();
+            const options = mimeType ? { mimeType } : {};
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaStream = stream;
+            setupMediaRecorderHandlers();
+
+            if (isIOS || isSafari) {
+                await unlockAudioContext();
+                warmUpAudioElement();
+            }
+
+            overlay.style.transition = 'opacity 0.3s';
+            overlay.style.opacity = '0';
+            setTimeout(async () => {
+                overlay.remove();
+                const status = document.getElementById('status');
+                if (status) status.textContent = 'Starting conversation...';
+                await startConversation();
+            }, 300);
+
+        } catch (error) {
+            retryButton.disabled = false;
+            retryButton.textContent = 'Try Again 🎙️';
+            if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
+                showMicErrorUI(overlay, error.message);
+            }
+        }
+    });
+}
+
+/**
+ * Show generic mic error UI (hardware not found, etc.)
+ */
+function showMicErrorUI(overlay, errorMessage) {
+    const content = document.getElementById('startOverlayContent');
+    if (!content) return;
+
+    content.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+        <h2 style="font-size: 24px; margin-bottom: 8px; font-weight: 600;">Microphone not available</h2>
+        <p style="font-size: 16px; opacity: 0.8; margin-bottom: 16px;">Kiki couldn't find a microphone on your device</p>
+        <p id="micErrorDetail" style="font-size: 14px; opacity: 0.6; margin-bottom: 24px;"></p>
+        <button id="retryMicButton" style="
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border: none;
+            padding: 16px 48px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        ">Try Again 🎙️</button>
+    `;
+
+    // Set error message safely via textContent (not innerHTML)
+    const errorDetail = document.getElementById('micErrorDetail');
+    if (errorDetail) errorDetail.textContent = errorMessage;
+
+    const retryButton = document.getElementById('retryMicButton');
+    retryButton.addEventListener('click', () => {
+        // Reset overlay to initial state
+        overlay.remove();
+        showStartOverlay();
+    });
 }
 
 // Play audio response (awaitable — resolves when audio finishes)

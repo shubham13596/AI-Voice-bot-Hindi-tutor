@@ -490,100 +490,31 @@
         // Track the current Hindi name (loaded from server)
         let currentHindiName = '';
 
-        // ========== TRANSLITERATION LOGIC ==========
+        // ========== TRANSLITERATION VIA API ==========
 
-        const matras = {
-            'aa': '\u093E', 'a': '',
-            'ee': '\u0940', 'i': '\u093F',
-            'oo': '\u0942', 'u': '\u0941',
-            'ai': '\u0948', 'e': '\u0947',
-            'au': '\u094C', 'o': '\u094B',
-            'an': '\u0902', 'am': '\u0902'
-        };
+        let transliterateTimer = null;
 
-        const vowels = {
-            'aa': '\u0906', 'a': '\u0905',
-            'ee': '\u0908', 'i': '\u0907',
-            'oo': '\u090A', 'u': '\u0909',
-            'ai': '\u0910', 'e': '\u090F',
-            'au': '\u0914', 'o': '\u0913',
-            'an': '\u0905\u0902', 'am': '\u0905\u0902'
-        };
-
-        const consonants = {
-            'ksh': '\u0915\u094D\u0937', 'gya': '\u091C\u094D\u091E', 'tra': '\u0924\u094D\u0930', 'shr': '\u0936\u094D\u0930',
-            'kh': '\u0916', 'gh': '\u0918', 'ch': '\u091B', 'jh': '\u091D',
-            'th': '\u0925', 'dh': '\u0927', 'ph': '\u092B', 'bh': '\u092D',
-            'sh': '\u0936', 'ng': '\u0919', 'ny': '\u091E',
-            'k': '\u0915', 'g': '\u0917', 'c': '\u091A', 'j': '\u091C',
-            't': '\u0924', 'd': '\u0926', 'n': '\u0928', 'p': '\u092A',
-            'b': '\u092C', 'm': '\u092E', 'y': '\u092F', 'r': '\u0930',
-            'l': '\u0932', 'v': '\u0935', 'w': '\u0935', 's': '\u0938', 'h': '\u0939',
-            'q': '\u0915\u093C', 'f': '\u092B\u093C', 'z': '\u091C\u093C', 'x': '\u0915\u094D\u0938'
-        };
-
-        const vowelPatterns = Object.keys(vowels).sort((a, b) => b.length - a.length);
-        const matraPatterns = Object.keys(matras).sort((a, b) => b.length - a.length);
-        const consonantPatterns = Object.keys(consonants).sort((a, b) => b.length - a.length);
-
-        function transliterateToHindi(text) {
-            if (!text) return '';
-            text = text.toLowerCase().trim();
-            let result = '';
-            let i = 0;
-            let lastWasConsonant = false;
-
-            while (i < text.length) {
-                let matched = false;
-
-                if (!/[a-z]/.test(text[i])) {
-                    result += text[i];
-                    i++;
-                    lastWasConsonant = false;
-                    continue;
-                }
-
-                for (const pattern of consonantPatterns) {
-                    if (text.substring(i, i + pattern.length) === pattern) {
-                        result += consonants[pattern];
-                        i += pattern.length;
-                        lastWasConsonant = true;
-                        matched = true;
-                        break;
+        function transliterateViaAPI(text) {
+            clearTimeout(transliterateTimer);
+            if (!text.trim()) return;
+            hindiNameDisplay.textContent = '...';
+            transliterateTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch('/api/transliterate-name', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text.trim() })
+                    });
+                    const data = await resp.json();
+                    if (data.hindi) {
+                        hindiNameDisplay.textContent = data.hindi;
+                    } else {
+                        hindiNameDisplay.textContent = '';
                     }
+                } catch (e) {
+                    hindiNameDisplay.textContent = '';
                 }
-
-                if (matched) continue;
-
-                if (lastWasConsonant) {
-                    for (const pattern of matraPatterns) {
-                        if (text.substring(i, i + pattern.length) === pattern) {
-                            result += matras[pattern];
-                            i += pattern.length;
-                            lastWasConsonant = false;
-                            matched = true;
-                            break;
-                        }
-                    }
-                } else {
-                    for (const pattern of vowelPatterns) {
-                        if (text.substring(i, i + pattern.length) === pattern) {
-                            result += vowels[pattern];
-                            i += pattern.length;
-                            lastWasConsonant = false;
-                            matched = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!matched) {
-                    i++;
-                    lastWasConsonant = false;
-                }
-            }
-
-            return result;
+            }, 400);
         }
 
         // ========== VIRTUAL KEYBOARD ==========
@@ -667,11 +598,11 @@
 
             const englishName = this.value.trim();
             if (englishName) {
-                const hindiName = transliterateToHindi(englishName);
-                hindiNameDisplay.textContent = hindiName;
+                transliterateViaAPI(englishName);
                 hindiPreview.style.display = 'block';
                 hindiEditMode.style.display = 'none';
             } else {
+                clearTimeout(transliterateTimer);
                 // If English input cleared, restore current Hindi name
                 if (currentHindiName) {
                     hindiNameDisplay.textContent = currentHindiName;

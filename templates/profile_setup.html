@@ -466,114 +466,31 @@
         const saveEditBtn = document.getElementById('saveEditBtn');
         const virtualKeyboard = document.getElementById('virtualKeyboard');
 
-        // ========== TRANSLITERATION LOGIC ==========
+        // ========== TRANSLITERATION VIA API ==========
 
-        // Matras (vowel signs) for consonant+vowel combinations
-        const matras = {
-            'aa': 'ा', 'a': '', // 'a' after consonant is implicit (no matra)
-            'ee': 'ी', 'i': 'ि',
-            'oo': 'ू', 'u': 'ु',
-            'ai': 'ै', 'e': 'े',
-            'au': 'ौ', 'o': 'ो',
-            'an': 'ं', 'am': 'ं' // anusvara
-        };
+        let transliterateTimer = null;
 
-        // Full vowels (used at word start or after vowel)
-        const vowels = {
-            'aa': 'आ', 'a': 'अ',
-            'ee': 'ई', 'i': 'इ',
-            'oo': 'ऊ', 'u': 'उ',
-            'ai': 'ऐ', 'e': 'ए',
-            'au': 'औ', 'o': 'ओ',
-            'an': 'अं', 'am': 'अं'
-        };
-
-        // Consonants (longer patterns first for correct matching)
-        const consonants = {
-            'ksh': 'क्ष', 'gya': 'ज्ञ', 'tra': 'त्र', 'shr': 'श्र',
-            'kh': 'ख', 'gh': 'घ', 'ch': 'छ', 'jh': 'झ',
-            'th': 'थ', 'dh': 'ध', 'ph': 'फ', 'bh': 'भ',
-            'sh': 'श', 'ng': 'ङ', 'ny': 'ञ',
-            'k': 'क', 'g': 'ग', 'c': 'च', 'j': 'ज',
-            't': 'त', 'd': 'द', 'n': 'न', 'p': 'प',
-            'b': 'ब', 'm': 'म', 'y': 'य', 'r': 'र',
-            'l': 'ल', 'v': 'व', 'w': 'व', 's': 'स', 'h': 'ह',
-            'q': 'क़', 'f': 'फ़', 'z': 'ज़', 'x': 'क्स'
-        };
-
-        // Sort patterns by length (longest first) for correct matching
-        const vowelPatterns = Object.keys(vowels).sort((a, b) => b.length - a.length);
-        const matraPatterns = Object.keys(matras).sort((a, b) => b.length - a.length);
-        const consonantPatterns = Object.keys(consonants).sort((a, b) => b.length - a.length);
-
-        function transliterateToHindi(text) {
-            if (!text) return '';
-
-            text = text.toLowerCase().trim();
-            let result = '';
-            let i = 0;
-            let lastWasConsonant = false;
-
-            while (i < text.length) {
-                let matched = false;
-
-                // Skip spaces and non-alphabetic characters
-                if (!/[a-z]/.test(text[i])) {
-                    result += text[i];
-                    i++;
-                    lastWasConsonant = false;
-                    continue;
-                }
-
-                // Try to match consonants first
-                for (const pattern of consonantPatterns) {
-                    if (text.substring(i, i + pattern.length) === pattern) {
-                        result += consonants[pattern];
-                        i += pattern.length;
-                        lastWasConsonant = true;
-                        matched = true;
-                        break;
+        function transliterateViaAPI(text) {
+            clearTimeout(transliterateTimer);
+            if (!text.trim()) return;
+            hindiNameDisplay.textContent = '...';
+            transliterateTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch('/api/transliterate-name', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text.trim() })
+                    });
+                    const data = await resp.json();
+                    if (data.hindi) {
+                        hindiNameDisplay.textContent = data.hindi;
+                    } else {
+                        hindiNameDisplay.textContent = '';
                     }
+                } catch (e) {
+                    hindiNameDisplay.textContent = '';
                 }
-
-                if (matched) continue;
-
-                // Try to match vowels
-                if (lastWasConsonant) {
-                    // After consonant, use matras
-                    for (const pattern of matraPatterns) {
-                        if (text.substring(i, i + pattern.length) === pattern) {
-                            result += matras[pattern];
-                            i += pattern.length;
-                            lastWasConsonant = false;
-                            matched = true;
-                            break;
-                        }
-                    }
-                } else {
-                    // At start or after vowel, use full vowels
-                    for (const pattern of vowelPatterns) {
-                        if (text.substring(i, i + pattern.length) === pattern) {
-                            result += vowels[pattern];
-                            i += pattern.length;
-                            lastWasConsonant = false;
-                            matched = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!matched) {
-                    // Unknown character, skip
-                    i++;
-                    lastWasConsonant = false;
-                }
-            }
-
-            // Add halant (virama) at the end if last character was a consonant without vowel
-            // This is optional - some systems don't add it
-
-            return result;
+            }, 400);
         }
 
         // ========== VIRTUAL KEYBOARD ==========
@@ -639,14 +556,14 @@
             }
             validateForm();
 
-            // Real-time Hindi transliteration preview
+            // Real-time Hindi transliteration preview via API
             const englishName = this.value.trim();
             if (englishName) {
-                const hindiName = transliterateToHindi(englishName);
-                hindiNameDisplay.textContent = hindiName;
+                transliterateViaAPI(englishName);
                 hindiPreview.style.display = 'block';
                 hindiEditMode.style.display = 'none';
             } else {
+                clearTimeout(transliterateTimer);
                 hindiPreview.style.display = 'none';
                 hindiEditMode.style.display = 'none';
             }
@@ -698,7 +615,7 @@
             const selectedGender = Array.from(genderRadios).find(radio => radio.checked);
 
             // Get the Hindi name (from preview or edited)
-            const hindiName = hindiNameDisplay.textContent || transliterateToHindi(childName);
+            const hindiName = hindiNameDisplay.textContent || '';
 
             // Hide all errors first
             nameError.style.display = 'none';

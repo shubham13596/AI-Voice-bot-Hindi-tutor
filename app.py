@@ -303,6 +303,40 @@ def transliterate_to_roman(text):
         logger.warning(f"Sarvam transliterate failed in {elapsed:.0f}ms: {e}")
         return ''
 
+
+def transliterate_to_hindi(text):
+    """Convert Roman/English text to Devanagari Hindi via Sarvam API.
+    Returns the transliterated text, or empty string on failure."""
+    if not text or not text.strip() or not SARVAM_API_KEY:
+        return ''
+    start_ms = time.time()
+    try:
+        resp = requests.post(
+            SARVAM_TRANSLITERATE_URL,
+            headers={
+                'api-subscription-key': SARVAM_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            json={
+                'input': text,
+                'source_language_code': 'en-IN',
+                'target_language_code': 'hi-IN'
+            },
+            timeout=5
+        )
+        elapsed = (time.time() - start_ms) * 1000
+        if resp.status_code == 200:
+            result = resp.json().get('transliterated_text', '')
+            logger.info(f"🔤 SARVAM TO-HINDI: {elapsed:.0f}ms for '{text[:40]}…' → '{result[:40]}…'")
+            return result
+        logger.warning(f"Sarvam to-hindi returned {resp.status_code} in {elapsed:.0f}ms: {resp.text[:200]}")
+        return ''
+    except Exception as e:
+        elapsed = (time.time() - start_ms) * 1000
+        logger.warning(f"Sarvam to-hindi failed in {elapsed:.0f}ms: {e}")
+        return ''
+
+
 # Initialize ElevenLabs client
 eleven_labs = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
@@ -1096,7 +1130,7 @@ def text_to_speech_hindi_elevenlabs(text, output_filename="response.wav"):
                     optimize_streaming_latency="2",
                     output_format="mp3_44100_128",
                     voice_settings=VoiceSettings(
-                        stability=0.75,
+                        stability=0.8,
                         similarity_boost=0.75,
                         style=0.05,
                         use_speaker_boost=False,
@@ -1809,6 +1843,18 @@ Text to translate: {text}"""
     except Exception as e:
         print(f"Translation Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/transliterate-name', methods=['POST'])
+@login_required
+def api_transliterate_name():
+    """Transliterate an English name to Devanagari Hindi via Sarvam API."""
+    data = request.get_json(silent=True) or {}
+    text = (data.get('text') or '').strip()
+    if not text or len(text) > 100:
+        return jsonify({'hindi': ''})
+    hindi = transliterate_to_hindi(text)
+    return jsonify({'hindi': hindi})
 
 
 # process_audio() is only a fallback to process_audio_stream()
@@ -2586,25 +2632,27 @@ def get_best_audio(conversation_id):
         if not conversation:
             return jsonify({'success': False, 'reason': 'not_found'}), 404
 
-        # Load user audio records
+        # Load user audio records (include pending — uploads may still be in flight)
         audio_records = ConversationAudio.query.filter(
             ConversationAudio.conversation_id == conversation_id,
             ConversationAudio.role == 'user',
-            ConversationAudio.upload_status == 'uploaded',
+            ConversationAudio.upload_status.in_(['uploaded', 'pending']),
         ).order_by(ConversationAudio.turn_index).all()
 
         if not audio_records:
             return jsonify({'success': False, 'reason': 'no_audio'})
 
-        # Build map of turn_index -> audio record
-        audio_by_turn = {rec.turn_index: rec for rec in audio_records}
-
-        # Extract user turns from conversation transcript
+        # Extract user messages from conversation transcript
         transcript_data = conversation.conversation_data
+        user_messages = [msg.get('content', '') for msg in transcript_data if msg.get('role') == 'user']
+
+        if not user_messages:
+            return jsonify({'success': False, 'reason': 'no_audio'})
+
+        # Pair audio records with user messages by order (resilient to turn_index drift)
         user_turns = []
-        for i, msg in enumerate(transcript_data):
-            if msg.get('role') == 'user' and i in audio_by_turn:
-                user_turns.append({'turn_index': i, 'text': msg.get('content', '')})
+        for idx, (rec, text) in enumerate(zip(audio_records, user_messages)):
+            user_turns.append({'index': idx, 'text': text, 'audio_record': rec})
 
         if not user_turns:
             return jsonify({'success': False, 'reason': 'no_audio'})
@@ -2642,7 +2690,17 @@ Return ONLY a JSON object: {{"best_turn": <number>, "reason": "<brief reason in 
                 reason = ''
 
         # Generate presigned URL for the best audio
-        audio_record = audio_by_turn[best_turn['turn_index']]
+        audio_record = best_turn['audio_record']
+
+        # If the best pick is still pending upload, try to find an uploaded one
+        if audio_record.upload_status != 'uploaded':
+            uploaded = [t for t in user_turns if t['audio_record'].upload_status == 'uploaded']
+            if uploaded:
+                best_turn = uploaded[0]
+                audio_record = best_turn['audio_record']
+            else:
+                return jsonify({'success': False, 'reason': 'pending_upload'})
+
         playback_url = generate_presigned_url(audio_record.s3_key)
 
         return jsonify({
