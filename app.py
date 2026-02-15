@@ -842,11 +842,11 @@ class ResponseEvaluator:
     """Evaluates user responses for completeness and grammar"""
     
     @staticmethod
-    def evaluate_response(user_text, last_talker_response=None):
+    def evaluate_response(user_text, last_talker_response=None, conversation_type=None):
         """Evaluate user response and return corrected answer using Gemini"""
         try:
 
-            # Build system prompt with context from last talker response
+            # Build context section
             if last_talker_response:
                 context_section = f"""
                 Context - Last question/statement from tutor: "{last_talker_response}"
@@ -857,11 +857,33 @@ class ResponseEvaluator:
                 User response: "{user_text}"
                 """
 
+            # Resolve topic name for context
+            topic_name = ""
+            if conversation_type:
+                if conversation_type.startswith('edu_'):
+                    edu_topic = get_educator_topic(conversation_type)
+                    if edu_topic:
+                        topic_name = edu_topic.name
+                elif conversation_type in CONVERSATION_TYPES:
+                    topic_name = CONVERSATION_TYPES[conversation_type].get('title_en', '')
+
+            topic_section = f'\nConversation topic: "{topic_name}"\n' if topic_name else ""
+
             system_prompt = f"""
-            You are a Hindi tutor evaluating this Hindi response from a 6-year-old child for:
-            1. Completeness (is it a sentence or just 1 word?)
-            2. Grammar correctness - ESPECIALLY gender agreement errors
+            You are a Hindi tutor evaluating this Hindi response from a young child (ages 4-8) for:
+            1. Completeness — is it a sentence or just 1 isolated word? A short but complete sentence like "हाँ" or "नहीं" or "हाँ, वह उसके पास है" IS complete. Even 1-2 word answers are complete if they form a valid conversational reply.
+            2. Grammar correctness — ESPECIALLY gender agreement errors
             3. Grammar correctness in Hindi from a CONVERSATIONAL perspective; NOT from a WRITTEN Hindi perspective.
+
+            ⚠️ CRITICAL RULE — DO NOT EVALUATE RELEVANCE OR ANSWER CORRECTNESS:
+            - You are ONLY checking Hindi grammar and sentence structure.
+            - Do NOT check whether the response answers the tutor's question correctly.
+            - Do NOT check whether the response is on-topic or relevant.
+            - Do NOT check whether the response makes logical sense as an answer.
+            - If the child says something grammatically correct but off-topic, that is GREEN.
+            - If the child gives a wrong answer but the Hindi is correct, that is GREEN.
+            - "I don't know", "yes", "no", or any deflection with correct grammar = GREEN.
+            - ONLY mark as amber if there is an actual Hindi grammar/gender error in the sentence.
 
             CRITICAL - GENDER AGREEMENT ERRORS (these are ALWAYS amber):
             - Verb must match the gender of the subject noun
@@ -875,14 +897,22 @@ class ResponseEvaluator:
             ❌ "मेरा मम्मी भी उधर गया था" → ✅ "मेरी मम्मी भी वहाँ गई थी" (मम्मी is feminine)
             ❌ "हमने दिया जलाना अच्छा लगता है" → ✅ "हमें दीये जलाना अच्छा लगता है"
 
-            NOTE: Don't evaluate answer correctness. If the kid says "I don't know" or gives a wrong answer but the sentence structure is correct, that's green.
+            EXAMPLES THAT ARE GREEN (no grammar error):
+            ✅ "हां, वह उसके पास है।" — grammatically correct, even if it doesn't directly answer the question
+            ✅ "मुझे नहीं पता" — correct grammar, even though it's not answering
+            ✅ "हाँ" or "नहीं" — valid conversational replies, always green
 
             FILLER WORDS - IGNORE for scoring:
-            - Sounds like "उम्म", "अं", "हम्म", "umm", "hmm" are normal for a 6-year-old thinking aloud
+            - Sounds like "उम्म", "अं", "हम्म", "umm", "hmm" are normal for a young child thinking aloud
             - Do NOT penalize fillers when evaluating completeness or grammar
             - Evaluate only the core sentence: "उम्म... मेरे पापा... अं... ऑफिस गए थे" → evaluate as "मेरे पापा ऑफिस गए थे" = green
             - If response is ONLY fillers with no Hindi content, mark as incomplete
 
+            SPEECH-TO-TEXT ERRORS - BE LENIENT:
+            - The child's speech is transcribed by speech recognition which may introduce errors
+            - If a word looks garbled or misspelled but the intended meaning is clear, evaluate the INTENDED sentence, not the transcription artifact
+            - Do NOT penalize the child for ASR (speech recognition) mistakes
+            {topic_section}
             {context_section}
 
             Return JSON format:
@@ -896,10 +926,15 @@ class ResponseEvaluator:
             }}}}
 
             Score guide:
-            - 7-10: Complete, grammatically correct = green
-            - 1-6: Incomplete OR any grammar/gender errors = amber
+            - 7-10: Grammatically correct (even if incomplete or off-topic) = green
+            - 1-6: Actual grammar/gender errors in the Hindi = amber
 
-            For corrected_response, provide the corrected Hindi sentence (keep it short, age-appropriate).
+            IMPORTANT for corrected_response:
+            - Provide a CONCRETE corrected Hindi sentence.
+            - NEVER use placeholders like [रंग], [name], [topic], etc.
+            - NEVER include English explanations in parentheses inside the corrected_response.
+            - Keep it short and age-appropriate.
+            - If the original response is grammatically correct, just return it as-is for corrected_response.
             """
 
             # Use Gemini for evaluation (use more accurate model for grammar detection)
@@ -1017,11 +1052,12 @@ class ConversationController:
 
             # Run evaluation and conversation response in PARALLEL
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                # Submit both OpenAI API calls simultaneously
+                # Submit both API calls simultaneously
                 eval_future = executor.submit(
                     self.evaluator.evaluate_response,
                     user_text,
-                    last_talker_response
+                    last_talker_response,
+                    conversation_type
                 )
 
                 conv_future = executor.submit(
@@ -2346,7 +2382,8 @@ def process_audio_stream():
         eval_future = eval_executor.submit(
             controller.evaluator.evaluate_response,
             transcript,
-            last_talker_response
+            last_talker_response,
+            conversation_type
         )
         transcript_translit_future = eval_executor.submit(transliterate_to_roman, transcript)
 
