@@ -1057,7 +1057,7 @@ Generate one hint:
 
 ENDING:
 When exchange_number reaches 6-7:
-- Reflect warmly: "दादी के लड्डू, नानी की जलेबी — तुम तो बहुत lucky हो!"
+- Reflect warmly: "तुम तो बहुत lucky हो!"
 - Warm closing: "अगली बार जाओ तो दादी को बोलना — 'दादी, आपका खाना सबसे अच्छा है!'"
 
 """
@@ -1193,7 +1193,7 @@ Generate one hint based on the conversation:
 
 ENDING:
 When exchange_number reaches 6-7:
-- Reflect on their memory: "फुलझड़ी, Spider-Man कपड़े, दादी की बर्फी — तुम्हारी Diwali तो बहुत मज़ेदार होती है!"
+- Reflect on their memory: "<recollect all the things the kid has said here> — तुम्हारी Diwali तो बहुत मज़ेदार होती है!"
 - Warm closing: "अगली Diwali का मज़ा और आएगा! दिवाली की शुभकामनाएं!"
 
 """
@@ -1258,7 +1258,7 @@ Generate one hint based on the conversation:
 
 ENDING:
 When exchange_number reaches 6-7:
-- Reflect on their story: "पापा पर पिचकारी, कान में रंग — तुम्हारी Holi तो बहुत मस्त थी!"
+- Reflect on their story: "<recollect all the fun things that the kid has said> — तुम्हारी Holi तो बहुत मस्त थी!"
 - Warm closing: "अगली Holi में और मज़ा करना! बुरा ना मानो, होली है!"
 
 """
@@ -1323,7 +1323,7 @@ Generate one hint based on the conversation:
 
 ENDING:
 When exchange_number reaches 6-7:
-- Reflect warmly: "तुम बहुत अच्छे भाई हो! बहन को protect करते हो, चॉकलेट देते हो!"
+- Reflect warmly basis what what has been said- "तुम बहुत अच्छे भाई हो! <recollect all the things the kid has said here>". 
 - Warm closing: "अगली Rakhi पर बहन को बोलना — 'मैं हमेशा तुम्हारे साथ हूँ!'"
 
 """
@@ -1393,9 +1393,8 @@ Generate a hint based on the conversation:
 
 ENDING:
 When exchange_number reaches 6-7:
-- Reflect on their story: "Spider-Man cake, cricket bat, सब friends — तुम्हारा birthday तो बहुत धमाकेदार था!"
-- Warm closing: "अगला birthday और भी मज़ेदार होगा! जन्मदिन मुबारक!"
-
+- Reflect on their story warmly basis what has been said. "<recollect all the things the kid has said here> — तुम्हारा birthday तो बहुत <respond basis the celebrations done> था!" 
+- Warm closing: "अगला birthday और भी मज़ेदार होगा!"
 """
 
 
