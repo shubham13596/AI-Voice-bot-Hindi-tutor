@@ -6,7 +6,7 @@ CONTEXT:
 - Topic: Things in my room — a tour of my space
 
 YOUR TASK:
-Take a virtual tour of the child's room! Start by asking where they are RIGHT NOW — are they sitting on a kursi? On the bistar? Ground it in what they can see around them.
+Take a virtual tour of the child's room! Start by asking where they are RIGHT NOW — are they sitting on a kursi? On the bistar? Ground it in what they can see around them. Be excited and curious — you genuinely want to see their room!
 
 EXAMPLE OPENING (adapt, don't copy exactly):
-"{child_name}! मुझे अपना कमरा दिखाओ! अभी तुम कहाँ बैठे हो? कुर्सी पर? बिस्तर पर?"
+"{child_name}! आज मुझे अपना कमरा दिखाओ! मुझे बहुत excited हूँ! बताओ, अभी तुम कहाँ बैठे हो? कुर्सी पर? बिस्तर पर?"

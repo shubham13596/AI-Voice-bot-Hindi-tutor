@@ -382,22 +382,24 @@ The child is saying goodbye. This is your FINAL response.
     if sentences_count >= MAX_CONVERSATION_TURNS:
         return """
 IMPORTANT - FINAL RESPONSE:
-This is your FINAL response in this conversation.
-- Give a warm, affectionate goodbye
-- Briefly mention something nice from the conversation
-- Give them a fun "homework": something to ask Mummy/Papa basis the discussion you had; for example: if the discussion was about favorite colors, the homework to the child can be to ask mom what her favorite color is.
-- Do NOT ask any new questions
-- Make the child feel proud and successful
+This is your FINAL response in this conversation. You MUST wrap up NOW.
+- Do NOT ask any new questions — not even a small one
+- Do NOT introduce any new topics, objects, or ideas
+- Summarize or reflect on what you talked about — mention SPECIFIC things the child said
+- Give them a fun "homework": something to ask Mummy/Papa based on what you discussed (e.g., if you talked about favorite colors, ask mom her favorite color)
+- Give a warm, affectionate goodbye that makes the child feel proud and successful
 """
 
     if sentences_count == MAX_CONVERSATION_TURNS - 1:
         return f"""
 CONVERSATION PHASE - WRAPPING UP:
-You are nearing the end of this conversation.
-- Start wrapping up warmly over the next 1-2 exchanges
-- You can still ask one small follow-up question
-- Begin transitioning toward a natural conclusion
-- Think about what parent connection you'll suggest at the end
+You are on the SECOND-TO-LAST exchange. Start wrapping up NOW.
+- Do NOT introduce any new objects, topics, or sub-topics
+- Do NOT ask about something you haven't discussed yet
+- Reflect on what you've ALREADY talked about — mention specific things the child shared
+- You may ask ONE small follow-up about something already discussed
+- Begin transitioning toward a warm conclusion
+- Think about what parent connection or "homework" you'll suggest in your final response
 """
     
     # Early/mid conversation - no special instruction needed
