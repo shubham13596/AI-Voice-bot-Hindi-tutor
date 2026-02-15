@@ -374,7 +374,6 @@ def get_phase_instruction(sentences_count, is_farewell=False):
 IMPORTANT - FINAL RESPONSE:
 The child is saying goodbye. This is your FINAL response.
 - Give a warm, affectionate goodbye
-- Summarize one thing you enjoyed talking about
 - Keep it short and sweet
 - Do NOT ask any new questions
 """
@@ -386,7 +385,6 @@ This is your FINAL response in this conversation. You MUST wrap up NOW.
 - Do NOT ask any new questions — not even a small one
 - Do NOT introduce any new topics, objects, or ideas
 - Summarize or reflect on what you talked about — mention SPECIFIC things the child said
-- Give them a fun "homework": something to ask Mummy/Papa based on what you discussed (e.g., if you talked about favorite colors, ask mom her favorite color)
 - Give a warm, affectionate goodbye that makes the child feel proud and successful
 """
 
@@ -399,7 +397,6 @@ You are on the SECOND-TO-LAST exchange. Start wrapping up NOW.
 - Reflect on what you've ALREADY talked about — mention specific things the child shared
 - You may ask ONE small follow-up about something already discussed
 - Begin transitioning toward a warm conclusion
-- Think about what parent connection or "homework" you'll suggest in your final response
 """
     
     # Early/mid conversation - no special instruction needed
