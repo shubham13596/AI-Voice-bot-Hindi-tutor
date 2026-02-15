@@ -5,6 +5,69 @@ import json
 
 db = SQLAlchemy()
 
+
+class Educator(db.Model):
+    """Educator/school that provides custom conversation topics"""
+    id = db.Column(db.Integer, primary_key=True)
+    short_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    display_name_hindi = db.Column(db.String(200), nullable=True)
+    logo_url = db.Column(db.String(500), nullable=True)
+    brand_color = db.Column(db.String(7), default='#4F46E5')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    topics = db.relationship('EducatorTopic', backref='educator', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'short_code': self.short_code,
+            'name': self.name,
+            'display_name_hindi': self.display_name_hindi,
+            'logo_url': self.logo_url,
+            'brand_color': self.brand_color,
+            'is_active': self.is_active,
+        }
+
+
+class EducatorTopic(db.Model):
+    """Custom conversation topic created by an educator"""
+    id = db.Column(db.Integer, primary_key=True)
+    educator_id = db.Column(db.Integer, db.ForeignKey('educator.id'), nullable=False)
+    topic_key = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    name_hindi = db.Column(db.String(200), nullable=True)
+    description = db.Column(db.String(500), nullable=False)
+    icon = db.Column(db.String(10), default='📚')
+    topic_focus = db.Column(db.Text, nullable=False)
+    key_vocabulary = db.Column(db.Text, nullable=True)  # JSON array
+    display_order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def full_key(self):
+        return f"edu_{self.educator_id}_{self.topic_key}"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'educator_id': self.educator_id,
+            'topic_key': self.topic_key,
+            'full_key': self.full_key,
+            'name': self.name,
+            'name_hindi': self.name_hindi,
+            'description': self.description,
+            'icon': self.icon,
+            'topic_focus': self.topic_focus,
+            'key_vocabulary': json.loads(self.key_vocabulary) if self.key_vocabulary else [],
+            'display_order': self.display_order,
+            'is_active': self.is_active,
+        }
+
 class User(UserMixin, db.Model):
     """User model for authentication and profile management"""
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +79,7 @@ class User(UserMixin, db.Model):
     profile_picture = db.Column(db.String(200), nullable=True)
     stars_spent = db.Column(db.Integer, default=0)
     transliteration_enabled = db.Column(db.Boolean, default=False)
+    educator_code = db.Column(db.String(20), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -46,6 +110,7 @@ class User(UserMixin, db.Model):
             'available_stars': self.available_stars,
             'stars_spent': self.stars_spent or 0,
             'transliteration_enabled': self.transliteration_enabled or False,
+            'educator_code': self.educator_code,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -66,7 +131,7 @@ class Conversation(db.Model):
     session_id = db.Column(db.String(500), nullable=False, index=True)
     
     # Session metadata
-    conversation_type = db.Column(db.String(50), default='everyday', nullable=False)
+    conversation_type = db.Column(db.String(100), default='everyday', nullable=False)
     sentences_count = db.Column(db.Integer, default=0)
     good_response_count = db.Column(db.Integer, default=0)
     reward_points = db.Column(db.Integer, default=0)

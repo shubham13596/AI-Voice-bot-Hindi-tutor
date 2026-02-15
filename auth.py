@@ -4,7 +4,7 @@ import logging
 from flask import Blueprint, request, redirect, url_for, session, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from authlib.integrations.flask_client import OAuth
-from models import User, db
+from models import User, Educator, db
 import secrets
 import sentry_sdk
 
@@ -129,6 +129,7 @@ def get_user_info():
     ).first() is not None
     user_dict['available_stars'] = current_user.available_stars
     user_dict['stars_spent'] = current_user.stars_spent or 0
+    user_dict['educator_code'] = current_user.educator_code
     return jsonify(user_dict)
 
 @auth_bp.route('/api/user/child-name', methods=['POST'])
@@ -180,6 +181,20 @@ def update_child_name():
         if transliteration is not None:
             current_user.transliteration_enabled = bool(transliteration)
 
+        # Optionally set educator code
+        educator_code = data.get('educator_code')
+        if educator_code is not None:
+            educator_code = educator_code.strip().lower() if educator_code else ''
+            if educator_code:
+                # Validate the code exists
+                educator = Educator.query.filter_by(short_code=educator_code, is_active=True).first()
+                if not educator:
+                    return jsonify({'error': 'Invalid educator code'}), 400
+                current_user.educator_code = educator_code
+            else:
+                # Empty string means remove educator code
+                current_user.educator_code = None
+
         db.session.commit()
 
         return jsonify({
@@ -187,7 +202,8 @@ def update_child_name():
             'child_name': formatted_name,
             'child_age': child_age,
             'child_gender': formatted_gender,
-            'transliteration_enabled': current_user.transliteration_enabled
+            'transliteration_enabled': current_user.transliteration_enabled,
+            'educator_code': current_user.educator_code
         })
 
     except Exception as e:

@@ -317,6 +317,9 @@
                     <div id="introAudioTimer" class="intro-audio-timer">0:00 / 0:00</div>
                 </div>
 
+                <!-- Educator Topics (populated via JS if user has educator code) -->
+                <div id="educatorTopicsSection"></div>
+
                 <!-- Modules Container -->
                 <div class="modules-container">
                     {% for module_key in module_order %}
@@ -403,6 +406,11 @@
                 // Update page title
                 document.title = `Choose Conversation - ${user.child_name}`;
 
+                // Load educator topics if user has educator code
+                if (user.educator_code) {
+                    loadEducatorTopics();
+                }
+
                 // Check if user has no conversations yet → show intro
                 if (!user.has_conversations) {
                     // Small delay to let page fully render
@@ -417,6 +425,54 @@
                 window.location.href = '/';
             }
         });
+
+        // Load and render educator topics
+        async function loadEducatorTopics() {
+            try {
+                const resp = await fetch('/api/educator/topics');
+                const data = await resp.json();
+                if (!data.has_educator || !data.topics.length) return;
+
+                const section = document.getElementById('educatorTopicsSection');
+                const educator = data.educator;
+                const brandColor = educator.brand_color || '#4F46E5';
+
+                let topicsHTML = data.topics.map(t => `
+                    <a href="/conversation?type=${t.full_key}" class="topic-card" data-type="${t.full_key}">
+                        <div class="topic-icon">${t.icon}</div>
+                        <div class="topic-content">
+                            <h3 class="topic-title">${t.name}</h3>
+                            <p class="topic-description">${t.description}</p>
+                        </div>
+                        <div class="topic-action">
+                            <button class="topic-btn">Start &rarr;</button>
+                        </div>
+                    </a>
+                `).join('');
+
+                section.innerHTML = `
+                    <div class="module-card" style="--module-color: ${brandColor}10; border-left: 4px solid ${brandColor};">
+                        <div class="module-header" style="background: ${brandColor}10;">
+                            <div class="module-header__content">
+                                <h2 class="module-header__title-hindi" style="color: ${brandColor};">
+                                    ${educator.display_name_hindi || educator.name}
+                                </h2>
+                                <p class="module-header__title-english">${educator.display_name_hindi ? educator.name : ''}</p>
+                                <p class="module-header__tagline">Topics from your educator</p>
+                            </div>
+                            ${educator.logo_url ? `<div class="module-header__illustration"><img src="${educator.logo_url}" alt="${educator.name}" style="width:100%;height:100%;object-fit:contain;"></div>` : ''}
+                        </div>
+                        <div class="topics-list">
+                            ${topicsHTML}
+                        </div>
+                    </div>
+                    <div style="height:1px;margin:1.5rem 0;background:linear-gradient(to right,transparent,#d1d5db,transparent);"></div>
+                    <p style="text-align:center;font-size:0.9rem;color:#9ca3af;margin-bottom:1rem;">Explore More Topics</p>
+                `;
+            } catch (e) {
+                console.error('Failed to load educator topics:', e);
+            }
+        }
 
         // First-time user intro flow
         function initFirstTimeIntro(user) {

@@ -452,6 +452,23 @@
                 </div>
                 <p style="font-size:0.85rem;color:#9ca3af;margin-top:0.5rem;text-align:left;">How Hindi text appears in conversations</p>
             </div>
+
+            <!-- Educator Code -->
+            <div class="form-section">
+                <label for="educatorCode" class="form-label">Educator Code <span style="color: #9ca3af; font-weight: 400;">(optional)</span></label>
+                <div style="position: relative;">
+                    <input type="text"
+                           id="educatorCode"
+                           class="form-input"
+                           placeholder="e.g. greenwood"
+                           autocomplete="off"
+                           style="padding-right: 2.5rem;">
+                    <span id="educatorCodeStatus" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.2rem;"></span>
+                </div>
+                <div id="educatorInfo" style="display: none; margin-top: 0.5rem; text-align: left; font-size: 0.9rem; color: #059669; font-weight: 500;"></div>
+                <div id="educatorError" class="error-message"></div>
+                <p style="font-size:0.85rem;color:#9ca3af;margin-top:0.5rem;text-align:left;">Enter a code from your school or tutor to unlock custom topics</p>
+            </div>
         </form>
 
         <button id="saveButton" class="save-button">
@@ -489,6 +506,14 @@
 
         // Track the current Hindi name (loaded from server)
         let currentHindiName = '';
+
+        // Educator code elements
+        const educatorCodeInput = document.getElementById('educatorCode');
+        const educatorCodeStatus = document.getElementById('educatorCodeStatus');
+        const educatorInfo = document.getElementById('educatorInfo');
+        const educatorError = document.getElementById('educatorError');
+        let educatorValidateTimer = null;
+        let validatedEducatorCode = '';
 
         // ========== TRANSLITERATION VIA API ==========
 
@@ -581,12 +606,70 @@
                     const radio = document.querySelector(`input[name="childGender"][value="${user.child_gender}"]`);
                     if (radio) radio.checked = true;
                 }
+
+                // Load educator code
+                if (user.educator_code) {
+                    educatorCodeInput.value = user.educator_code;
+                    validatedEducatorCode = user.educator_code;
+                    // Validate to show educator name
+                    try {
+                        const resp = await fetch('/api/educator/validate-code', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: user.educator_code })
+                        });
+                        const data = await resp.json();
+                        if (data.valid) {
+                            educatorCodeStatus.textContent = '\u2705';
+                            educatorInfo.textContent = data.educator.name + (data.educator.display_name_hindi ? ' (' + data.educator.display_name_hindi + ')' : '');
+                            educatorInfo.style.display = 'block';
+                        }
+                    } catch (e) {}
+                }
             } catch (error) {
                 console.error('Failed to load profile:', error);
             }
         }
 
         loadProfile();
+
+        // ========== EDUCATOR CODE VALIDATION ==========
+        educatorCodeInput.addEventListener('input', function() {
+            const code = this.value.trim().toLowerCase();
+            clearTimeout(educatorValidateTimer);
+            educatorError.style.display = 'none';
+            educatorInfo.style.display = 'none';
+            educatorCodeStatus.textContent = '';
+            validatedEducatorCode = '';
+            successMessage.style.display = 'none';
+
+            if (!code) return;
+
+            educatorCodeStatus.textContent = '...';
+            educatorValidateTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch('/api/educator/validate-code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code })
+                    });
+                    const data = await resp.json();
+                    if (data.valid) {
+                        educatorCodeStatus.textContent = '\u2705';
+                        educatorInfo.textContent = data.educator.name + (data.educator.display_name_hindi ? ' (' + data.educator.display_name_hindi + ')' : '');
+                        educatorInfo.style.display = 'block';
+                        validatedEducatorCode = code;
+                    } else {
+                        educatorCodeStatus.textContent = '\u274C';
+                        educatorError.textContent = 'Code not found';
+                        educatorError.style.display = 'block';
+                        validatedEducatorCode = '';
+                    }
+                } catch (e) {
+                    educatorCodeStatus.textContent = '';
+                }
+            }, 500);
+        });
 
         // ========== EVENT LISTENERS ==========
 
@@ -697,7 +780,8 @@
                     body: JSON.stringify({
                         child_name: hindiName,
                         child_age: age,
-                        child_gender: selectedGender.value
+                        child_gender: selectedGender.value,
+                        educator_code: educatorCodeInput.value.trim() ? validatedEducatorCode || null : ''
                     })
                 });
 

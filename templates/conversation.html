@@ -151,13 +151,33 @@
                     'lets_make_a_story': '🦸',
                     'my_favorite_story': '📖',
                 };
-                const typeName = typeNames[conversationType] || 'Conversation';
+                let typeName = typeNames[conversationType] || 'Conversation';
+                let typeDesc = typeDescs[conversationType] || 'General conversation';
+                let typeIcon = typeIcons[conversationType] || '💬';
+
+                // For educator topics, fetch info dynamically
+                if (conversationType.startsWith('edu_')) {
+                    try {
+                        const topicResp = await fetch(`/api/educator/topic-info?key=${encodeURIComponent(conversationType)}`);
+                        if (topicResp.ok) {
+                            const topicData = await topicResp.json();
+                            typeName = topicData.topic.name;
+                            typeDesc = topicData.topic.description;
+                            typeIcon = topicData.topic.icon;
+                        } else {
+                            typeName = 'Custom Topic';
+                        }
+                    } catch (e) {
+                        typeName = 'Custom Topic';
+                    }
+                }
+
                 document.title = `${typeName} - ${userData.child_name}`;
 
                 // Update conversation type indicator
                 document.getElementById('conversationTypeName').textContent = typeName;
-                document.getElementById('conversationTypeDesc').textContent = typeDescs[conversationType] || 'General conversation';
-                document.getElementById('conversationIcon').textContent = typeIcons[conversationType] || '💬';
+                document.getElementById('conversationTypeDesc').textContent = typeDesc;
+                document.getElementById('conversationIcon').textContent = typeIcon;
 
                 // Update stars display with cached user data
                 updateStarsDisplay();

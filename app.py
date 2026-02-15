@@ -23,10 +23,12 @@ import tempfile
 import time
 import concurrent.futures
 import random
-from conversation_config import CONVERSATION_TYPES, MODULES, TOPICS
+from conversation_config import (CONVERSATION_TYPES, MODULES, TOPICS,
+    GLOBAL_TUTOR_IDENTITY, GLOBAL_LANGUAGE_RULES, GLOBAL_CONVERSATION_FLOW,
+    GLOBAL_RESPONSE_FORMAT, INITIAL_RESPONSE_FORMAT)
 
 # Import our models and auth
-from models import db, User, Conversation, ConversationAudio, AnalyticsHelper, PageView, UserAction, FunnelAnalytics, UserSticker
+from models import db, User, Conversation, ConversationAudio, AnalyticsHelper, PageView, UserAction, FunnelAnalytics, UserSticker, Educator, EducatorTopic
 from s3_audio import ENABLE_AUDIO_STORAGE, generate_s3_key, upload_audio_async, generate_presigned_url
 from auth import auth_bp, init_oauth
 from sticker_config import STICKER_CATALOG, PACK_TIERS
@@ -592,6 +594,92 @@ Child: "Main kal park gaya tha" (girl) → You: "Achha, tum kal park gayi thin? 
 
     return modified_prompt
 
+def parse_educator_topic_key(conversation_type):
+    """Parse an educator topic key like 'edu_12_school_trip' into (educator_id, topic_key).
+    Returns (None, None) if the format is invalid."""
+    if not conversation_type or not conversation_type.startswith('edu_'):
+        return None, None
+    parts = conversation_type.split('_', 2)  # ['edu', '12', 'school_trip']
+    if len(parts) < 3:
+        return None, None
+    try:
+        educator_id = int(parts[1])
+        topic_key = parts[2]
+        return educator_id, topic_key
+    except (ValueError, IndexError):
+        return None, None
+
+
+def get_educator_topic(conversation_type):
+    """Look up an EducatorTopic from a conversation_type like 'edu_12_school_trip'.
+    Returns the EducatorTopic or None."""
+    educator_id, topic_key = parse_educator_topic_key(conversation_type)
+    if educator_id is None:
+        return None
+    return EducatorTopic.query.filter_by(
+        educator_id=educator_id, topic_key=topic_key, is_active=True
+    ).first()
+
+
+def get_educator_topic_prompts(educator_topic, prompt_type='conversation'):
+    """Build system prompts for an educator topic, mirroring built-in topic structure.
+    prompt_type: 'initial' or 'conversation'"""
+    vocab_section = ""
+    if educator_topic.key_vocabulary:
+        try:
+            vocab_list = json.loads(educator_topic.key_vocabulary)
+            if vocab_list:
+                vocab_section = f"\n\nKEY VOCABULARY TO USE NATURALLY:\n" + "\n".join(f"- {w}" for w in vocab_list)
+        except json.JSONDecodeError:
+            pass
+
+    topic_specific_initial = f"""
+CONTEXT:
+- Child's name: {{child_name}}
+- Child's age: {{child_age}}
+- Topic: {educator_topic.name}
+
+EDUCATOR TOPIC FOCUS:
+{educator_topic.topic_focus}
+{vocab_section}
+
+YOUR TASK:
+Create a warm greeting related to this topic. Be genuinely curious and excited to talk about it with the child.
+"""
+
+    topic_specific_conversation = f"""
+CURRENT STATE:
+- Child's name: {{child_name}}
+- Child's age: {{child_age}}
+- Exchange number: {{exchange_number}} of 6-7
+
+EDUCATOR TOPIC: {educator_topic.name}
+{educator_topic.topic_focus}
+{vocab_section}
+
+CONVERSATION GOALS:
+1. Keep the conversation focused on the educator's topic
+2. Use the key vocabulary naturally when possible
+3. Make it feel like a natural conversation, not a test
+"""
+
+    if prompt_type == 'initial':
+        return (
+            GLOBAL_TUTOR_IDENTITY +
+            GLOBAL_LANGUAGE_RULES +
+            topic_specific_initial +
+            INITIAL_RESPONSE_FORMAT
+        )
+    else:
+        return (
+            GLOBAL_TUTOR_IDENTITY +
+            GLOBAL_LANGUAGE_RULES +
+            GLOBAL_CONVERSATION_FLOW +
+            topic_specific_conversation +
+            GLOBAL_RESPONSE_FORMAT
+        )
+
+
 def generate_hints(conversation_history, conversation_type, child_name, child_age):
     """Generate hint suggestions for what the child could say next using Gemini"""
     try:
@@ -658,7 +746,20 @@ def get_initial_conversation(child_name="दोस्त", child_age=6, child_ge
     """Generate initial conversation starter based on conversation type"""
     try:
         # Get the appropriate system prompt for the conversation type
-        if conversation_type in CONVERSATION_TYPES:
+        if conversation_type.startswith('edu_'):
+            edu_topic = get_educator_topic(conversation_type)
+            if edu_topic:
+                system_prompt = get_educator_topic_prompts(edu_topic, 'initial').format(
+                    child_name=child_name,
+                    child_age=child_age,
+                    child_gender=child_gender,
+                    exchange_number=1
+                )
+            else:
+                system_prompt = CONVERSATION_TYPES['everyday']['system_prompts']['initial'].format(
+                    child_name=child_name, child_age=child_age, child_gender=child_gender, exchange_number=1
+                )
+        elif conversation_type in CONVERSATION_TYPES:
             system_prompt = CONVERSATION_TYPES[conversation_type]['system_prompts']['initial'].format(
                 child_name=child_name,
                 child_age=child_age,
@@ -832,7 +933,13 @@ class TalkerModule:
             strategy = "continue_conversation"
 
             # Get the appropriate system prompt for the conversation type
-            if conversation_type in CONVERSATION_TYPES:
+            if conversation_type.startswith('edu_'):
+                edu_topic = get_educator_topic(conversation_type)
+                if edu_topic:
+                    system_prompt_template = get_educator_topic_prompts(edu_topic, 'conversation')
+                else:
+                    system_prompt_template = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+            elif conversation_type in CONVERSATION_TYPES:
                 system_prompt_template = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
             else:
                 # Fallback to everyday conversation
@@ -1031,7 +1138,11 @@ def start_conversation():
         conversation_type = data.get('conversation_type', 'everyday')
         
         # Validate conversation type
-        if conversation_type not in CONVERSATION_TYPES:
+        if conversation_type.startswith('edu_'):
+            edu_topic = get_educator_topic(conversation_type)
+            if not edu_topic:
+                return jsonify({'error': 'Invalid educator topic'}), 400
+        elif conversation_type not in CONVERSATION_TYPES:
             conversation_type = 'everyday'
         
         # Use the authenticated user's child data
@@ -1597,6 +1708,74 @@ def profile():
         return redirect(url_for('profile_setup'))
     return render_template('profile.html')
 
+@app.route('/api/educator/validate-code', methods=['POST'])
+@login_required
+def validate_educator_code():
+    """Validate an educator code and return educator info"""
+    data = request.get_json() or {}
+    code = data.get('code', '').strip().lower()
+    if not code:
+        return jsonify({'valid': False}), 200
+
+    educator = Educator.query.filter_by(short_code=code, is_active=True).first()
+    if educator:
+        return jsonify({
+            'valid': True,
+            'educator': {
+                'name': educator.name,
+                'display_name_hindi': educator.display_name_hindi,
+                'logo_url': educator.logo_url,
+                'brand_color': educator.brand_color,
+            }
+        })
+    return jsonify({'valid': False}), 200
+
+
+@app.route('/api/educator/topics', methods=['GET'])
+@login_required
+def get_educator_topics():
+    """Return the current user's educator info and their active topics"""
+    code = current_user.educator_code
+    if not code:
+        return jsonify({'has_educator': False, 'educator': None, 'topics': []})
+
+    educator = Educator.query.filter_by(short_code=code, is_active=True).first()
+    if not educator:
+        return jsonify({'has_educator': False, 'educator': None, 'topics': []})
+
+    topics = EducatorTopic.query.filter_by(
+        educator_id=educator.id, is_active=True
+    ).order_by(EducatorTopic.display_order).all()
+
+    if not topics:
+        return jsonify({'has_educator': False, 'educator': None, 'topics': []})
+
+    return jsonify({
+        'has_educator': True,
+        'educator': educator.to_dict(),
+        'topics': [t.to_dict() for t in topics]
+    })
+
+
+@app.route('/api/educator/topic-info', methods=['GET'])
+@login_required
+def get_educator_topic_info():
+    """Return single educator topic metadata by its full key"""
+    key = request.args.get('key', '')
+    if not key.startswith('edu_'):
+        return jsonify({'error': 'Invalid topic key'}), 400
+
+    topic = get_educator_topic(key)
+    if not topic:
+        return jsonify({'error': 'Topic not found'}), 404
+
+    educator = Educator.query.get(topic.educator_id)
+    return jsonify({
+        'topic': topic.to_dict(),
+        'educator': educator.to_dict() if educator else None
+    })
+
+
 @app.route('/profile-setup')
 @login_required
 def profile_setup():
@@ -1627,7 +1806,7 @@ def conversation_select():
             **topic_data
         })
 
-    return render_template('conversation_select.html', modules=modules_data, module_order=['main_aur_meri_baatein', 'mera_parivaar', 'khana_peena', 'tyohaar', 'bahar_ki_duniya'])
+    return render_template('conversation_select.html', modules=modules_data, module_order=['main_aur_meri_baatein', 'mera_parivaar', 'khana_peena', 'tyohaar', 'bahar_ki_duniya'], educator_code=current_user.educator_code)
 
 @app.route('/conversation')
 @login_required
@@ -1640,12 +1819,15 @@ def conversation():
     conversation_type = request.args.get('type', 'everyday')
     
     # Validate conversation type
-    if conversation_type not in CONVERSATION_TYPES:
+    if conversation_type.startswith('edu_'):
+        # Allow educator topics through (validated later in start_conversation)
+        pass
+    elif conversation_type not in CONVERSATION_TYPES:
         return redirect(url_for('conversation_select'))
-    
+
     # Track conversation page visit
     track_page_view('conversation', request.path)
-    
+
     # Track conversation start action
     track_user_action('conversation_start', 'conversation', {'conversation_type': conversation_type})
     
@@ -1740,7 +1922,22 @@ def completion_celebration():
     conversation_id = request.args.get('conversation_id', None)
     related_topics = []
 
-    if completed_topic and completed_topic in CONVERSATION_TYPES:
+    if completed_topic and completed_topic.startswith('edu_'):
+        # For educator topics, suggest other topics from the same educator
+        edu_topic = get_educator_topic(completed_topic)
+        if edu_topic:
+            sibling_topics = EducatorTopic.query.filter(
+                EducatorTopic.educator_id == edu_topic.educator_id,
+                EducatorTopic.is_active == True,
+                EducatorTopic.id != edu_topic.id
+            ).order_by(EducatorTopic.display_order).limit(3).all()
+            for t in sibling_topics:
+                related_topics.append({
+                    'id': t.full_key,
+                    'title_en': t.name,
+                    'title_hi': t.name_hindi or t.name
+                })
+    elif completed_topic and completed_topic in CONVERSATION_TYPES:
         # Find which module this topic belongs to
         completed_topic_module = CONVERSATION_TYPES[completed_topic].get('module')
 
@@ -2151,7 +2348,13 @@ def process_audio_stream():
                 yield f"data: {json.dumps({'type': 'evaluation', 'evaluation': evaluation})}\n\n"
 
                 # Get base system prompt for conversation type
-                if conversation_type in CONVERSATION_TYPES:
+                if conversation_type.startswith('edu_'):
+                    edu_topic = get_educator_topic(conversation_type)
+                    if edu_topic:
+                        system_prompt_base = get_educator_topic_prompts(edu_topic, 'conversation')
+                    else:
+                        system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
+                elif conversation_type in CONVERSATION_TYPES:
                     system_prompt_base = CONVERSATION_TYPES[conversation_type]['system_prompts']['conversation']
                 else:
                     system_prompt_base = CONVERSATION_TYPES['everyday']['system_prompts']['conversation']
@@ -2565,7 +2768,13 @@ def get_conversation_history():
             }
             
             conv_type = type_info.get(conv.conversation_type, {'name': 'Conversation', 'icon': '💬'})
-            
+
+            # Look up educator topic info for edu_ types
+            if conv.conversation_type.startswith('edu_'):
+                edu_t = get_educator_topic(conv.conversation_type)
+                if edu_t:
+                    conv_type = {'name': edu_t.name, 'icon': edu_t.icon}
+
             conversation_list.append({
                 'id': conv.id,
                 'conversation_type': conv.conversation_type,
