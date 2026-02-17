@@ -210,12 +210,45 @@ function updateTransliterationToggle() {
     const label = document.getElementById('toggleLabel');
     const btn = document.getElementById('transliterationToggle');
     if (label && btn) {
-        label.textContent = transliterationEnabled ? 'A' : 'अ';
+        label.textContent = 'A ⇄ अ';
         btn.title = transliterationEnabled ? 'Switch to Devanagari' : 'Switch to Roman';
         btn.classList.toggle('transliteration-active', transliterationEnabled);
     }
 }
-// ─── End Transliteration Engine ───────────────────────────────────────
+// ─── Transliteration Tooltip (one-time onboarding) ───────────────────
+const TRANSLIT_TOOLTIP_KEY = 'translitTooltipShown';
+
+function showTranslitTooltip() {
+    // Only show once ever
+    if (localStorage.getItem(TRANSLIT_TOOLTIP_KEY)) return;
+
+    const btn = document.getElementById('transliterationToggle');
+    if (!btn) return;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'translit-tooltip-overlay';
+    document.body.appendChild(overlay);
+
+    // Highlight button above overlay
+    btn.classList.add('tooltip-highlight');
+
+    // Animate in
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+
+    function dismiss() {
+        overlay.classList.remove('visible');
+        btn.classList.remove('tooltip-highlight');
+        setTimeout(() => overlay.remove(), 300);
+        localStorage.setItem(TRANSLIT_TOOLTIP_KEY, '1');
+    }
+
+    btn.addEventListener('click', dismiss, { once: true });
+    overlay.addEventListener('click', dismiss);
+}
+// ─── End Transliteration Tooltip ─────────────────────────────────────
 
 // First, let's add the necessary styles to the document
 const recordingStyles = document.createElement('style');
@@ -1395,6 +1428,12 @@ async function startConversation() {
         // Play initial audio if available, then auto-start recording
         if (data.audio) {
             await playAudioResponse(data.audio);
+
+            // Show transliteration tooltip after Kiki's first message (one-time)
+            if (!isResuming) {
+                showTranslitTooltip();
+            }
+
             scheduleAutoStartRecording();
         } else {
             // No audio to play, go to IDLE for manual start
@@ -3421,17 +3460,6 @@ function updateConversationTypeDisplay(conversationType) {
         'adventure_story': 'Adventure Story',
         'panchatantra_story': 'Panchatantra Story'
     };
-    const typeDescs = {
-        'about_me': 'Talk about yourself - your name, age, and favorite things',
-        'my_family': 'Talk about your family - parents, siblings, and pets',
-        'everyday': 'Talk about daily activities and school',
-        'my_toys': 'Talk about your favorite toys and what you play with',
-        'food_i_like': 'Talk about your favorite foods, snacks, and treats',
-        'superheroes': 'Talk about your favorite superheroes and superpowers',
-        'animals_nature': 'Chat about your favorite animals, pets, and wildlife',
-        'adventure_story': 'Create exciting adventure stories together',
-        'panchatantra_story': 'Build the famous "Thirsty Crow" story together'
-    };
     const typeIcons = {
         'about_me': '🙋',
         'my_family': '👨‍👩‍👧‍👦',
@@ -3446,11 +3474,9 @@ function updateConversationTypeDisplay(conversationType) {
     
     // Update conversation type indicator
     const nameEl = document.getElementById('conversationTypeName');
-    const descEl = document.getElementById('conversationTypeDesc');
     const iconEl = document.getElementById('conversationIcon');
-    
+
     if (nameEl) nameEl.textContent = typeNames[conversationType] || 'Conversation';
-    if (descEl) descEl.textContent = typeDescs[conversationType] || 'General conversation';
     if (iconEl) iconEl.textContent = typeIcons[conversationType] || '💬';
 }
 

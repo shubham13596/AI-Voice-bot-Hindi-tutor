@@ -176,7 +176,6 @@
 
                 // Update conversation type indicator
                 document.getElementById('conversationTypeName').textContent = typeName;
-                document.getElementById('conversationTypeDesc').textContent = typeDesc;
                 document.getElementById('conversationIcon').textContent = typeIcon;
 
                 // Update stars display with cached user data
@@ -303,8 +302,8 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            max-width: 50%;
-            overflow: hidden;
+            flex: 1;
+            min-width: 0;
         }
 
         .header-topic-icon {
@@ -314,21 +313,12 @@
 
         .header-topic-text {
             overflow: hidden;
-            text-align: center;
         }
 
         .header-topic-name {
             font-weight: 600;
             font-size: 0.9rem;
             color: #1f2937;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .header-topic-desc {
-            font-size: 0.7rem;
-            color: #6b7280;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -385,20 +375,12 @@
                 gap: 0.25rem;
             }
 
-            .header-topic {
-                max-width: 45%;
-            }
-
             .header-topic-icon {
                 font-size: 1.1rem;
             }
 
             .header-topic-name {
                 font-size: 0.8rem;
-            }
-
-            .header-topic-desc {
-                font-size: 0.65rem;
             }
         }
 
@@ -610,14 +592,16 @@
 
         /* Transliteration toggle button */
         .transliteration-toggle {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            border: 1.5px solid #d1d5db;
-            background: white;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #374151;
+            position: relative;
+            height: 34px;
+            padding: 0 8px;
+            border-radius: 10px;
+            border: 2px solid #818cf8;
+            background: #eef2ff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #4f46e5;
+            white-space: nowrap;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -626,14 +610,41 @@
             flex-shrink: 0;
         }
         .transliteration-toggle:hover {
-            border-color: #9ca3af;
-            background: #f9fafb;
+            border-color: #6366f1;
+            background: #e0e7ff;
         }
         .transliteration-toggle.transliteration-active {
             background: #ecfdf5;
             border-color: #10b981;
             color: #059669;
         }
+
+        /* Transliteration tooltip onboarding */
+        .translit-tooltip-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .translit-tooltip-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .transliteration-toggle.tooltip-highlight {
+            z-index: 1001;
+            animation: tooltipPulse 1.5s ease infinite;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.35);
+        }
+
+        @keyframes tooltipPulse {
+            0%, 100% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.35); }
+            50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.15); }
+        }
+
     </style>
 </head>
 <body>
@@ -646,13 +657,12 @@
             <span id="conversationIcon" class="header-topic-icon">💬</span>
             <div class="header-topic-text">
                 <div id="conversationTypeName" class="header-topic-name">Conversation</div>
-                <div id="conversationTypeDesc" class="header-topic-desc">General conversation</div>
             </div>
         </div>
 
         <div class="header-right">
             <button id="transliterationToggle" class="transliteration-toggle" title="Switch to Roman">
-                <span id="toggleLabel">अ</span>
+                <span id="toggleLabel">A ⇄ अ</span>
             </button>
             <div class="stars-display">
                 <span class="star-icon">⭐</span>
