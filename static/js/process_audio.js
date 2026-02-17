@@ -1377,8 +1377,8 @@ async function startConversation() {
             if (data.text) {
                 displayMessage('assistant', data.text, null);
 
-                // Upgrade to API-quality transliteration if available
-                if (data.text_roman && transliterationEnabled) {
+                // Always store API-quality transliteration on DOM for later toggle use
+                if (data.text_roman) {
                     upgradeLastMessageText(data.text_roman, data.text);
                 }
 
